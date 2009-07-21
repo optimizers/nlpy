@@ -1,0 +1,16 @@
+Comments pertaining to Mac OS/X users.
+
+1) If LIBBLAS_LOC *and* LIBLAPACK_LOC are left blank in ~/.nlpy, the option
+   -framework Accelerate is used (requires Xcode).
+
+2) If compiling on Leopard, you may receive the error message
+
+     undefined symbol: _strtod_ASL
+
+   The problem is coming from the flags used to build the LibAmpl libraries.
+   The solution is to add the flag
+
+     -mmacosx-version-min=10.4
+
+   to the compiler options and to rebuild LibAmpl, i.e., switch to $LIBAMPL and
+   issue the command 'make mrclean ; make' at the command line.
