@@ -67,7 +67,7 @@ limited-memory Cholesky factorization, and GLTR for the solution of trust-region
 subproblems, to name a few.
 
 All the sparse matrix capabilities in NLPy are based on the `Pysparse
-<http://pysparse.sf.net>` package.
+<http://pysparse.sf.net>`_ package.
 
 The main purpose of NLPy is to facilitate access and manipulation of
 optimization problems. Therefore, an interface to the AMPL modeling language was

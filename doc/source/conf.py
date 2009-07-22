@@ -17,6 +17,8 @@ import sys, os
 # is relative to the documentation root, use os.path.abspath to make it
 # absolute, like shown here.
 #sys.path.append(os.path.abspath('.'))
+sys.path.append(os.path.abspath('../../nlpy/amplpy'))
+sys.path.append(os.path.abspath('../../examples'))
 sys.path.append('sphinxext')
 
 # Import support for ipython console session syntax highlighting (lives

@@ -1,0 +1,623 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Using Models in the AMPL Modeling Language &mdash; NLPy v0.1 documentation</title>
+    <link rel="stylesheet" href="_static/nlpy.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.1',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="/Users/dpo/local/src/jsMath/easy/load.js"></script>
+    <link rel="top" title="NLPy v0.1 documentation" href="index.html" />
+    <link rel="prev" title="Introduction" href="introduction.html" /> 
+  </head>
+  <body>
+<div style="background-color: white; text-align: left; padding: 10px 10px 15px 15px">
+</div>
+
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="modindex.html" title="Global Module Index"
+             accesskey="M">modules</a> |</li>
+        <li class="right" >
+          <a href="introduction.html" title="Introduction"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">NLPy home </a> |&nbsp;</li>
+        <li><a href="contents.html">Documentation </a> &raquo;</li>
+ 
+      </ul>
+    </div>
+
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <h3><a href="contents.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference external" href="">Using Models in the AMPL Modeling Language</a><ul>
+<li><a class="reference external" href="#module-amplpy">The <tt class="docutils literal"><span class="pre">amplpy</span></tt> Module</a></li>
+<li><a class="reference external" href="#example">Example</a></li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="introduction.html"
+                                  title="previous chapter">Introduction</a></p>
+            <h3>This Page</h3>
+            <ul class="this-page-menu">
+              <li><a href="_sources/amplpy.txt"
+                     rel="nofollow">Show Source</a></li>
+            </ul>
+          <div id="searchbox" style="display: none">
+            <h3>Quick search</h3>
+              <form class="search" action="search.html" method="get">
+                <input type="text" name="q" size="18" />
+                <input type="submit" value="Go" />
+                <input type="hidden" name="check_keywords" value="yes" />
+                <input type="hidden" name="area" value="default" />
+              </form>
+              <p class="searchtip" style="font-size: 90%">
+              Enter search terms or a module, class or function name.
+              </p>
+          </div>
+          <script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="using-models-in-the-ampl-modeling-language">
+<span id="amplpy-page"></span><h1>Using Models in the AMPL Modeling Language<a class="headerlink" href="#using-models-in-the-ampl-modeling-language" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-amplpy">
+<h2>The <tt class="xref docutils literal"><span class="pre">amplpy</span></tt> Module<a class="headerlink" href="#module-amplpy" title="Permalink to this headline">¶</a></h2>
+<p>Python interface to the AMPL modeling language</p>
+<dl class="class">
+<dt id="amplpy.AmplModel">
+<em class="property">
+class </em><tt class="descclassname">amplpy.</tt><tt class="descname">AmplModel</tt><big>(</big><em>model</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel" title="Permalink to this definition">¶</a></dt>
+<dd><p>AmplModel creates an instance of an AMPL model. If the <cite>nl</cite> file is
+already available, simply call <cite>AmplModel(stub)</cite> where the string
+<cite>stub</cite> is the name of the model. For instance: <cite>AmplModel(&#8216;elec&#8217;)</cite>.
+If only the <cite>.mod</cite> file is available, set the positional parameter
+<cite>neednl</cite> to <cite>True</cite> so AMPL generates the <cite>nl</cite> file, as in
+<cite>AmplModel(&#8216;elec&#8217;, neednl=True)</cite>.</p>
+<dl class="method">
+<dt id="amplpy.AmplModel.A">
+<tt class="descname">A</tt><big>(</big><em>*args</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.A" title="Permalink to this definition">¶</a></dt>
+<dd>Evaluate sparse Jacobian of the linear part of the
+constraints. Useful to obtain constraint matrix
+when problem is a linear programming problem.</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.AtOptimality">
+<tt class="descname">AtOptimality</tt><big>(</big><em>x</em>, <em>y</em>, <em>z</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.AtOptimality" title="Permalink to this definition">¶</a></dt>
+<dd><p>See <a title="amplpy.AmplModel.OptimalityResiduals" class="reference internal" href="#amplpy.AmplModel.OptimalityResiduals"><tt class="xref docutils literal"><span class="pre">OptimalityResiduals()</span></tt></a> for a description of the arguments.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Returns:</th><td class="field-body"><table class="first last docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">res:</th><td class="field-body">tuple of residuals, as returned by
+<a title="amplpy.AmplModel.OptimalityResiduals" class="reference internal" href="#amplpy.AmplModel.OptimalityResiduals"><tt class="xref docutils literal"><span class="pre">OptimalityResiduals()</span></tt></a>,</td>
+</tr>
+<tr class="field"><th class="field-name">optimal:</th><td class="field-body"><cite>True</cite> if the residuals fall below the thresholds
+specified by <tt class="xref docutils literal"><span class="pre">self.stop_d</span></tt>, <tt class="xref docutils literal"><span class="pre">self.stop_c</span></tt>
+and <tt class="xref docutils literal"><span class="pre">self.stop_p</span></tt>.</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.OptimalityResiduals">
+<tt class="descname">OptimalityResiduals</tt><big>(</big><em>x</em>, <em>y</em>, <em>z</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.OptimalityResiduals" title="Permalink to this definition">¶</a></dt>
+<dd><p>Evaluate the KKT  or Fritz-John residuals at (x, y, z).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><table class="first docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">x:</th><td class="field-body">NumPy array of length <tt class="xref docutils literal"><span class="pre">n</span></tt> giving the vector of
+primal variables,</td>
+</tr>
+<tr class="field"><th class="field-name">y:</th><td class="field-body">NumPy array of length <tt class="xref docutils literal"><span class="pre">m</span></tt> + <tt class="xref docutils literal"><span class="pre">nrangeC</span></tt> giving the
+vector of Lagrange multipliers for general constraints
+(see below),</td>
+</tr>
+<tr class="field"><th class="field-name">z:</th><td class="field-body">NumPy array of length <tt class="xref docutils literal"><span class="pre">nbounds</span></tt> + <tt class="xref docutils literal"><span class="pre">nrangeB</span></tt> giving
+the vector of Lagrange multipliers for simple bounds (see
+below).</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+<tr class="field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">vectors of residuals (dual_feas, compl, bnd_compl, primal_feas, bnd_feas)</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p>The multipliers <cite>y</cite> associated to general constraints must be ordered
+as follows:</p>
+<p>ci(x) = ciE  (i in equalC): y[:nequalC]</p>
+<p>ci(x) &gt;= ciL (i in lowerC): y[nequalC:nequalC+nlowerC]</p>
+<p>ci(x) &lt;= ciU (i in upperC): y[nequalC+nlowerC:nequalC+nlowerC+nupperC]</p>
+<p>ci(x) &gt;= ciL (i in rangeC): y[nlowerC+nupperC:m]</p>
+<p>ci(x) &lt;= ciU (i in rangeC): y[m:]</p>
+<p>For inequality constraints, the sign of each y[i] should be as if it
+corresponded to a nonnegativity constraint, i.e., ciU - ci(x) &gt;= 0
+instead of ci(x) &lt;= ciU.</p>
+<p>For equality constraints, the sign of each y[i] should be so the
+Lagrangian may be written L(x,y,z) = f(x) - &lt;y, cE(x)&gt; - ...</p>
+<p>Similarly, the multipliers z associated to bound constraints must be
+ordered as follows:</p>
+<p>xi  = Li (i in fixedB) : z[:nfixedB]</p>
+<p>xi &gt;= Li (i in lowerB) : z[nfixedB:nfixedB+nlowerB]</p>
+<p>xi &lt;= Ui (i in upperB) : z[nfixedB+nlowerB:nfixedB+nlowerB+nupperB]</p>
+<p>xi &gt;= Li (i in rangeB) : z[nfixedB+nlowerB+nupperB:nfixedB+nlowerB+nupperB+nrangeB]</p>
+<p>xi &lt;= Ui (i in rangeB) : z[nfixedB+nlowerB+nupper+nrangeB:]</p>
+<p>The sign of each z[i] should be as if it corresponded to a
+nonnegativity constraint (except for fixed variables).</p>
+<p>It is possible to check the Fritz-John conditions via the keyword FJ.
+If FJ is present, it should be assigned the multiplier value that
+will be applied to the gradient of the objective function.</p>
+<p>Example: OptimalityResiduals(x, y, z, FJ=1.0e-5)</p>
+<p>If FJ has value 0.0, the gradient of the objective will not be included
+in the residuals (it will not be computed).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.ResetCounters">
+<tt class="descname">ResetCounters</tt><big>(</big><big>)</big><a class="headerlink" href="#amplpy.AmplModel.ResetCounters" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.close">
+<tt class="descname">close</tt><big>(</big><big>)</big><a class="headerlink" href="#amplpy.AmplModel.close" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.cons">
+<tt class="descname">cons</tt><big>(</big><em>x</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.cons" title="Permalink to this definition">¶</a></dt>
+<dd><p>Evaluate vector of constraints at x.
+Returns a numpy array.</p>
+<p>The constraints appear in the following order:</p>
+<ol class="arabic simple">
+<li>equalities</li>
+<li>lower bound only</li>
+<li>upper bound only</li>
+<li>range constraints.</li>
+</ol>
+</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.consPos">
+<tt class="descname">consPos</tt><big>(</big><em>x</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.consPos" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convenience function to return the vector of constraints when the
+latter are reformulated as</p>
+<blockquote>
+<p>ci(x) - ai  = 0  for i in equalC</p>
+<p>ci(x) - Li &gt;= 0  for i in lowerC</p>
+<p>ci(x) - Li &gt;= 0  for i in rangeC</p>
+<p>Ui - ci(x) &gt;= 0  for i in upperC</p>
+<p>Ui - ci(x) &gt;= 0  for i in rangeC.</p>
+</blockquote>
+<p>The constraints appear in natural order, except for the fact that the
+&#8216;upper side&#8217; of range constraints is appended to the list.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.cost">
+<tt class="descname">cost</tt><big>(</big><big>)</big><a class="headerlink" href="#amplpy.AmplModel.cost" title="Permalink to this definition">¶</a></dt>
+<dd>Evaluate sparse cost vector.
+Useful when problem is a linear program.
+Return a sparse vector.</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.grad">
+<tt class="descname">grad</tt><big>(</big><em>x</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.grad" title="Permalink to this definition">¶</a></dt>
+<dd>Evaluate objective gradient at x.
+Returns a numpy array.</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.hess">
+<tt class="descname">hess</tt><big>(</big><em>x</em>, <em>z</em>, <em>*args</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.hess" title="Permalink to this definition">¶</a></dt>
+<dd>Evaluate sparse lower triangular Hessian at (x, z).
+Returns a sparse matrix in format self.mformat
+(0 = compressed sparse row, 1 = linked list).</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.hprod">
+<tt class="descname">hprod</tt><big>(</big><em>z</em>, <em>v</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.hprod" title="Permalink to this definition">¶</a></dt>
+<dd>Evaluate matrix-vector product H(x,z) * v.
+Returns a numpy array.</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.icons">
+<tt class="descname">icons</tt><big>(</big><em>i</em>, <em>x</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.icons" title="Permalink to this definition">¶</a></dt>
+<dd>Evaluate value of i-th constraint at x.
+Returns a floating-point number.</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.igrad">
+<tt class="descname">igrad</tt><big>(</big><em>i</em>, <em>x</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.igrad" title="Permalink to this definition">¶</a></dt>
+<dd>Evaluate dense gradient of i-th constraint at x.
+Returns a numpy array.</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.irow">
+<tt class="descname">irow</tt><big>(</big><em>i</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.irow" title="Permalink to this definition">¶</a></dt>
+<dd>Evaluate sparse gradient of the linear part of the
+i-th constraint. Useful to obtain constraint rows
+when problem is a linear programming problem.</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.islp">
+<tt class="descname">islp</tt><big>(</big><big>)</big><a class="headerlink" href="#amplpy.AmplModel.islp" title="Permalink to this definition">¶</a></dt>
+<dd>Determines whether problem is a linear programming problem.</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.jac">
+<tt class="descname">jac</tt><big>(</big><em>x</em>, <em>*args</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.jac" title="Permalink to this definition">¶</a></dt>
+<dd><p>Evaluate sparse Jacobian of constraints at x.
+Returns a sparse matrix in format self.mformat
+(0 = compressed sparse row, 1 = linked list).</p>
+<p>The constraints appear in the following order:</p>
+<ol class="arabic simple">
+<li>equalities</li>
+<li>lower bound only</li>
+<li>upper bound only</li>
+<li>range constraints.</li>
+</ol>
+</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.jacPos">
+<tt class="descname">jacPos</tt><big>(</big><em>x</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.jacPos" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convenience function to evaluate the Jacobian matrix of the constraints
+reformulated as</p>
+<blockquote>
+<p>ci(x) = ai       for i in equalC</p>
+<p>ci(x) - Li &gt;= 0  for i in lowerC</p>
+<p>ci(x) - Li &gt;= 0  for i in rangeC</p>
+<p>Ui - ci(x) &gt;= 0  for i in upperC</p>
+<p>Ui - ci(x) &gt;= 0  for i in rangeC.</p>
+</blockquote>
+<p>The gradients of the general constraints appear in
+&#8216;natural&#8217; order, i.e., in the order in which they appear in the problem.
+The gradients of range constraints appear in two places: first in the
+&#8216;natural&#8217; location and again after all other general constraints, with a
+flipped sign to account for the upper bound on those constraints.</p>
+<p>The overall Jacobian of the new constraints thus has the form</p>
+<div class="math">
+egin{bmatrix}
+J \
+-JR
+\end{bmatrix}</div>
+<p>This is a <cite>m + nrangeC</cite> by <cite>n</cite> matrix, where <cite>J</cite> is the Jacobian of
+the general constraints in natural order in which the sign of the &#8216;less
+than&#8217; constraints is flipped, and <cite>JR</cite> is the Jacobian of the &#8216;less
+than&#8217; side of range constraints.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.obj">
+<tt class="descname">obj</tt><big>(</big><em>x</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.obj" title="Permalink to this definition">¶</a></dt>
+<dd>Evaluate objective function value at x.
+Returns a floating-point number.</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.set_x">
+<tt class="descname">set_x</tt><big>(</big><em>x</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.set_x" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set <cite>x</cite> as current value for subsequent calls
+to <a title="amplpy.AmplModel.obj" class="reference internal" href="#amplpy.AmplModel.obj"><tt class="xref docutils literal"><span class="pre">obj()</span></tt></a>, <a title="amplpy.AmplModel.grad" class="reference internal" href="#amplpy.AmplModel.grad"><tt class="xref docutils literal"><span class="pre">grad()</span></tt></a>, <a title="amplpy.AmplModel.jac" class="reference internal" href="#amplpy.AmplModel.jac"><tt class="xref docutils literal"><span class="pre">jac()</span></tt></a>, etc. If several
+of <a title="amplpy.AmplModel.obj" class="reference internal" href="#amplpy.AmplModel.obj"><tt class="xref docutils literal"><span class="pre">obj()</span></tt></a>, <a title="amplpy.AmplModel.grad" class="reference internal" href="#amplpy.AmplModel.grad"><tt class="xref docutils literal"><span class="pre">grad()</span></tt></a>, <a title="amplpy.AmplModel.jac" class="reference internal" href="#amplpy.AmplModel.jac"><tt class="xref docutils literal"><span class="pre">jac()</span></tt></a>, ..., will be called with the
+same argument <cite>x</cite>, it may be more efficient to first call <cite>set_x(x)</cite>.
+In AMPL, <a title="amplpy.AmplModel.obj" class="reference internal" href="#amplpy.AmplModel.obj"><tt class="xref docutils literal"><span class="pre">obj()</span></tt></a>, <a title="amplpy.AmplModel.grad" class="reference internal" href="#amplpy.AmplModel.grad"><tt class="xref docutils literal"><span class="pre">grad()</span></tt></a>, etc., normally check whether their
+argument has changed since the last call. Calling <cite>set_x()</cite> skips this
+check.</p>
+<p>See also <a title="amplpy.AmplModel.unset_x" class="reference internal" href="#amplpy.AmplModel.unset_x"><tt class="xref docutils literal"><span class="pre">unset_x()</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.sgrad">
+<tt class="descname">sgrad</tt><big>(</big><em>x</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.sgrad" title="Permalink to this definition">¶</a></dt>
+<dd>Evaluate sparse objective gradient at x.
+Returns a sparse vector.</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.sigrad">
+<tt class="descname">sigrad</tt><big>(</big><em>i</em>, <em>x</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.sigrad" title="Permalink to this definition">¶</a></dt>
+<dd>Evaluate sparse gradient of i-th constraint at x.
+Returns a sparse vector representing the sparse gradient
+in coordinate format.</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.unset_x">
+<tt class="descname">unset_x</tt><big>(</big><big>)</big><a class="headerlink" href="#amplpy.AmplModel.unset_x" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reinstates the default behavior of <a title="amplpy.AmplModel.obj" class="reference internal" href="#amplpy.AmplModel.obj"><tt class="xref docutils literal"><span class="pre">obj()</span></tt></a>, <a title="amplpy.AmplModel.grad" class="reference internal" href="#amplpy.AmplModel.grad"><tt class="xref docutils literal"><span class="pre">grad()</span></tt></a>, <cite>jac</cite>,
+etc., which is to check whether their argument has changed since the
+last call.</p>
+<p>See also <a title="amplpy.AmplModel.set_x" class="reference internal" href="#amplpy.AmplModel.set_x"><tt class="xref docutils literal"><span class="pre">set_x()</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="amplpy.AmplModel.writesol">
+<tt class="descname">writesol</tt><big>(</big><em>x</em>, <em>z</em>, <em>msg</em><big>)</big><a class="headerlink" href="#amplpy.AmplModel.writesol" title="Permalink to this definition">¶</a></dt>
+<dd>Write primal-dual solution and message msg to stub.sol</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="example">
+<h2>Example<a class="headerlink" href="#example" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-python"><table class="highlighttable"><tr><td class="linenos"><pre>  1
+  2
+  3
+  4
+  5
+  6
+  7
+  8
+  9
+ 10
+ 11
+ 12
+ 13
+ 14
+ 15
+ 16
+ 17
+ 18
+ 19
+ 20
+ 21
+ 22
+ 23
+ 24
+ 25
+ 26
+ 27
+ 28
+ 29
+ 30
+ 31
+ 32
+ 33
+ 34
+ 35
+ 36
+ 37
+ 38
+ 39
+ 40
+ 41
+ 42
+ 43
+ 44
+ 45
+ 46
+ 47
+ 48
+ 49
+ 50
+ 51
+ 52
+ 53
+ 54
+ 55
+ 56
+ 57
+ 58
+ 59
+ 60
+ 61
+ 62
+ 63
+ 64
+ 65
+ 66
+ 67
+ 68
+ 69
+ 70
+ 71
+ 72
+ 73
+ 74
+ 75
+ 76
+ 77
+ 78
+ 79
+ 80
+ 81
+ 82
+ 83
+ 84
+ 85
+ 86
+ 87
+ 88
+ 89
+ 90
+ 91
+ 92
+ 93
+ 94
+ 95
+ 96
+ 97
+ 98
+ 99
+100
+101
+102
+103
+104</pre></td><td class="code"><div class="highlight"><pre><span class="c">#!/usr/bin/env python</span>
+<span class="c">#</span>
+<span class="c"># Test for amplpy module</span>
+<span class="c">#</span>
+
+<span class="kn">from</span> <span class="nn">nlpy</span> <span class="kn">import</span> <span class="n">amplpy</span>
+<span class="kn">import</span> <span class="nn">numpy</span>
+<span class="kn">import</span> <span class="nn">getopt</span><span class="o">,</span> <span class="nn">sys</span>
+
+<span class="n">PROGNAME</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mf">0</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">commandline_err</span><span class="p">(</span> <span class="n">msg</span> <span class="p">):</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">: </span><span class="si">%s</span><span class="se">\n</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span> <span class="n">PROGNAME</span><span class="p">,</span> <span class="n">msg</span> <span class="p">)</span> <span class="p">)</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span> <span class="mf">1</span> <span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">parse_cmdline</span><span class="p">(</span> <span class="n">arglist</span> <span class="p">):</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span> <span class="n">arglist</span> <span class="p">)</span> <span class="o">!=</span> <span class="mf">1</span><span class="p">:</span>
+        <span class="n">commandline_err</span><span class="p">(</span> <span class="s">&#39;Specify file name&#39;</span> <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">None</span>
+
+    <span class="k">try</span><span class="p">:</span> <span class="n">options</span><span class="p">,</span> <span class="n">fname</span> <span class="o">=</span> <span class="n">getopt</span><span class="o">.</span><span class="n">getopt</span><span class="p">(</span> <span class="n">arglist</span><span class="p">,</span> <span class="s">&#39;&#39;</span> <span class="p">)</span>
+
+    <span class="k">except</span> <span class="n">getopt</span><span class="o">.</span><span class="n">error</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">commandline_err</span><span class="p">(</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span> <span class="n">e</span> <span class="p">)</span> <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">None</span>
+
+    <span class="k">return</span> <span class="n">fname</span><span class="p">[</span><span class="mf">0</span><span class="p">]</span>
+
+<span class="n">ProblemName</span> <span class="o">=</span> <span class="n">parse_cmdline</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mf">1</span><span class="p">:])</span> 
+
+<span class="c"># Create a model</span>
+<span class="k">print</span> <span class="s">&#39;Problem&#39;</span><span class="p">,</span> <span class="n">ProblemName</span>
+<span class="n">nlp</span> <span class="o">=</span> <span class="n">amplpy</span><span class="o">.</span><span class="n">AmplModel</span><span class="p">(</span> <span class="n">ProblemName</span> <span class="p">)</span>
+
+<span class="c"># Query the model</span>
+<span class="n">x0</span>  <span class="o">=</span> <span class="n">nlp</span><span class="o">.</span><span class="n">x0</span>
+<span class="n">pi0</span> <span class="o">=</span> <span class="n">nlp</span><span class="o">.</span><span class="n">pi0</span>
+<span class="n">n</span> <span class="o">=</span> <span class="n">nlp</span><span class="o">.</span><span class="n">n</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">nlp</span><span class="o">.</span><span class="n">m</span>
+<span class="k">print</span> <span class="s">&#39;There are </span><span class="si">%d</span><span class="s"> variables and </span><span class="si">%d</span><span class="s"> constraints&#39;</span> <span class="o">%</span> <span class="p">(</span> <span class="n">n</span><span class="p">,</span> <span class="n">m</span> <span class="p">)</span>
+
+<span class="n">max_n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span> <span class="n">n</span><span class="p">,</span> <span class="mf">5</span> <span class="p">)</span>
+<span class="n">max_m</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span> <span class="n">m</span><span class="p">,</span> <span class="mf">5</span> <span class="p">)</span>
+
+<span class="k">print</span>
+<span class="k">print</span> <span class="s">&#39; Printing at most 5 first components of vectors&#39;</span>
+<span class="k">print</span>
+
+<span class="k">print</span> <span class="s">&#39;Initial point: &#39;</span><span class="p">,</span> <span class="n">x0</span><span class="p">[:</span><span class="n">max_n</span><span class="p">]</span>
+<span class="k">print</span> <span class="s">&#39;Lower bounds on x: &#39;</span><span class="p">,</span> <span class="n">nlp</span><span class="o">.</span><span class="n">Lvar</span><span class="p">[:</span><span class="n">max_n</span><span class="p">]</span>
+<span class="k">print</span> <span class="s">&#39;Upper bounds on x: &#39;</span><span class="p">,</span> <span class="n">nlp</span><span class="o">.</span><span class="n">Uvar</span><span class="p">[:</span><span class="n">max_n</span><span class="p">]</span>
+<span class="k">print</span> <span class="s">&#39;f( x0 ) = &#39;</span><span class="p">,</span> <span class="n">nlp</span><span class="o">.</span><span class="n">obj</span><span class="p">(</span> <span class="n">x0</span> <span class="p">)</span>
+<span class="n">g0</span> <span class="o">=</span> <span class="n">nlp</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span> <span class="n">x0</span> <span class="p">)</span>
+<span class="k">print</span> <span class="s">&#39;grad f( x0 ) = &#39;</span><span class="p">,</span> <span class="n">g0</span><span class="p">[:</span><span class="n">max_n</span><span class="p">]</span>
+
+<span class="k">if</span> <span class="n">max_m</span> <span class="o">&gt;</span> <span class="mf">0</span><span class="p">:</span>
+    <span class="k">print</span> <span class="s">&#39;Initial multipliers: &#39;</span><span class="p">,</span> <span class="n">pi0</span><span class="p">[:</span><span class="n">max_m</span><span class="p">]</span>
+    <span class="k">print</span> <span class="s">&#39;Lower constraint bounds: &#39;</span><span class="p">,</span> <span class="n">nlp</span><span class="o">.</span><span class="n">Lcon</span><span class="p">[:</span><span class="n">max_m</span><span class="p">]</span>
+    <span class="k">print</span> <span class="s">&#39;Upper constraint bounds: &#39;</span><span class="p">,</span> <span class="n">nlp</span><span class="o">.</span><span class="n">Ucon</span><span class="p">[:</span><span class="n">max_m</span><span class="p">]</span>
+    <span class="n">c0</span> <span class="o">=</span> <span class="n">nlp</span><span class="o">.</span><span class="n">cons</span><span class="p">(</span> <span class="n">x0</span> <span class="p">)</span>
+    <span class="k">print</span> <span class="s">&#39;c( x0 ) = &#39;</span><span class="p">,</span> <span class="n">c0</span><span class="p">[:</span><span class="n">max_m</span><span class="p">]</span>
+
+<span class="n">J</span> <span class="o">=</span> <span class="n">nlp</span><span class="o">.</span><span class="n">jac</span><span class="p">(</span> <span class="n">x0</span> <span class="p">)</span>
+<span class="n">H</span> <span class="o">=</span> <span class="n">nlp</span><span class="o">.</span><span class="n">hess</span><span class="p">(</span> <span class="n">x0</span><span class="p">,</span> <span class="n">pi0</span> <span class="p">)</span>
+<span class="k">print</span>
+<span class="k">print</span> <span class="s">&#39; nnzJ = &#39;</span><span class="p">,</span> <span class="n">J</span><span class="o">.</span><span class="n">nnz</span>
+<span class="k">print</span> <span class="s">&#39; nnzH = &#39;</span><span class="p">,</span> <span class="n">H</span><span class="o">.</span><span class="n">nnz</span>
+
+<span class="k">print</span>
+<span class="k">print</span> <span class="s">&#39; Printing at most first 5x5 principal submatrix&#39;</span>
+<span class="k">print</span>
+
+<span class="k">print</span> <span class="s">&#39;J( x0 ) = &#39;</span><span class="p">,</span> <span class="n">J</span><span class="p">[:</span><span class="n">max_m</span><span class="p">,:</span><span class="n">max_n</span><span class="p">]</span>
+<span class="k">print</span> <span class="s">&#39;Hessian (lower triangle):&#39;</span><span class="p">,</span> <span class="n">H</span><span class="p">[:</span><span class="n">max_n</span><span class="p">,:</span><span class="n">max_n</span><span class="p">]</span>
+
+<span class="k">print</span>
+<span class="k">print</span> <span class="s">&#39; Evaluating constraints individually, sparse gradients&#39;</span>
+<span class="k">print</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_m</span><span class="p">):</span>
+    <span class="n">ci</span> <span class="o">=</span> <span class="n">nlp</span><span class="o">.</span><span class="n">icons</span><span class="p">(</span> <span class="n">i</span><span class="p">,</span> <span class="n">x0</span> <span class="p">)</span>
+    <span class="k">print</span> <span class="s">&#39;c</span><span class="si">%d</span><span class="s">( x0 ) = </span><span class="si">%-g</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">ci</span><span class="p">)</span>
+    <span class="n">sgi</span> <span class="o">=</span>  <span class="n">nlp</span><span class="o">.</span><span class="n">sigrad</span><span class="p">(</span> <span class="n">i</span><span class="p">,</span> <span class="n">x0</span> <span class="p">)</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">sgi</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+    <span class="n">ssgi</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span> <span class="nb">min</span><span class="p">(</span> <span class="mf">5</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span> <span class="n">k</span> <span class="p">)</span> <span class="p">)</span> <span class="p">):</span>
+        <span class="n">ssgi</span><span class="p">[</span> <span class="n">k</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="p">]</span> <span class="o">=</span> <span class="n">sgi</span><span class="p">[</span> <span class="n">k</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="p">]</span>
+    <span class="k">print</span> <span class="s">&#39;grad c</span><span class="si">%d</span><span class="s">( x0 ) = &#39;</span> <span class="o">%</span> <span class="n">i</span><span class="p">,</span> <span class="n">ssgi</span>
+
+<span class="k">print</span>
+<span class="k">print</span> <span class="s">&#39; Testing matrix-vector product:&#39;</span>
+<span class="k">print</span> 
+
+<span class="n">e</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span> <span class="n">n</span><span class="p">,</span> <span class="s">&#39;d&#39;</span> <span class="p">)</span>
+<span class="n">e</span><span class="p">[</span><span class="mf">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">2</span>
+<span class="n">e</span><span class="p">[</span><span class="mf">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1</span>
+<span class="n">He</span> <span class="o">=</span> <span class="n">nlp</span><span class="o">.</span><span class="n">hprod</span><span class="p">(</span> <span class="n">pi0</span><span class="p">,</span> <span class="n">e</span> <span class="p">)</span>
+<span class="k">print</span> <span class="s">&#39;He = &#39;</span><span class="p">,</span> <span class="n">He</span><span class="p">[:</span><span class="n">max_n</span><span class="p">]</span>
+
+<span class="c"># Output &quot;solution&quot;</span>
+<span class="n">nlp</span><span class="o">.</span><span class="n">writesol</span><span class="p">(</span> <span class="n">x0</span><span class="p">,</span> <span class="n">pi0</span><span class="p">,</span> <span class="s">&#39;And the winner is&#39;</span> <span class="p">)</span>
+
+<span class="c"># Clean-up</span>
+<span class="n">nlp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</td></tr></table></div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="modindex.html" title="Global Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="introduction.html" title="Introduction"
+             >previous</a> |</li>
+        <li><a href="index.html">NLPy home </a> |&nbsp;</li>
+        <li><a href="contents.html">Documentation </a> &raquo;</li>
+ 
+      </ul>
+    </div>
+    <div class="footer">
+      &copy; Copyright 2008, Dominique Orban.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.2.
+    </div>
+  </body>
+</html>

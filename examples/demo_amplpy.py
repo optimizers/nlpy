@@ -3,7 +3,7 @@
 # Test for amplpy module
 #
 
-import amplpy
+from nlpy import amplpy
 import numpy
 import getopt, sys
 

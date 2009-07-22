@@ -15,6 +15,7 @@ NLPy documentation
    :maxdepth: 2
 
    Introduction <introduction>
+   Using AMPL models <amplpy>
 
 
 Some pages of this documentation display equations via the `jsMath

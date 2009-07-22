@@ -1,14 +1,14 @@
 """
 Python interface to the AMPL modeling language
 
-M. Friedlander, Argonne National Laboratory
-D. Orban, Ecole Polytechnique de Montreal
-2003-2008
+.. moduleauthor:: M. P. Friedlander <mpf@cs.ubc.ca>
+.. moduleauthor:: D. Orban <dominique.orban@gerad.ca>
 """
 
 import numpy as np
-import _amplpy
-import sparse_vector_class as sv
+from nlpy.amplpy import _amplpy
+from pysparse.pysparseMatrix import PysparseMatrix as sp
+from nlpy.tools import sparse_vector_class as sv
 import tempfile, os
 
 __docformat__ = 'restructuredtext'
@@ -69,16 +69,14 @@ def writestub(template):
 ########################################################################
 
 class AmplModel:
-
     """
-    AmplModel creates an instance of an Ampl model. If the nl file is
-    already available, simply call AmplModel(stub) where the string
-    stub is the name of the model. For instance: AmplModel('elec').
-    If only the .mod file is available, set the positional parameter
-    neednl to anything but None so Ampl generates the nl file, as in
-    AmplModel('elec', neednl=1).
+    AmplModel creates an instance of an AMPL model. If the `nl` file is
+    already available, simply call `AmplModel(stub)` where the string
+    `stub` is the name of the model. For instance: `AmplModel('elec')`.
+    If only the `.mod` file is available, set the positional parameter
+    `neednl` to `True` so AMPL generates the `nl` file, as in
+    `AmplModel('elec', neednl=True)`.
     """
-
     # Constructor
     def __init__(self, model, **kwargs):
 
@@ -227,23 +225,37 @@ class AmplModel:
 
     def OptimalityResiduals(self, x, y, z, **kwargs):
         """
-        OptimalityResiduals(x, y, z):
         Evaluate the KKT  or Fritz-John residuals at (x, y, z).
 
-        x  is the vector of primal variables,
-        y  is the vector of Lagrange multipliers for general constraints,
-        z  is the vector of Lagrange multipliers for simple bounds.
+        :parameters:
 
-        The multipliers y associated to general constraints must be ordered
+            :x:  NumPy array of length :attr:`n` giving the vector of
+                 primal variables,
+            :y:  NumPy array of length :attr:`m` + :attr:`nrangeC` giving the
+                 vector of Lagrange multipliers for general constraints
+                 (see below),
+            :z:  NumPy array of length :attr:`nbounds` + :attr:`nrangeB` giving
+                 the vector of Lagrange multipliers for simple bounds (see
+                 below).
+
+        :returns:
+
+            vectors of residuals (dual_feas, compl, bnd_compl, primal_feas, bnd_feas)
+
+        The multipliers `y` associated to general constraints must be ordered
         as follows:
 
         ci(x) = ciE  (i in equalC): y[:nequalC]
+
         ci(x) >= ciL (i in lowerC): y[nequalC:nequalC+nlowerC]
+
         ci(x) <= ciU (i in upperC): y[nequalC+nlowerC:nequalC+nlowerC+nupperC]
+
         ci(x) >= ciL (i in rangeC): y[nlowerC+nupperC:m]
+
         ci(x) <= ciU (i in rangeC): y[m:]
 
-        For inequality constraint, the sign of each y[i] should be as if it
+        For inequality constraints, the sign of each y[i] should be as if it
         corresponded to a nonnegativity constraint, i.e., ciU - ci(x) >= 0
         instead of ci(x) <= ciU.
 
@@ -254,15 +266,17 @@ class AmplModel:
         ordered as follows:
 
         xi  = Li (i in fixedB) : z[:nfixedB]
+
         xi >= Li (i in lowerB) : z[nfixedB:nfixedB+nlowerB]
+
         xi <= Ui (i in upperB) : z[nfixedB+nlowerB:nfixedB+nlowerB+nupperB]
-        xi >= Li (i in rangeB) :
-                 z[nfixedB+nlowerB+nupperB:nfixedB+nlowerB+nupperB+nrangeB]
+
+        xi >= Li (i in rangeB) : z[nfixedB+nlowerB+nupperB:nfixedB+nlowerB+nupperB+nrangeB]
+
         xi <= Ui (i in rangeB) : z[nfixedB+nlowerB+nupper+nrangeB:]
 
         The sign of each z[i] should be as if it corresponded to a
-        nonnegativity constraint.
-
+        nonnegativity constraint (except for fixed variables).
  
         It is possible to check the Fritz-John conditions via the keyword FJ.
         If FJ is present, it should be assigned the multiplier value that
@@ -272,9 +286,6 @@ class AmplModel:
 
         If FJ has value 0.0, the gradient of the objective will not be included
         in the residuals (it will not be computed).
-
-        The function returns vectors of residuals:
-        (dual_feas, compl, bnd_compl, primal_feas, bnd_feas)
         """
 
         error_return = (None, None, None, None, None)
@@ -333,13 +344,6 @@ class AmplModel:
 
         bComp = bRes[n1:] * z[n1:]
 
-        #bComp = np.empty(nlowerB+nupperB+2*nrangeB)
-        #bComp[:nlowerB] = bRes[n1:n2] * zlowerB
-        #bComp[nlowerB:nlowerB+nupperB] = bRes[n2:n3] * zupperB
-        #bComp[nlowerB+nupperB:nlowerB+nupperB+nrangeB] = \
-        #    bRes[n3:n4] * zrangeBL
-        #bComp[nlowerB+nupperB+nrangeB:] = bRes[n4:] * zrangeBU
-
         # Bounds feasibility, part 2
 
         bRes[n1:n2] = np.minimum(np.zeros(nlowerB), bRes[n1:n2])
@@ -369,13 +373,6 @@ class AmplModel:
         # Complementarity of general constraints
 
         gComp = pFeas[n1:] * y[n1:]
-
-        #gComp = np.empty(nlowerC + nupperC + 2*nrangeC)
-        #gComp[:nlowerC] = pFeas[n1:n2] * ylowerC
-        #gComp[nlowerC:nlowerC+nupperC] = pFeas[n2:n3] * yupperC
-        #gComp[nlowerC+nupperC:nlowerC+nupperC+nrangeC] = \
-        #    pFeas[n3:n4] * yrangeCL
-        #gComp[nlowerC+nupperC+nrangeC:] = pFeas[n4:] * yrangeCU
 
         # Primal feasibility, part 2
 
@@ -420,13 +417,15 @@ class AmplModel:
 
     def AtOptimality(self, x, y, z, **kwargs):
         """
-        AtOptimality(x, y, z, **kwargs)
-        See OptimalityResiduals for a description of the arguments.
-        Returns a tuple (res, optimal) where
+        See :meth:`OptimalityResiduals` for a description of the arguments.
+
+        :returns:
         
-        res      is the tuple of residuals, as returned by OptimalityResiduals,
-        optimal  is True if the residuals fall below the threshold specified
-                 by self.stop_d, self.stop_c and self.stop_p.
+            :res:  tuple of residuals, as returned by
+                   :meth:`OptimalityResiduals`,
+            :optimal:  `True` if the residuals fall below the thresholds
+                       specified by :attr:`self.stop_d`, :attr:`self.stop_c`
+                       and :attr:`self.stop_p`.
         """
 
         # Obtain optimality residuals
@@ -496,9 +495,13 @@ class AmplModel:
         Returns a numpy array.
 
         The constraints appear in the following order:
+
         1) equalities
+
         2) lower bound only
+
         3) upper bound only
+
         4) range constraints.
         """
         try:
@@ -510,6 +513,42 @@ class AmplModel:
             return None #c = self.Infinity * np.ones(self.m)
         self.ceval += self.m
         return c[self.permC]
+
+    def consPos(self, x):
+        """
+        Convenience function to return the vector of constraints when the
+        latter are reformulated as
+
+            ci(x) - ai  = 0  for i in equalC
+
+            ci(x) - Li >= 0  for i in lowerC
+
+            ci(x) - Li >= 0  for i in rangeC
+
+            Ui - ci(x) >= 0  for i in upperC
+
+            Ui - ci(x) >= 0  for i in rangeC.
+
+        The constraints appear in natural order, except for the fact that the
+        'upper side' of range constraints is appended to the list.
+        """
+        m = self.m
+        equalC = self.equalC
+        lowerC = self.lowerC
+        upperC = self.upperC
+        rangeC = self.rangeC ; nrangeC = self.nrangeC
+
+        c = numpy.empty(m + nrangeC)
+        c[:m] = self.cons(x)
+        c[m:] = c[rangeC]
+
+        c[equalC] -= self.Lcon[equalC]
+        c[lowerC] -= self.Lcon[lowerC]
+        c[upperC] -= self.Ucon[upperC] ; c[upperC] *= -1
+        c[rangeC] -= self.Lcon[rangeC]
+        c[m:]     -= self.Ucon[rangeC] ; c[m:] *= -1
+
+        return c
 
     def icons(self, i, x):
         """
@@ -576,9 +615,13 @@ class AmplModel:
         (0 = compressed sparse row, 1 = linked list).
 
         The constraints appear in the following order:
+
         1) equalities
+
         2) lower bound only
+
         3) upper bound only
+
         4) range constraints.
         """
         if len(args) > 0:
@@ -591,6 +634,53 @@ class AmplModel:
             self.Jeval += 1
             J = _amplpy.eval_J(x, self.mformat)
         return J[self.permC,:]
+
+    def jacPos(self, x):
+        """
+        Convenience function to evaluate the Jacobian matrix of the constraints
+        reformulated as
+
+            ci(x) = ai       for i in equalC
+
+            ci(x) - Li >= 0  for i in lowerC
+
+            ci(x) - Li >= 0  for i in rangeC
+
+            Ui - ci(x) >= 0  for i in upperC
+
+            Ui - ci(x) >= 0  for i in rangeC.
+
+        The gradients of the general constraints appear in
+        'natural' order, i.e., in the order in which they appear in the problem.
+        The gradients of range constraints appear in two places: first in the
+        'natural' location and again after all other general constraints, with a
+        flipped sign to account for the upper bound on those constraints.
+
+        The overall Jacobian of the new constraints thus has the form
+
+        .. math::
+
+           \begin{bmatrix}
+           J \\
+           -JR
+           \end{bmatrix}
+
+        This is a `m + nrangeC` by `n` matrix, where `J` is the Jacobian of
+        the general constraints in natural order in which the sign of the 'less
+        than' constraints is flipped, and `JR` is the Jacobian of the 'less
+        than' side of range constraints.
+        """
+        n = self.n ; m = self.m ; nrangeC = self.nrangeC    
+
+        # Initialize sparse Jacobian
+        J = sp(nrow=m + nrangeC, ncol=n, sizeHint=self.nnzj+10*nrangeC)
+
+        # Insert contribution of general constraints
+        J[:m,:n] = self.jac(x)
+        J[upperC,:n] *= -1                 # Flip sign of 'upper' gradients
+        J[m:,:n] = -J[rangeC,:n]           # Append 'upper' side of range const.
+        return J
+
 
     def hess(self, x, z, *args):
         """
@@ -623,5 +713,29 @@ class AmplModel:
             return True
         else:
             return False
+
+    def set_x(self,x):
+        """
+        Set `x` as current value for subsequent calls
+        to :meth:`obj`, :meth:`grad`, :meth:`jac`, etc. If several
+        of :meth:`obj`, :meth:`grad`, :meth:`jac`, ..., will be called with the
+        same argument `x`, it may be more efficient to first call `set_x(x)`.
+        In AMPL, :meth:`obj`, :meth:`grad`, etc., normally check whether their
+        argument has changed since the last call. Calling `set_x()` skips this
+        check.
+
+        See also :meth:`unset_x`.
+        """
+        return _amplpy.set_x(x)
+
+    def unset_x(self):
+        """
+        Reinstates the default behavior of :meth:`obj`, :meth:`grad`, `jac`,
+        etc., which is to check whether their argument has changed since the
+        last call.
+
+        See also :meth:`set_x`.
+        """
+        return _amplpy.unset_x()
 
 ###############################################################################
