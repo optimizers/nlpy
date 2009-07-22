@@ -1,0 +1,78 @@
+{% extends "layout.html" %}
+{% set title = 'Home Page' %}
+{% block body %}
+<h1>NLPy</h1>
+
+<p>
+NLPy is a <a href="http://www.python.org">Python</a> package for numerical <a
+href="http://en.wikipedia.org/wiki/Mathematical_programming">optimization</a>.
+It aims to provide a toolbox for solving <a
+href="http://en.wikipedia.org/wiki/Linear_programming">linear</a> and <a
+href="http://en.wikipedia.org/wiki/Nonlinear_programming">nonlinear
+programming</a> problems that is both easy to use and extensible. It is
+applicable to problems that are smooth, have no derivatives, or have integer
+data.
+</p>
+
+<p>
+Implementing, testing, prototyping, experimenting with, and modifying
+innovative optimization algorithms for large-scale constrained problems are
+difficult and challenging tasks, regardless of the programming language.
+The purpose of NLPy is to offer an environment in which such tasks naturally
+combine with the programming language and the algorithmics in such a way that
+they are not more difficult than they really should and yet efficient
+large-scale implementations remain possible.
+</p>
+
+<p>
+Be sure to check the <a href="{{ pathto('contents') }}">Documentation</a> for
+examples.
+</p>
+
+<p>
+NLPy is <a href="http://www.open-source.org">open-source</a>
+software distributed under the tems of the
+<a href="http://www.gnu.org/licenses/lgpl.html">GNU Lesser General Public
+License</a>.
+</p>
+
+<h2>Documentation</h2>
+<table class="contentstable" align="center" style="margin-left: 30px"><tr>
+  <td width="50%">
+    <p class="biglink"><a class="biglink" href="{{ pathto("contents") }}">Contents</a><br/>
+    <span class="linkdescr">for a complete overview</span></p>
+    <p class="biglink"><a class="biglink" href="{{ pathto("search") }}">Search page</a><br/>
+    <span class="linkdescr">search the documentation</span></p>
+  </td><td width="50%">
+    <p class="biglink"><a class="biglink" href="{{ pathto("genindex") }}">General Index</a><br/>
+    <span class="linkdescr">all functions, classes, terms</span></p>
+    <p class="biglink"><a class="biglink" href="{{ pathto("modindex") }}">Module Index</a><br/>
+    <span class="linkdescr">quick access to all documented modules</span></p>
+  </td></tr>
+</table>
+
+<p>
+The complete documentation is also available in
+<a href="http://nlpy.sf.net/NLPy.pdf">PDF</a> format.
+</p>
+
+<h2>Get NLPy</h2>
+<p>
+NLPy is available in source form from <a
+href="http://sourceforge.net/project/platformdownload.php?group_id=126795">SourceForge</a>
+or directly from the SVN repository using
+</p>
+
+<pre>  svn co https://nlpy.svn.sourceforge.net/svnroot/nlpy ./</pre>
+
+<p>
+The password is empty: just hit enter when prompted.
+</p>
+<p>
+Everytime you wish to update your NLPy source files, simply bring your tree up
+to date:
+</p>
+
+<pre>  svn up</pre>
+
+{% endblock %}
