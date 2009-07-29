@@ -240,7 +240,8 @@ class AmplModel:
 
         :returns:
 
-            vectors of residuals (dual_feas, compl, bnd_compl, primal_feas, bnd_feas)
+            vectors of residuals
+            (dual_feas, compl, bnd_compl, primal_feas, bnd_feas)
 
         The multipliers `y` associated to general constraints must be ordered
         as follows:
@@ -636,7 +637,7 @@ class AmplModel:
         return J[self.permC,:]
 
     def jacPos(self, x):
-        """
+        r"""
         Convenience function to evaluate the Jacobian matrix of the constraints
         reformulated as
 
@@ -660,13 +661,14 @@ class AmplModel:
 
         .. math::
 
+           \bar{J} =
            \begin{bmatrix}
            J \\
            -JR
            \end{bmatrix}
 
-        This is a `m + nrangeC` by `n` matrix, where `J` is the Jacobian of
-        the general constraints in natural order in which the sign of the 'less
+        This is a `m + nrangeC` by `n` matrix, where `J` is the Jacobian of the
+        general constraints in the order above in which the sign of the 'less
         than' constraints is flipped, and `JR` is the Jacobian of the 'less
         than' side of range constraints.
         """
@@ -676,7 +678,7 @@ class AmplModel:
         J = sp(nrow=m + nrangeC, ncol=n, sizeHint=self.nnzj+10*nrangeC)
 
         # Insert contribution of general constraints
-        J[:m,:n] = self.jac(x)
+        J[:m,:n] = self.jac(x)[self.permC,:]
         J[upperC,:n] *= -1                 # Flip sign of 'upper' gradients
         J[m:,:n] = -J[rangeC,:n]           # Append 'upper' side of range const.
         return J
