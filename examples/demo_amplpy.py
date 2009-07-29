@@ -3,7 +3,7 @@
 # Test for amplpy module
 #
 
-from nlpy import amplpy
+from nlpy.model import AmplModel #amplpy
 import numpy
 import getopt, sys
 
@@ -30,7 +30,7 @@ ProblemName = parse_cmdline(sys.argv[1:])
 
 # Create a model
 print 'Problem', ProblemName
-nlp = amplpy.AmplModel( ProblemName )
+nlp = AmplModel( ProblemName ) #amplpy.AmplModel( ProblemName )
 
 # Query the model
 x0  = nlp.x0

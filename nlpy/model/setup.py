@@ -6,7 +6,7 @@ def configuration(parent_package='',top_path=None):
     from numpy.distutils.misc_util import Configuration
     from numpy.distutils.system_info import get_info, NotFoundError
 
-    config = Configuration('amplpy', parent_package, top_path)
+    config = Configuration('model', parent_package, top_path)
 
     # Get info from site.cfg
     #libampl = get_info('libampl')
