@@ -15,7 +15,7 @@ def commandline_err( msg ):
 
 def parse_cmdline( arglist ):
     if len( arglist ) != 1:
-        commandline_err( 'Specify file name' )
+        commandline_err( 'Specify file name (look in data directory)' )
         return None
 
     try: options, fname = getopt.getopt( arglist, '' )
