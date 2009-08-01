@@ -3,7 +3,8 @@
 # Example usage: python demo_ma27.py file1.mtx ... fileN.mtx
 # where each fileK.mtx is in MatrixMarket format.
 
-from nlpy.linalg import pyma27
+from nlpy.linalg.pyma27 import PyMa27Context as LBLContext
+#from nlpy.linalg.pyma57 import PyMa57Context as LBLContext
 from pysparse import spmatrix
 from nlpy.tools import norms
 from nlpy.tools.timing import cputime
@@ -47,27 +48,27 @@ def Ma27SpecSheet():
 
     return (A, rhs)
 
-def SolveSystem(A, rhs, itref_threshold = 1.0e-6, nitrefmax = 5):
+def SolveSystem(A, rhs, itref_threshold=1.0e-6, nitrefmax=5, **kwargs):
 
-    # Obtain pyma27 context object
+    # Obtain Sils context object
     t = cputime()
-    P = pyma27.PyMa27Context(A)
+    LBL = LBLContext(A, **kwargs)
     t_analyze = cputime() - t
 
     # Solve system and compute residual
     t = cputime()
-    P.solve(rhs)
+    LBL.solve(rhs)
     t_solve = cputime() - t_analyze
 
     # Compute residual norm
     nrhsp1 = norms.norm_infty(rhs) + 1
-    nr = norms.norm2(P.residual)/nrhsp1
+    nr = norms.norm2(LBL.residual)/nrhsp1
 
     # If residual not small, perform iterative refinement
-    P.refine(rhs, tol = itref_threshold, nitref = nitrefmax)
-    nr1 = norms.norm_infty(P.residual)/nrhsp1
+    LBL.refine(rhs, tol = itref_threshold, nitref=nitrefmax)
+    nr1 = norms.norm_infty(LBL.residual)/nrhsp1
 
-    return (P.x, P.residual, nr, nr1, t_analyze, t_solve, P.neig)
+    return (LBL.x, LBL.residual, nr, nr1, t_analyze, t_solve, LBL.neig)
 
 if __name__ == '__main__':
     import sys

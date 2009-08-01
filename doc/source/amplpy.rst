@@ -22,3 +22,8 @@ Example
 
 .. literalinclude:: ../../examples/demo_amplpy.py
    :linenos:
+
+Inheritance Diagram
+===================
+
+.. inheritance-diagram:: nlpy.model.slacks

@@ -17,8 +17,10 @@ def configuration(parent_package='',top_path=None):
     #    raise NotFoundError, 'no libhsl resources found'
     #libhsl_dir = libhsl.get('libhsl_dir')
     #hsllibname = libhsl.get('hsllibname')
-    libhsl_dir = '/Users/dpo/local/linalg/hsl/g95' # Must be in LD_LIBRARY_PATH 
-    hsllibname = 'hsl_g95'
+    libhsl_dir = '/Users/dpo/local/linalg/hsl/g95'
+    hsllibname = 'hsl_g95' # Must be in LD_LIBRARY_PATH and called .so
+    libmetis_dir = '/Users/dpo/local/linalg/UMFPACK/metis-4.0'
+    metislib = 'metis'
 
     libma27_src = ['ma27_lib.c','ma27fact.f','nlpy_alloc.c']
     libma57_src = ['ma57_lib.c','nlpy_alloc.c']
@@ -49,8 +51,8 @@ def configuration(parent_package='',top_path=None):
     config.add_library(
         name='ma57',
         sources=[os.path.join('src',name) for name in libma57_src],
-        libraries=[hsllibname],
-        library_dirs=[libhsl_dir],
+        libraries=[hsllibname,metislib],
+        library_dirs=[libhsl_dir,libmetis_dir],
         include_dirs=['src'],
         extra_info=blas_info,
         )
@@ -58,8 +60,8 @@ def configuration(parent_package='',top_path=None):
     config.add_extension(
         name='_pyma57',
         sources=[os.path.join('src',name) for name in pyma57_src],
-        libraries=[hsllibname,'ma57'],
-        library_dirs=[libhsl_dir],
+        libraries=[hsllibname,metislib,'ma57'],
+        library_dirs=[libhsl_dir,libmetis_dir],
         include_dirs=['src'],
         extra_info=blas_info,
         )

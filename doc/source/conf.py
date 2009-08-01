@@ -17,13 +17,14 @@ import sys, os
 # is relative to the documentation root, use os.path.abspath to make it
 # absolute, like shown here.
 #sys.path.append(os.path.abspath('.'))
-sys.path.append(os.path.abspath('../../nlpy/amplpy'))
+sys.path.append(os.path.abspath('../../nlpy/model'))
 sys.path.append(os.path.abspath('../../examples'))
 sys.path.append('sphinxext')
 
 # Import support for ipython console session syntax highlighting (lives
 # in the sphinxext directory defined above)
 import ipython_console_highlighting
+import inheritance_diagram
 
 # General configuration
 # ---------------------
@@ -33,6 +34,7 @@ import ipython_console_highlighting
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.jsmath']
 extensions += ['sphinx.ext.todo']
 extensions += ['ipython_console_highlighting']
+extensions += ['inheritance_diagram']
 #jsmath_path = 'jsMath/easy/load.js'  # Under _static/ by default
 jsmath_path = '/Users/dpo/local/src/jsMath/easy/load.js'
 

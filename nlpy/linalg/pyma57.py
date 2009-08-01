@@ -1,19 +1,12 @@
 """
 Ma57: Direct multifrontal solution of symmetric systems
-
-$Id:$
 """
-
 
 import numpy
 from pysparse import spmatrix
 from sils import Sils
 
-try:
-    import _pyma57
-except:
-    import nlpy_error
-    nlpy_error.ReportNlpyModuleFatalError( "PyMa57", "MA57" )
+import _pyma57
 
 class PyMa57Context( Sils ):
 
