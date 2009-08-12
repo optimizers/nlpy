@@ -11,12 +11,11 @@ Each preconditioner object K has:
      y = K(x)
 
 D. Orban                             Montreal, March 2007
-$Id:$
 """
 
 import numpy as np
 from pysparse import spmatrix
-import pyma27
+from nlpy.linalg import pyma27
 
 class GenericPreconditioner:
     

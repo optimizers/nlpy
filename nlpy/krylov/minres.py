@@ -10,8 +10,8 @@ or the least-squares problem
 using Minres.  This is a line-by-line translation from Matlab code
 available at http://www.stanford.edu/group/SOL/software/minres.htm.
 
-Dominique Orban, Ecole Polytechnique de Montreal
-$Id: minres.py 88 2008-09-29 04:43:15Z d-orban $
+Dominique Orban, GERAD and Ecole Polytechnique de Montreal
+dominique.orban@gerad.ca
 """
 
 from numpy import zeros, dot, empty
@@ -20,7 +20,7 @@ from math import sqrt
 
 class Minres:
     """
-    K = Minres(b, A)
+    K = Minres(A) ; K.solve(b)
 
     This class implements the Minres iterative solver of Paige and Saunders.
     Minres solves the system of linear equations Ax = b
@@ -28,7 +28,7 @@ class Minres:
     where A is a symmetric matrix (possibly indefinite or singular)
     and b is a given vector.
    
-    'A' may be given explicitly as a matrix or be a function such that
+    A may be given explicitly as a matrix or be a function such that
         A(x, y)
     stores in y the product Ax for any given vector x.
     If A is an instance of some matrix class, it should have a 'matvec' method
@@ -57,7 +57,7 @@ class Minres:
     of the class, after completion of solve().
 
     Python version: Dominique Orban, Ecole Polytechnique de Montreal, 2008,
-    translated from the Matlab version of Minres, written by
+    translated and adapted from the Matlab version of Minres, written by
 
         Michael Saunders, SOL, Stanford University
         Sou Cheng Choi,  SCCM, Stanford University
@@ -74,55 +74,46 @@ class Minres:
 #    17 Oct 2003: f77 version converted to MATLAB.
 #    11 Jan 2008: MATLAB version converted to Python.
 
-    def __init__(self, b, A, **kwargs):
+    def __init__(self, A, **kwargs):
 
-        self.b = b
-        self.n = b.shape[0]
         self.A = A
-        self.x = zeros(self.n)
+        self.x = None
 
         # Read keyword arguments
         self.precon = kwargs.get('precon', None)
         self.shift  = kwargs.get('shift',  0.0)
         self.show   = kwargs.get('show',   True)
         self.check  = kwargs.get('check',  True)
-        self.itnlim = kwargs.get('itnlim', 5*self.n)
-        self.rtol   = kwargs.get('rtol',   1.0e-12)
 
         #  Initialize
         self.first = 'Enter minres.   '
         self.last  = 'Exit  minres.   '
         self.space = ' '
-        self.msg = [' beta2 = 0.  If M = I, b and x are eigenvectors    ',  # -1
-                    ' beta1 = 0.  The exact solution is  x = 0          ',  #  0
-                    ' A solution to Ax = b was found, given rtol        ',  #  1
-                    ' A least-squares solution was found, given rtol    ',  #  2
-                    ' Reasonable accuracy achieved, given eps           ',  #  3
-                    ' x has converged to an eigenvector                 ',  #  4
-                    ' acond has exceeded 0.1/eps                        ',  #  5
-                    ' The iteration limit was reached                   ',  #  6
-                    ' Aname  does not define a symmetric matrix         ',  #  7
-                    ' Mname  does not define a symmetric matrix         ',  #  8
-                    ' Mname  does not define a pos-def preconditioner   ' ] #  9
+        self.msg = [' beta2 = 0.  If M = I, b and x are eigenvectors    ',  #-1
+                    ' beta1 = 0.  The exact solution is  x = 0          ',  # 0
+                    ' A solution to Ax = b was found, given rtol        ',  # 1
+                    ' A least-squares solution was found, given rtol    ',  # 2
+                    ' Reasonable accuracy achieved, given eps           ',  # 3
+                    ' x has converged to an eigenvector                 ',  # 4
+                    ' acond has exceeded 0.1/eps                        ',  # 5
+                    ' The iteration limit was reached                   ',  # 6
+                    ' Aname  does not define a symmetric matrix         ',  # 7
+                    ' Mname  does not define a symmetric matrix         ',  # 8
+                    ' Mname  does not define a pos-def preconditioner   ' ] # 9
  
-        if self.show:
-            print self.space
-            print self.first + 'Solution of symmetric Ax = b'
-            print 'n      =  %3d     precon =  %4s           shift  =  %23.14e'\
-                % (self.n, str(self.precon != None), self.shift)
-            print 'itnlim =  %3d     rtol   =  %11.2e\n' \
-                % (self.itnlim, self.rtol)
-
         #---------------------------------------------------------------------
         # See if A is explicit or an operator
         #---------------------------------------------------------------------
-        self.explicitA = not isinstance(self.A, FunctionType)
+        self.explicitA = hasattr(A,'matvec') #not isinstance(self.A, FunctionType)
 
         if self.explicitA:            # assume Aname is an explicit matrix A.
-            nnzA   = self.A.nnz
-            print 'A is an explicit matrix with %d nonzeros.' % nnzA
+            if hasattr(A,'nnz'):
+                nnzA   = self.A.nnz
+                print 'A is an explicit matrix with %d nonzeros.' % nnzA
+            else:
+                print 'A is an explicit matrix'
         else:
-            print 'The matrix A is an operator.'
+            print 'A is an operator.'
 
         self.eps = self._Epsilon()
 
@@ -144,18 +135,27 @@ class Minres:
         if self.explicitA:
             self.A.matvec(x,y)
         else:
-            A(x,y)
+            self.A(x,y)
         return
 
-    def solve(self):
+    def solve(self, b, **kwargs):
+
+        n = b.shape[0]
+        x = zeros(n)
+
+        itnlim = kwargs.get('itnlim', 5*n)
+        rtol   = kwargs.get('rtol',   1.0e-12)
 
         # Transfer some pointers for readability
-        b = self.b
-        x = self.x
-        n = self.n
         shift = self.shift
-        rtol = self.rtol
         eps = self.eps
+
+        if self.show:
+            print self.space
+            print self.first + 'Solution of symmetric Ax = b'
+            print 'n      =  %3d     precon =  %4s           shift  =  %23.14e'\
+                % (n, str(self.precon != None), self.shift)
+            print 'itnlim =  %3d     rtol   =  %11.2e\n' % (itnlim, rtol)
 
         istop = 0;   itn = 0;     Anorm = 0.0;    Acond = 0.0;
         rnorm = 0.0; ynorm = 0.0; done  = False;
@@ -234,10 +234,10 @@ class Minres:
         # Main iteration loop.
         # --------------------------------------------------------------------
         if not done:                          # k = itn = 1 first time through
-            while itn < self.itnlim:
+            while itn < itnlim:
                 itn    = itn  +  1
 
-                # --------------------------------------------------------------
+                # -------------------------------------------------------------
                 # Obtain quantities for the next Lanczos vector vk+1, k=1,2,...
                 # The general iteration is similar to the case k=1 with v0 = 0:
                 #
@@ -249,7 +249,7 @@ class Minres:
                 #
                 # Again, y = betak P vk,  where  P = C**(-1).
                 # .... more description needed.
-                # --------------------------------------------------------------
+                # -------------------------------------------------------------
                 s = 1.0/beta                # Normalize previous vector (in y).
                 v = s*y                     # v = vk if P = I
 
@@ -346,7 +346,7 @@ class Minres:
                 Acond  = gmax/gmin
 
                 # See if any of the stopping criteria are satisfied.
-                # In rare cases, istop is already -1 from above (Abar = const*I)
+                # In rare cases istop is already -1 from above (Abar = const*I)
 
                 if istop==0:
                     t1 = 1 + test1      # These tests work if rtol < eps
@@ -354,7 +354,7 @@ class Minres:
                     if t2 <= 1: istop = 2
                     if t1 <= 1: istop = 1
       
-                    if itn >= self.itnlim: istop = 6
+                    if itn >= itnlim: istop = 6
                     if Acond >= 0.1/eps: istop = 4
                     if epsx >= beta1: istop = 3
                     # if rnorm <= epsx: istop = 2
@@ -367,7 +367,7 @@ class Minres:
                 prnt   = False
                 if n <= 40: prnt = True
                 if itn <= 10: prnt = True
-                if itn >= self.itnlim-10: prnt = True
+                if itn >= itnlim-10: prnt = True
                 if (itn % 10)==0: prnt = True
                 if qrnorm <= 10*epsx: prnt = True
                 if qrnorm <= 10*epsr: prnt = True
@@ -390,7 +390,7 @@ class Minres:
             print self.space
             last = self.last
             print last+' istop   =  %3g               itn   =%5g' % (istop,itn)
-            print last+' Anorm   =  %12.4e      Acond =  %12.4e' % (Anorm,Acond)
+            print last+' Anorm   =  %12.4e      Acond =  %12.4e' %(Anorm,Acond)
             print last+' rnorm   =  %12.4e      ynorm =  %12.4e' % (rnorm,ynorm)
             print last+' Arnorm  =  %12.4e' % Arnorm
             print last+self.msg[istop+1]

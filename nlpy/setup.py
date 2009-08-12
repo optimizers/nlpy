@@ -10,6 +10,7 @@ def configuration(parent_package='',top_path=None):
     config.add_subpackage('linalg')
     config.add_subpackage('krylov')
     config.add_subpackage('precon')
+    config.add_subpackage('optimize')
     config.add_subpackage('tools')
     #config.add_data_dir('tests')
 
