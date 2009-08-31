@@ -1,9 +1,7 @@
 """
 Class definition for Trust-Region Algorithm
 """
-
-from nlpy.krylov import ppcg
-from nlpy.krylov import pygltr
+from nlpy.krylov.ppcg import ProjectedCG
 import numpy
 from math import sqrt
 
@@ -65,7 +63,7 @@ class TrustRegionFramework:
         """
         Update the trust-region radius. The rule implemented by this method is:
 
-          Delta = gamma1 * stepNorm          if ared/pred <  eta1
+          Delta = gamma1 * stepNorm       if ared/pred <  eta1
           Delta = gamma2 * Delta          if ared/pred >= eta2
           Delta unchanged otherwise,
 
@@ -82,6 +80,7 @@ class TrustRegionFramework:
         self.Delta = self.Delta0
 
 
+
 class TrustRegionSolver:
 
     def __init__( self, g, **kwargs ):
@@ -90,6 +89,7 @@ class TrustRegionSolver:
     def Solve( self ):
         # Must override
         return None
+
 
 class TrustRegionCG( TrustRegionSolver ):
 
@@ -100,7 +100,7 @@ class TrustRegionCG( TrustRegionSolver ):
         See module ppcg for more information.
         """
         TrustRegionSolver.__init__(self, g, **kwargs)
-        self.cgSolver = ppcg.Ppcg(g, **kwargs)
+        self.cgSolver = ProjectedCG(g, **kwargs)
         self.niter = 0
         self.stepNorm = 0.0
         self.step = None
@@ -130,36 +130,45 @@ class TrustRegionCG( TrustRegionSolver ):
         self.m = m
         return
 
-class TrustRegionGLTR( TrustRegionSolver ):
 
-    def __init__( self, g, **kwargs ):
-        """
-        Instantiate a trust-region subproblem solver based on the Generalized
-        Lanczos iterative method of Gould, Lucidi, Roma and Toint.
-        See module pygltr for more information.
-        """
-        TrustRegionSolver.__init__(self, g, **kwargs)
-        self.gltrSolver = pygltr.PyGltrContext(g, **kwargs)
-        self.niter = 0
-        self.stepNorm = 0.0
-        self.step = None
-        self.hprod = kwargs.get( 'matvec', None )
-        self.H = kwargs.get( 'H', None )
-        if self.hprod is None and self.H is None:
-            raise ValueError, 'Specify one of hprod and H'
-        self.m = None
+# Define GLTR solver only if available
 
-    def Solve( self ):
-        """
-        Solve the trust-region subproblem using the generalized Lanczos method.
-        """
-        if self.hprod is not None:
-            self.gltrSolver.implicit_solve( self.hprod )
-        else:
-            self.gltrSolver.explicit_solve( self.H )
+try:
+    from nlpy.krylov import pygltr
 
-        self.niter = self.gltrSolver.niter
-        self.stepNorm = self.gltrSolver.snorm
-        self.step = self.gltrSolver.step
-        self.m = self.gltrSolver.m
-        return
+    class TrustRegionGLTR( TrustRegionSolver ):
+
+        def __init__( self, g, **kwargs ):
+            """
+            Instantiate a trust-region subproblem solver based on the Generalized
+            Lanczos iterative method of Gould, Lucidi, Roma and Toint.
+            See module pygltr for more information.
+            """
+            TrustRegionSolver.__init__(self, g, **kwargs)
+            self.gltrSolver = pygltr.PyGltrContext(g, **kwargs)
+            self.niter = 0
+            self.stepNorm = 0.0
+            self.step = None
+            self.hprod = kwargs.get( 'matvec', None )
+            self.H = kwargs.get( 'H', None )
+            if self.hprod is None and self.H is None:
+                raise ValueError, 'Specify one of hprod and H'
+            self.m = None
+
+            def Solve( self ):
+                """
+                Solve the trust-region subproblem using the generalized Lanczos
+                method.
+                """
+                if self.hprod is not None:
+                    self.gltrSolver.implicit_solve( self.hprod )
+                else:
+                    self.gltrSolver.explicit_solve( self.H )
+                    
+                    self.niter = self.gltrSolver.niter
+                    self.stepNorm = self.gltrSolver.snorm
+                    self.step = self.gltrSolver.step
+                    self.m = self.gltrSolver.m
+                    return
+except:
+    pass

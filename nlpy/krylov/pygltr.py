@@ -3,24 +3,17 @@
 # Lanczos iteration.
 
 """
-Pygltr: Solution of a trust-region subproblem using
-        preconditioned Lanczos method.
-
-$Id: pygltr.py 88 2008-09-29 04:43:15Z d-orban $
+Solution of a trust-region subproblem using the preconditioned Lanczos method.
 """
 
-import numpy
 from pysparse import spmatrix
+from nlpy.krylov import _pygltr
+import numpy
 import sys
-try:
-    import _pygltr
-except:
-    import nlpy_error
-    nlpy_error.ReportNlpyModuleFatalError( "PyGltr", "GLTR" )
 
 class PyGltrContext:
 
-    def __init__( self, g, **kwargs ):
+    def __init__(self, g, **kwargs):
         """
         Create a new instance of a PyGltrContext object, representing a
         context to solve the quadratic problem
@@ -35,7 +28,7 @@ class PyGltrContext:
 
          g          the gradient vector
          radius     the trust-region radius (default: 1.0)
-         reltol     the relative stopping tolerance (default: sqrt( eps ))
+         reltol     the relative stopping tolerance (default: sqrt(eps))
          abstol     the absolute stopping tolerance (default: 0.0)
          prec       a function solving preconditioning systems.
                     If M is a preconditioner, prec(v) returns a solution
@@ -55,7 +48,7 @@ class PyGltrContext:
 
         Convergence of the iteration takes place as soon as
 
-         Norm( Hd + l Md + g ) <= max( Norm( g ) * reltol, abstol )
+         Norm(Hd + l Md + g) <= max(Norm(g) * reltol, abstol)
 
         where M     is a preconditioner
               l     is an estimate of the Lagrange multipliers
@@ -64,26 +57,26 @@ class PyGltrContext:
         self.n = g.shape[0]
 
         # Process optional parameters
-        self.radius = kwargs.get( 'radius', 1.0 )
-        self.reltol = kwargs.get( 'reltol', -1.0 )
-        self.abstol = kwargs.get( 'abstol', -1.0 )
-        self.prec   = kwargs.get( 'prec', None )
-        self.itmax  = kwargs.get( 'itmax', -1 )
-        self.litmax = kwargs.get( 'litmax', -1 )
+        self.radius = kwargs.get('radius', 1.0)
+        self.reltol = kwargs.get('reltol', -1.0)
+        self.abstol = kwargs.get('abstol', -1.0)
+        self.prec   = kwargs.get('prec', None)
+        self.itmax  = kwargs.get('itmax', -1)
+        self.litmax = kwargs.get('litmax', -1)
         self.unitm  = (self.prec == None)
-        self.ST       = kwargs.get( 'ST', False )
-        self.boundary = kwargs.get( 'boundary', False )
-        self.equality = kwargs.get( 'equality', False )
-        self.fraction = kwargs.get( 'fraction', 1.0 )
+        self.ST       = kwargs.get('ST', False)
+        self.boundary = kwargs.get('boundary', False)
+        self.equality = kwargs.get('equality', False)
+        self.fraction = kwargs.get('fraction', 1.0)
         
         self.debug = False
-        self.step   = numpy.zeros( self.n, 'd' )
-        self.vector = numpy.zeros( self.n, 'd' )
-        self.context = _pygltr.gltr( g, self.step, self.vector,
+        self.step   = numpy.zeros(self.n, 'd')
+        self.vector = numpy.zeros(self.n, 'd')
+        self.context = _pygltr.gltr(g, self.step, self.vector,
                                      self.radius, self.reltol, self.abstol,
                                      self.itmax, self.litmax,
                                      self.unitm, self.ST, self.boundary,
-                                     self.equality, self.fraction )
+                                     self.equality, self.fraction)
 
         # Return values
         self.m     = 0.0     # Final model value
@@ -93,7 +86,7 @@ class PyGltrContext:
         self.nc    = False   # Whether negative curvature was encountered
         self.ierr  = 0       # Return error code
 
-    def explicit_solve( self, H ):
+    def explicit_solve(self, H):
         """
         Solves the quadratic trust-region subproblem whose data was
         specified upon initialization. During the reverse communication
@@ -109,15 +102,15 @@ class PyGltrContext:
             return None
 
         done = False
-        tmp = numpy.empty( self.n, 'd' )
+        tmp = numpy.empty(self.n, 'd')
 
         if self.debug:
-            sys.stderr.write( ' PyGltr.explicit_solve() called with data\n' )
-            sys.stderr.write( '   radius  reltol  abstol  itmax  litmax' )
-            sys.stderr.write( '  unitm  ST  boundary  equality  fraction\n' )
-            sys.stderr.write( '   %-6g  %-6g  %-6g  %-5d  %-6d' % (self.radius, self.reltol, self.abstol, self.itmax, self.litmax ) )
-            sys.stderr.write( '  %-5d  %-2d  %-8d  %-8d  %-8g\n' % (self.unitm, self.ST, self.boundary, self.equality, self.fraction ) )
-            sys.stderr.write( ' ..entering gltr [' )
+            sys.stderr.write(' PyGltr.explicit_solve() called with data\n')
+            sys.stderr.write('   radius  reltol  abstol  itmax  litmax')
+            sys.stderr.write('  unitm  ST  boundary  equality  fraction\n')
+            sys.stderr.write('   %-6g  %-6g  %-6g  %-5d  %-6d' % (self.radius, self.reltol, self.abstol, self.itmax, self.litmax))
+            sys.stderr.write('  %-5d  %-2d  %-8d  %-8d  %-8g\n' % (self.unitm, self.ST, self.boundary, self.equality, self.fraction))
+            sys.stderr.write(' ..entering gltr [')
 
         # Main loop
         while not done:
@@ -129,13 +122,13 @@ class PyGltrContext:
             if ierr == 2 or ierr == 6:
                 # Preconditioning step
                 if self.prec is not None:
-                    tmp = self.prec( self.vector )
-                    self.context.reassign( tmp )
+                    tmp = self.prec(self.vector)
+                    self.context.reassign(tmp)
         
             elif ierr == 3 or ierr == 7:
                 # Form product H * vector and reassign vector to the result
-                H.matvec( self.vector, tmp )
-                self.context.reassign( tmp )
+                H.matvec(self.vector, tmp)
+                self.context.reassign(tmp)
 
             elif -2 <= ierr and ierr <= 0:
                 # Successful return
@@ -147,7 +140,7 @@ class PyGltrContext:
                 # or because the maximum number of iterations was reached.
                 done = True
 
-        if self.debug: sys.stderr.write( ']\n' )
+        if self.debug: sys.stderr.write(']\n')
 
         self.m = m
         self.mult = mult
@@ -157,7 +150,7 @@ class PyGltrContext:
         self.ierr = ierr
         return
 
-    def implicit_solve( self, hessprod ):
+    def implicit_solve(self, hessprod):
         """
         Solves the quadratic trust-region subproblem whose data was
         specified upon initialization. During the reverse communication
@@ -168,7 +161,7 @@ class PyGltrContext:
         For instance, if the problem is from an Ampl model called nlp,
         the hessprod method could be
         
-            lambda v: nlp.hprod( z, v )
+            lambda v: nlp.hprod(z, v)
 
         for some multiplier estimates z.
         """
@@ -176,29 +169,29 @@ class PyGltrContext:
         done = False
 
         if self.debug:
-            sys.stderr.write( ' PyGltr.implicit_solve() called with data\n' )
-            sys.stderr.write( '   radius  reltol  abstol  itmax  litmax' )
-            sys.stderr.write( '  unitm  ST  boundary  equality  fraction\n' )
-            sys.stderr.write( '   %-6g  %-6g  %-6g  %-5d  %-6d' % (self.radius, self.reltol, self.abstol, self.itmax, self.litmax ) )
-            sys.stderr.write( '  %-5d  %-2d  %-8d  %-8d  %-8g\n' % (self.unitm, self.ST, self.boundary, self.equality, self.fraction ) )
-            sys.stderr.write( ' ...entering gltr2 [' )
+            sys.stderr.write(' PyGltr.implicit_solve() called with data\n')
+            sys.stderr.write('   radius  reltol  abstol  itmax  litmax')
+            sys.stderr.write('  unitm  ST  boundary  equality  fraction\n')
+            sys.stderr.write('   %-6g  %-6g  %-6g  %-5d  %-6d' % (self.radius, self.reltol, self.abstol, self.itmax, self.litmax))
+            sys.stderr.write('  %-5d  %-2d  %-8d  %-8d  %-8g\n' % (self.unitm, self.ST, self.boundary, self.equality, self.fraction))
+            sys.stderr.write(' ...entering gltr2 [')
 
         # Main loop
         while not done:
-            (m, mult, snorm, niter, nc, ierr ) = self.context.solve(self.step, self.vector)
+            (m, mult, snorm, niter, nc, ierr) = self.context.solve(self.step, self.vector)
 
             # The case ierr == 5 is treated at C level. We only treat the others
             if ierr == 2 or ierr == 6:
                 # Preconditioning step
                 if self.prec is not None:
-                    tmp = self.prec( self.vector )
-                    self.context.reassign( tmp )
+                    tmp = self.prec(self.vector)
+                    self.context.reassign(tmp)
         
             elif ierr == 3 or ierr == 7:
                 # Form product vector = H * vector
-                tmp = hessprod( self.vector )
+                tmp = hessprod(self.vector)
                 # Reassign vector to the result
-                self.context.reassign( tmp )
+                self.context.reassign(tmp)
 
             elif -2 <= ierr and ierr <= 0:
                 # Successful return
@@ -210,7 +203,7 @@ class PyGltrContext:
                 # or because the maximum number of iterations was reached.
                 done = True
 
-        if self.debug: sys.stderr.write( ' ierr = %d ]\n' % ierr )
+        if self.debug: sys.stderr.write(' ierr = %d ]\n' % ierr)
 
         self.m = m
         self.mult = mult

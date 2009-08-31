@@ -7,9 +7,6 @@
  The Python version of the celebrated  F90/95 solver
  D. Orban                        Montreal Sept. 2003
 """
-from nlpy import amplpy
-from nlpy.optimize.tr import trustregion
-from nlpy.optimize.solvers import lbfgs    # For preconditioning
 from nlpy.tools import norms
 from nlpy.tools.timing import cputime
 
@@ -188,7 +185,7 @@ class TrunkFramework:
                 else:
                     self.TR.UpdateRadius(rho, snorm)
 
-            self.radii.append(TR.Delta)
+            self.radii.append(self.TR.Delta)
             self.UpdatePrecon()
             self.iter += 1
             self.alpha = 1.0     # For the next iteration
@@ -204,6 +201,8 @@ class TrunkLbfgsFramework(TrunkFramework):
     and maintained along the iterations. See class TrunkFramework for more
     information.
     """
+
+    from nlpy.optimize.solvers import lbfgs    # For preconditioning
     
     def __init__(self, nlp, TR, TrSolver, **kwargs):
     
@@ -232,6 +231,10 @@ class TrunkLbfgsFramework(TrunkFramework):
 
 if __name__ == '__main__':
 
+    from nlpy.model import amplpy
+    from nlpy.optimize.tr.trustregion import TrustRegionFramework as TR
+    from nlpy.optimize.tr.trustregion import TrustRegionCG as TRSolver
+
     if len(sys.argv) < 2:
         sys.stderr.write('Please specify model name\n')
         sys.exit(-1)
@@ -241,29 +244,19 @@ if __name__ == '__main__':
 
     showbanner = True
     t = cputime()
-    ProblemName = sys.argv[1:]
+    ProblemName = sys.argv[1]
     nlp = amplpy.AmplModel(ProblemName)                       # Create a model
 
     if nlp.m != 0:                             # Check for unconstrained problem
         sys.stderr.write('Problem has general constraints\n')
         sys.exit(-1)
 
-    TR = trustregion.TrustRegionFramework(Delta=1.0,
-                                          eta1=0.05,
-                                          eta2=0.9,
-                                          gamma1=0.25,
-                                          gamma2=2.5)
+    tr = TR(Delta=1.0, eta1=0.05, eta2=0.9, gamma1=0.25, gamma2=2.5)
 
     # When instantiating TrunkFramework of TrunkLbfgsFramework,
     # we select a trust-region subproblem solver of our choice.
-    #TRNK = TrunkLbfgsFramework(nlp,
-    TRNK = TrunkFramework(nlp,
-                          TR,
-                          #trustregion.TrustRegionGLTR,
-                          trustregion.TrustRegionCG,
-                          silent = False,
-                          ny = True,
-                          inexact = True)
+    solver = TrunkFramework  # or TrunkLbfgsFramework
+    TRNK = solver(nlp, tr, TRSolver, silent=False, ny=True, inexact=True)
     TRNK.TR.Delta = 0.1 * TRNK.gnorm         # Reset initial trust-region radius
     t_setup = cputime() - t                  # Setup time
 
@@ -271,7 +264,8 @@ if __name__ == '__main__':
         print
         print '------------------------------------------'
         print 'Trunk: Solving problem %-s with parameters' % ProblemName
-        print 'eta1 = %-g  eta2 = %-g  gamma1 = %-g  gamma2 = %-g Delta0 = %-g' % (TR.eta1, TR.eta2, TR.gamma1, TR.gamma2, TR.Delta)
+        hdr = 'eta1 = %-g  eta2 = %-g  gamma1 = %-g  gamma2 = %-g Delta0 = %-g'
+        print hdr % (tr.eta1, tr.eta2, tr.gamma1, tr.gamma2, tr.Delta)
         print '------------------------------------------'
         print
 
