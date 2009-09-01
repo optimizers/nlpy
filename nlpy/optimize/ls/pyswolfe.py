@@ -1,6 +1,5 @@
 """
-PySWolfe: The More and Thuente linesearch guaranteeing
-satisfaction of the strong Wolfe conditions.
+Linesearch methods guaranteeing satisfaction of the strong Wolfe conditions.
 """
 
 import numpy

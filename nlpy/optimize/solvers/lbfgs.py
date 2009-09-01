@@ -141,7 +141,7 @@ class LbfgsFramework:
         self.nresets = 0
         self.converged = False
         
-        self.lbfgsupdate = LbfgsUpdate(self.nlp.n, **kwargs)
+        self.lbfgs = InverseLbfgs(self.nlp.n, **kwargs)
 
         self.x = kwargs.get('x0', self.nlp.x0)
         self.f = self.nlp.obj(self.x)
@@ -168,7 +168,7 @@ class LbfgsFramework:
                 print '%-5d  %-12g  %-12g' % (self.iter, self.f, self.gnorm)
 
             # Obtain search direction
-            d = self.lbfgsupdate.matvec(self.iter, -self.g)
+            d = self.lbfgs.matvec(self.iter, -self.g)
 
             # Prepare for modified More-Thuente linesearch
             if self.iter == 0:
@@ -176,12 +176,12 @@ class LbfgsFramework:
             else:
                 stp0 = 1.0
             SWLS = StrongWolfeLineSearch(self.f,
-                                          self.x,
-                                          self.g,
-                                          d,
-                                          lambda z: self.nlp.obj(z),
-                                          lambda z: self.nlp.grad(z),
-                                          stp = stp0)
+                                         self.x,
+                                         self.g,
+                                         d,
+                                         lambda z: self.nlp.obj(z),
+                                         lambda z: self.nlp.grad(z),
+                                         stp = stp0)
             # Perform linesearch
             SWLS.search()
 
@@ -197,7 +197,7 @@ class LbfgsFramework:
             stoptol = self.nlp.stop_d * max(1.0, norms.norm2(self.x))
 
             # Update inverse Hessian approximation using the most recent pair
-            self.lbfgsupdate.store(self.iter, s, y)
+            self.lbfgs.store(self.iter, s, y)
             self.iter += 1
 
         self.tsolve = cputime() - tstart

@@ -1,0 +1,64 @@
+
+This directory contains software for the
+MINPACK-2 line search subroutine.
+The compressed tar file csrch.tar.gz contains 
+the software and a test program.
+
+*****************************************************************
+
+           COPYRIGHT NOTIFICATION
+
+This program discloses material protectable under copyright laws of
+the United States. Permission to copy and modify this software and its
+documentation for internal research use is hereby granted, provided
+that this notice is retained thereon and on all copies or modifications. 
+The University of Chicago makes no representations as to the suitability 
+and operability of this software for any purpose. 
+It is provided "as is" without express or implied warranty.
+
+Use of this software for commercial purposes is expressly prohibited
+without contacting 
+
+   Jorge J. More'
+   Mathematics and Computer Science Division
+   Argonne National Laboratory
+   9700 S. Cass Ave.
+   Argonne, Illinois 60439-4844
+   e-mail: more@mcs.anl.gov
+
+Argonne National Laboratory with facilities in the states of
+Illinois and Idaho, is owned by The United States Government, and
+operated by the University of Chicago under provision of a contract
+with the Department of Energy.
+
+*****************************************************************
+
+           INSTRUCTIONS
+
+1. Create the csrch directory structure with
+       gzip -d csrch.tar.gz
+       tar -xvf csrch.f
+   This produces the directory csrch and the
+   subdirectory source.
+
+2. Change directories to csrch and install csrch with 
+       make install
+   This creates libraries in each of the subdirectories
+
+3. Create the executable csrch.x with 
+       make csrch 
+   and run the sample problems by executing csrch
+
+4. Compare the output in csrch.out with the output in csrch.sun4
+
+*****************************************************************
+
+           ADDITIONAL INFORMATION
+
+J. J. More' and D. J. Thuente,
+Line search algorithms with guaranteed sufficient decrease,
+ACM Transactions on  Mathematical Software, 20, (1994), 286--307
+
+*****************************************************************
+
+Last modification: June 26, 1996

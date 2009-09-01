@@ -2,6 +2,7 @@
 from nlpy.model import amplpy
 from nlpy.optimize.solvers.lbfgs import LbfgsFramework
 from nlpy.tools.timing import cputime
+import numpy
 import sys
 
 if len(sys.argv) < 2:
@@ -28,6 +29,8 @@ lbfgs.solve()
 
 # Output final statistics
 print
+print 'Final variables:', lbfgs.x
+print
 print '-------------------------------'
 print 'LBFGS: End of Execution'
 print '  Problem                     : %-s' % ProblemName
@@ -37,7 +40,7 @@ print '  Converged to optimality     : %-s' % repr(lbfgs.converged)
 print '  Initial/Final Objective     : %-g/%-g' % (lbfgs.f0, lbfgs.f)
 print '  Initial/Final Gradient Norm : %-g/%-g' % (lbfgs.g0,lbfgs.gnorm)
 print '  Number of iterations        : %-d' % lbfgs.iter
-print '  Scaling                     : %-s' % repr(lbfgs.lbfgsupdate.scaling)
+print '  Scaling                     : %-s' % repr(lbfgs.lbfgs.scaling)
 print '  Setup/Solve time            : %-gs/%-gs' % (t_setup,lbfgs.tsolve)
 print '  Total time                  : %-gs' % (t_setup + lbfgs.tsolve)
 print '-------------------------------'

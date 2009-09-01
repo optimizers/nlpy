@@ -13,8 +13,30 @@ def configuration(parent_package='',top_path=None):
     if not blas_info:
         print 'No blas info found'
 
+    libcsrch_src = ['dcsrch.f', 'dcstep.f']
+    pycsrch_src = ['_pycsrch.c']
+
     libmcsrch_src = ['mcsrch.f', 'mcstep.f']
     pymcsrch_src = ['_pymcsrch.c']
+
+    config.add_library(
+        name='csrch',
+        sources=[os.path.join('src',name) for name in libcsrch_src],
+        libraries=[],
+        library_dirs=[],
+        include_dirs=['src'],
+        extra_info=blas_info,
+        )
+
+    config.add_extension(
+        name='_pycsrch',
+        sources=[os.path.join('src',name) for name in pycsrch_src],
+        depends=[],
+        libraries=['csrch'],
+        library_dirs=[],
+        include_dirs=['src'],
+        extra_info=blas_info,
+        )
 
     config.add_library(
         name='mcsrch',
