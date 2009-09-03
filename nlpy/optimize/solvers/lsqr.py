@@ -70,7 +70,7 @@ class LSQRFramework:
         self.r1norm = 0.; self.r2norm = 0.
         return
 
-    def solve(self, b, itnlim=0, damp=0.0,
+    def solve(self, rhs, itnlim=0, damp=0.0,
               atol=1.0e-6, btol=1.0e-7, conlim=1.0e+8,
               show=False, wantvar=False):
         """
@@ -80,7 +80,7 @@ class LSQRFramework:
 
         :parameters:
 
-        :b:      right-hand side vector.
+        :rhs:    right-hand side vector.
         :itnlim: is an explicit limit on iterations (for safety).
         :damp:   damping/regularization parameter.
 
@@ -151,15 +151,15 @@ class LSQRFramework:
 
         # Set up the first vectors u and v for the bidiagonalization.
         # These satisfy  beta*u = b,  alfa*v = A'u.
-    
-        u = b[:m];
+
+        u = rhs[:m].copy()
         alfa = 0.; beta = norm(u)
         if beta > 0:
-            u = (1.0/beta) * u; v = self.aprod(2, m, n, u)
+            u /= beta; v = self.aprod(2, m, n, u)
             alfa = norm(v);
 
         if alfa > 0:
-            v = (1.0/alfa) * v; w = v.copy();
+            v /= alfa; w = v.copy();
 
         arnorm = alfa * beta;
         if arnorm == 0.0:
@@ -194,14 +194,14 @@ class LSQRFramework:
             #              beta*u  =  a*v   -  alfa*u,
             #              alfa*v  =  A'*u  -  beta*v.
 
-            u    = aprod(1, m, n, v)  -  alfa*u
+            u    = aprod(1, m, n, v)  -  alfa * u
             beta = norm(u);
             if beta > 0:
-                u     = (1.0/beta) * u
+                u    /= beta
                 anorm = normof4(anorm, alfa, beta, damp)
-                v     = aprod(2, m, n, u)  -  beta*v
+                v     = aprod(2, m, n, u)  -  beta * v
                 alfa  = norm(v)
-                if alfa > 0:  v = (1.0/alfa) * v
+                if alfa > 0:  v /= alfa
         
             # Use a plane rotation to eliminate the damping parameter.
             # This alters the diagonal (rhobar) of the lower-bidiagonal matrix.
@@ -230,10 +230,10 @@ class LSQRFramework:
             t2      = - theta/rho;
             dk      =   (1.0/rho)*w;
             
-            x       = x      +  t1*w
-            w       = v      +  t2*w
+            x      += t1*w
+            w      *= t2; w += v
             ddnorm  = ddnorm +  norm(dk)**2
-            if wantvar: var = var  +  dk*dk
+            if wantvar: var += dk*dk
             
             # Use a plane rotation on the right to eliminate the
             # super-diagonal element (theta) of the upper-bidiagonal matrix.
@@ -248,7 +248,7 @@ class LSQRFramework:
             cs2     =   gambar / gamma
             sn2     =   theta  / gamma
             z       =   rhs    / gamma
-            xxnorm  =   xxnorm  +  z**2
+            xxnorm +=   z*z
             
             # Test for convergence.
             # First, estimate the condition of the matrix  Abar,

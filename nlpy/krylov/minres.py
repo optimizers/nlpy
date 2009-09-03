@@ -118,7 +118,7 @@ class Minres:
         self.eps = self._Epsilon()
 
 
-    def _Epsilon( self ):
+    def _Epsilon(self):
         """
         Return approximate value of machine epsilon
         """
@@ -165,7 +165,7 @@ class Minres:
         # y  =  beta1 P' v1,  where  P = C**(-1).
         # v is really P' v1.
         #------------------------------------------------------------------
-        r1 = b.copy()
+        r1 = b
         if self.precon is not None:
             y = self.precon(b)
         else:
@@ -179,12 +179,12 @@ class Minres:
             self.show = True
             done = True
 
-        if beta1 == 0:
+        if beta1 == 0.0:
             self.show = True
             done = True
 
         if beta1 > 0:
-            beta1 = sqrt( beta1 );       # Normalize y to get v1 later.
+            beta1 = sqrt(beta1);       # Normalize y to get v1 later.
 
         # See if A is symmetric.
         if self.check:
@@ -194,8 +194,10 @@ class Minres:
             self.applyA(w,r2)
             s    = dot(w,w)
             t    = dot(y,r2)
+            print 's = ', s, ', t = ', t
             z    = abs(s - t)
             epsa = (s + eps) * eps**(1.0/3)
+            print 'z = ', z, ', epsa = ', epsa
             if z > epsa:
                 istop = 6
                 done  = True
@@ -217,7 +219,7 @@ class Minres:
         # Initialize other quantities.
         # ------------------------------------------------------------------
         oldb   = 0.0;     beta   = beta1;   dbar   = 0.0;     epsln  = 0.0
-        qrnorm = beta1;   phibar = beta1;   rhs1   = beta1
+        qrnorm = beta1;   phibar = beta1;   rhs1   = beta1;   Arnorm = 0.0
         rhs2   = 0.0;     tnorm2 = 0.0;     ynorm2 = 0.0
         cs     = -1.0;    sn     = 0.0
         w  = zeros(n)
@@ -233,6 +235,7 @@ class Minres:
         # ---------------------------------------------------------------------
         # Main iteration loop.
         # --------------------------------------------------------------------
+        print 'done = ', done
         if not done:                          # k = itn = 1 first time through
             while itn < itnlim:
                 itn    = itn  +  1
@@ -269,7 +272,7 @@ class Minres:
                 if beta < 0:
                     istop = 6
                     break
-                beta   = sqrt( beta )
+                beta   = sqrt(beta)
                 tnorm2 = tnorm2 + alfa**2 + oldb**2 + beta**2
 
                 if itn==1:                  # Initialize a few things.
@@ -277,7 +280,7 @@ class Minres:
                         istop = -1            # Terminate later.
 
                     # tnorm2 = alfa**2  ??
-                    gmax   = abs( alfa )      # alpha1
+                    gmax   = abs(alfa)      # alpha1
                     gmin   = gmax             # alpha1
 
                 # Apply previous rotation Qk-1 to get
@@ -324,8 +327,8 @@ class Minres:
 
                 # Estimate various norms and test for convergence.
 
-                Anorm  = sqrt( tnorm2 )
-                ynorm  = sqrt( ynorm2 )
+                Anorm  = sqrt(tnorm2)
+                ynorm  = sqrt(ynorm2)
                 epsa   = Anorm * eps
                 epsx   = Anorm * ynorm * eps
                 epsr   = Anorm * ynorm * rtol

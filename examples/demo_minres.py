@@ -9,7 +9,7 @@ import numpy
 
 def diagA(n):
     "Creates A = diag(1,2,...,n) and b = [1, 1, ..., 1]"
-    A = spmatrix.ll_mat_sym(n, n)
+    A = spmatrix.ll_mat_sym(n,n)
     for i in range(n): A[i,i] = i+1
     b = numpy.ones(n)
     return (A,b)
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     #test1(A, b)               # Solves Ax = b
     #test1(A, b, s=2.0)        # Solves (A-2I)x = b
 
-    goodM = DiagonalPreconditioner( 1+numpy.arange(n) )
+    goodM = DiagonalPreconditioner(1+numpy.arange(n))
     for i in range(1,4): goodM[i] = 1.0
 
     test1(A, b, M=goodM.precon)      # Solves Ax = b with good preconditioner M

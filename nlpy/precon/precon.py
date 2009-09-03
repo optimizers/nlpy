@@ -42,7 +42,7 @@ class DiagonalPreconditioner(GenericPreconditioner):
             self.Dinv = 1.0/np.maximum(np.abs(A.takeDiagonal()), self.threshold)
 
     def __setitem__(self, key, value):
-        self.Dinv[key] = 1.0/value
+        self.Dinv[key] = 1.0/max(abs(value), self.threshold)
         return
 
     def __getitem__(self, key):
@@ -54,7 +54,7 @@ class DiagonalPreconditioner(GenericPreconditioner):
 
     def __repr__(self):
         return repr(self.Dinv)
-            
+
     def precon(self, x):
         return self.Dinv * x
 

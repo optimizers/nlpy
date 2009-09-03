@@ -16,58 +16,60 @@ if len(sys.argv) < 2:
 numpy.set_printoptions(precision=3, linewidth=80, threshold=10, edgeitems=3)
 
 showbanner = True
-t = cputime()
-ProblemName = sys.argv[1]
-nlp = amplpy.AmplModel(ProblemName)             # Create a model
 
-if nlp.nbounds > 0 or nlp.m > 0:                # Check for unconstrained problem
-    sys.stderr.write('Problem has bounds or general constraints\n')
-    nlp.close()
-    sys.exit(-1)
+for ProblemName in sys.argv[1:]:
+    t = cputime()
+    nlp = amplpy.AmplModel(ProblemName)         # Create a model
 
-tr = TR(Delta=1.0, eta1=0.05, eta2=0.9, gamma1=0.25, gamma2=2.5)
+    if nlp.nbounds > 0 or nlp.m > 0:         # Check for unconstrained problem
+        sys.stderr.write('%s has %d bounds and %d general constraints\n' % (ProblemName, nlp.nbounds, nlp.m))
+        nlp.close()
+        continue
 
-# When instantiating TrunkFramework of TrunkLbfgsFramework,
-# we select a trust-region subproblem solver of our choice.
-TRNK = solver(nlp, tr, TRSolver, silent=False, ny=True, inexact=True)
-TRNK.TR.Delta = 0.1 * TRNK.gnorm         # Reset initial trust-region radius
-t_setup = cputime() - t                  # Setup time
+    tr = TR(Delta=1.0, eta1=0.05, eta2=0.9, gamma1=0.25, gamma2=2.5)
 
-if showbanner:
-    print
-    print '------------------------------------------'
-    print 'Trunk: Solving problem %-s with parameters' % ProblemName
-    hdr = 'eta1 = %-g  eta2 = %-g  gamma1 = %-g  gamma2 = %-g Delta0 = %-g'
-    print hdr % (tr.eta1, tr.eta2, tr.gamma1, tr.gamma2, tr.Delta)
-    print '------------------------------------------'
-    print
+    # When instantiating TrunkFramework of TrunkLbfgsFramework,
+    # we select a trust-region subproblem solver of our choice.
+    TRNK = solver(nlp, tr, TRSolver, silent=False, ny=True, inexact=True)
+    TRNK.TR.Delta = 0.1 * TRNK.gnorm         # Reset initial trust-region radius
+    t_setup = cputime() - t                  # Setup time
 
-TRNK.Solve()
+    if showbanner:
+        print
+        print '------------------------------------------'
+        print 'Trunk: Solving problem %-s with parameters' % ProblemName
+        hdr = 'eta1 = %-g  eta2 = %-g  gamma1 = %-g  gamma2 = %-g Delta0 = %-g'
+        print hdr % (tr.eta1, tr.eta2, tr.gamma1, tr.gamma2, tr.Delta)
+        print '------------------------------------------'
+        print
+
+    TRNK.Solve()
     
-# Output final statistics
-print
-print 'Final variables:', TRNK.x
-print
-print '-------------------------------'
-print 'Trunk: End of Execution'
-print '  Problem                     : %-s' % ProblemName
-print '  Dimension                   : %-d' % nlp.n
-print '  Initial/Final Objective     : %-g/%-g' % (TRNK.f0, TRNK.f)
-print '  Initial/Final Gradient Norm : %-g/%-g' % (TRNK.g0, TRNK.gnorm)
-print '  Number of iterations        : %-d' % TRNK.iter
-print '  Number of function evals    : %-d' % TRNK.nlp.feval
-print '  Number of gradient evals    : %-d' % TRNK.nlp.geval
-print '  Number of Hessian  evals    : %-d' % TRNK.nlp.Heval
-print '  Number of matvec products   : %-d' % TRNK.nlp.Hprod
-print '  Total/Average Lanczos iter  : %-d/%-g' % (TRNK.cgiter, (float(TRNK.cgiter)/TRNK.iter))
-print '  Setup/Solve time            : %-gs/%-gs' % (t_setup, TRNK.tsolve)
-print '  Total time                  : %-gs' % (t_setup + TRNK.tsolve)
-print '-------------------------------'
+    # Output final statistics
+    print
+    print 'Final variables:', TRNK.x
+    print
+    print '-------------------------------'
+    print 'Trunk: End of Execution'
+    print '  Problem                     : %-s' % ProblemName
+    print '  Dimension                   : %-d' % nlp.n
+    print '  Initial/Final Objective     : %-g/%-g' % (TRNK.f0, TRNK.f)
+    print '  Initial/Final Gradient Norm : %-g/%-g' % (TRNK.g0, TRNK.gnorm)
+    print '  Number of iterations        : %-d' % TRNK.iter
+    print '  Number of function evals    : %-d' % TRNK.nlp.feval
+    print '  Number of gradient evals    : %-d' % TRNK.nlp.geval
+    print '  Number of Hessian  evals    : %-d' % TRNK.nlp.Heval
+    print '  Number of matvec products   : %-d' % TRNK.nlp.Hprod
+    print '  Total/Average Lanczos iter  : %-d/%-g' % (TRNK.cgiter, (float(TRNK.cgiter)/TRNK.iter))
+    print '  Setup/Solve time            : %-gs/%-gs' % (t_setup, TRNK.tsolve)
+    print '  Total time                  : %-gs' % (t_setup + TRNK.tsolve)
+    print '-------------------------------'
 
-#nlp.writesol(TRNK.x, nlp.pi0, 'And the winner is')    # Output "solution"
-nlp.close()                                    # Close connection with model
+    #nlp.writesol(TRNK.x, nlp.pi0, 'And the winner is')    # Output "solution"
+    nlp.close()                                    # Close connection with model
 
-# Say we want to plot the evolution of the trust-region radius
+
+# Plot the evolution of the trust-region radius on the last problem
 try:
     import pylab
 except:
