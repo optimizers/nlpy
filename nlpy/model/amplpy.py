@@ -513,7 +513,7 @@ class AmplModel:
                 print '%-15.9f ' % x[i]
             return None #c = self.Infinity * np.ones(self.m)
         self.ceval += self.m
-        return c[self.permC]
+        return c #[self.permC]
 
     def consPos(self, x):
         """
@@ -634,7 +634,7 @@ class AmplModel:
         else:
             self.Jeval += 1
             J = _amplpy.eval_J(x, self.mformat)
-        return J[self.permC,:]
+        return J #[self.permC,:]
 
     def jacPos(self, x):
         r"""
@@ -678,7 +678,7 @@ class AmplModel:
         J = sp(nrow=m + nrangeC, ncol=n, sizeHint=self.nnzj+10*nrangeC)
 
         # Insert contribution of general constraints
-        J[:m,:n] = self.jac(x)[self.permC,:]
+        J[:m,:n] = self.jac(x) #[self.permC,:]
         J[upperC,:n] *= -1                 # Flip sign of 'upper' gradients
         J[m:,:n] = -J[rangeC,:n]           # Append 'upper' side of range const.
         return J

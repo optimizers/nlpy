@@ -154,8 +154,12 @@ class SlackFramework( AmplModel ):
         s_low = x[self.original_m + self.nrangeC:mslow]
         s_up  = x[mslow:msup]
 
+        print 's_low = ', s_low
+        print 's_up = ', s_up
+
         c = numpy.empty(m)
         c[:self.original_m] = AmplModel.cons(self, x[:self.original_n])
+        print 'original constraints: ', c[:self.original_m]
         c[self.original_m:self.original_m + self.nrangeC] = c[rangeC]
 
         c[equalC] -= self.Lcon[equalC]
@@ -179,6 +183,9 @@ class SlackFramework( AmplModel ):
         ntlow = nt + self.n_var_low
         t_low = x[nt:ntlow]
         t_up  = x[ntlow:]
+
+        print 't_low = ', t_low
+        print 't_up = ', t_up
 
         b = c[self.original_m+self.nrangeC:]
 
