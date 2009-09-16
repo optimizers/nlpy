@@ -47,41 +47,84 @@ class SlackFramework( AmplModel ):
         the slack variables. The other constraints are (typically) nonlinear
         equalities.
 
-        This framework does not initialize the slack variables
-        sL, sU, tL, and tU by default since for different purposes, they will be
-        initialized differently. However, calling self.InitializeSlacks() will
-        initialize them to zero or a value supplied as argument. Users may want
-        to override this method.
+        The order of variables in the transformed problem is as follows:
+
+        [  x  |  sL  |  sU  |  tL  |  tU  ]
+
+        where:
+
+        - sL = [ sLL | sLR ], sLL being the slack variables corresponding to
+          general constraints with a lower bound only, and sLR being the slack
+          variables corresponding to the 'lower' side of range constraints.
+
+        - sU = [ sUU | sUR ], sUU being the slack variables corresponding to
+          general constraints with an upper bound only, and sUR being the slack
+          variables corresponding to the 'upper' side of range constraints.
+
+        - tL = [ tLL | tLR ], tLL being the slack variables corresponding to
+          variables with a lower bound only, and tLR being the slack variables
+          corresponding to the 'lower' side of two-sided bounds.
+
+        - tU = [ tUU | tUR ], tUU being the slack variables corresponding to
+          variables with an upper bound only, and tLR being the slack variables
+          corresponding to the 'upper' side of two-sided bounds.
+
+        This framework initializes the slack variables sL, sU, tL, and tU to
+        zero by default.
+
+        Note that the slack framework does not update all members of AmplModel,
+        such as the index set of constraints with an upper bound, etc., but
+        rather performs the evaluations of the constraints for the updated
+        model implicitly.
         """
         AmplModel.__init__(self, model, **kwargs)
+
+        # Save number of variables and constraints prior to transformation
+        self.original_n = self.n
+        self.original_m = self.m
+        self.original_nbounds = self.nbounds
         
-        # Define slacks for inequality constraints with a lower bound
-        self.n_con_low = self.nlowerC + self.nrangeC
-        self.s_low = numpy.empty(self.n_con_low)
+        # Number of slacks for inequality constraints with a lower bound
+        n_con_low = self.nlowerC + self.nrangeC ; self.n_con_low = n_con_low
 
-        # Define slacks for inequality constraints with an upper bound
-        self.n_con_up = self.nupperC + self.nrangeC
-        self.s_up = numpy.empty(self.n_con_up)
+        # Number of slacks for inequality constraints with an upper bound
+        n_con_up = self.nupperC + self.nrangeC ; self.n_con_up = n_con_up
 
-        # Define slacks for variables with a lower bound
-        self.n_var_low = self.nlowerB + self.nrangeB
-        self.t_low = numpy.empty(self.n_var_low)
+        # Number of slacks for variables with a lower bound
+        n_var_low = self.nlowerB + self.nrangeB ; self.n_var_low = n_var_low
 
-        # Define slacks for variables with an upper bound
-        self.n_var_up = self.nupperB + self.nrangeB
-        self.t_up = numpy.empty(self.n_var_up)
+        # Number of slacks for variables with an upper bound
+        n_var_up = self.nupperB + self.nrangeB ; self.n_var_up = n_var_up
+
+        # Update effective number of variables and constraints
+        self.n  = self.original_n + n_con_low + n_con_up + n_var_low + n_var_up
+        self.m  = self.original_m + self.nrangeC + n_var_low + n_var_up
+
+        # Redefine primal and dual initial guesses
+        self.original_x0 = self.x0[:]
+        self.x0 = numpy.zeros(self.n)
+        self.x0[:self.original_n] = self.original_x0[:]
+
+        self.original_pi0 = self.pi0[:]
+        self.pi0 = numpy.zeros(self.m)
+        self.pi0[:self.original_m] = self.original_pi0[:]
+
+        return
 
     def InitializeSlacks(self, val=0.0, **kwargs):
         """
-        Initialize slacks to the value val. This may need to be overridden.
+        Initialize all slack variables to given value. This method may need to
+        be overridden.
         """
-        self.s_low[:] = val
-        self.s_up[:]  = val
-        self.t_low[:] = val
-        self.t_up[:]  = val
-        return None
+        self.x0[self.original_n:] = val
+        return
 
-    def Cons(self, x):
+
+    def obj(self, x):
+        return AmplModel.obj(self, x[:self.original_n])
+
+
+    def cons(self, x):
         """
         Evaluate the vector of general constraints for the modified problem.
         Constraints are stored in the order in which they appear in the
@@ -91,17 +134,29 @@ class SlackFramework( AmplModel ):
         in position m + k, where k is the position of index i in
         rangeC, i.e., k=0 iff constraint i is the range constraint that
         appears first, k=1 iff it appears second, etc.
+
+        Constraints appear in the following order:
+
+        [ c  ]   general constraints in origninal order
+        [ cR ]   'upper' side of range constraints
+        [ b  ]   linear constraints corresponding to bounds on original problem
+        [ bR ]   linear constraints corresponding to 'upper' side of two-sided
+                 bounds
         """
         m = self.m
         equalC = self.equalC
         lowerC = self.lowerC ; nlowerC = self.nlowerC
         upperC = self.upperC ; nupperC = self.nupperC
         rangeC = self.rangeC ; nrangeC = self.nrangeC
-        s_low  = self.s_low  ; s_up    = self.s_up
 
-        c = numpy.empty(m + nrangeC)
-        c[:m] = self.cons(x)
-        c[m:] = c[rangeC]
+        mslow = self.original_m + self.nrangeC + self.n_con_low
+        msup  = mslow + self.n_con_up
+        s_low = x[self.original_m + self.nrangeC:mslow]
+        s_up  = x[mslow:msup]
+
+        c = numpy.empty(m)
+        c[:self.original_m] = AmplModel.cons(self, x[:self.original_n])
+        c[self.original_m:self.original_m + self.nrangeC] = c[rangeC]
 
         c[equalC] -= self.Lcon[equalC]
         c[lowerC] -= self.Lcon[lowerC] ; c[lowerC] -= s_low[:nlowerC]
@@ -110,8 +165,27 @@ class SlackFramework( AmplModel ):
         c[upperC] -= s_up[:nupperC]
 
         c[rangeC] -= self.Lcon[rangeC] ; c[rangeC] -= s_low[nlowerC:]
-        c[m:]     -= self.Ucon[rangeC] ; c[m:] *= -1
-        c[m:]     -= s_up[nupperC:]
+
+        c[self.original_m:self.original_m+self.nrangeC] -= self.Ucon[rangeC]
+        c[self.original_m:self.original_m+self.nrangeC] *= -1
+        c[self.original_m:self.original_m+self.nrangeC] -= s_up[nupperC:]
+
+        # Add linear constraints corresponding to bounds on original problem
+        lowerB = self.lowerB ; nlowerB = self.nlowerB ; Lvar = self.Lvar
+        upperB = self.upperB ; nupperB = self.nupperB ; Uvar = self.Uvar
+        rangeB = self.rangeB ; nrangeB = self.nrangeB
+
+        nt = self.original_n + self.n_con_low + self.n_con_up
+        ntlow = nt + self.n_var_low
+        t_low = x[nt:ntlow]
+        t_up  = x[ntlow:]
+
+        b = c[self.original_m+self.nrangeC:]
+
+        b[:nlowerB] = x[lowerB] - Lvar[lowerB] - t_low[:nlowerB]
+        b[nlowerB:nlowerB+nrangeB] = x[rangeB] - Lvar[rangeB] - t_low[nlowerB:]
+        b[nlowerB+nrangeB:nlowerB+nrangeB+nupperB] = Uvar[upperB] - x[upperB] - t_up[:nupperB]
+        b[nlowerB+nrangeB+nupperB:] = Uvar[rangeB] - x[rangeB] - t_up[nupperB:]
 
         return c
 
@@ -123,8 +197,11 @@ class SlackFramework( AmplModel ):
         lowerB = self.lowerB ; nlowerB = self.nlowerB
         upperB = self.upperB ; nupperB = self.nupperB
         rangeB = self.rangeB ; nrangeB = self.nrangeB
+
         n  = self.n
-        t_low  = self.t_low  ; t_up    = self.t_up
+
+        t_low  = x[msup:mtlow]
+        t_up   = x[mtlow:]
 
         b = numpy.empty(n + nrangeB)
         b[:n] = x[:]
@@ -141,7 +218,7 @@ class SlackFramework( AmplModel ):
 
         return b
 
-    def Jac(self, x):
+    def _jac(self, x, lp=False):
         """
         Evaluate the Jacobian matrix of all equality constraints of the
         transformed problem. The gradients of the general constraints appear in
@@ -160,7 +237,7 @@ class SlackFramework( AmplModel ):
 
         The overall Jacobian of the new constraints thus has the form
 
-           n     s   sU    t   tU
+           x     s   sU    t   tU
         +-----+----+----+----+----+
         |  J  | -I |    |    |    |   <-- general constraints (natural order)
         +-----+----+----+----+----+
@@ -173,9 +250,13 @@ class SlackFramework( AmplModel ):
 
         where the signs corresponding to 'upper' constraints and upper bounds
         should be flipped in the (1,1) and (3,1) blocks.
+
+        The positional argument `lp` should be set to `True` only if the problem
+        is known to be a linear program. In this case, the evaluation of the
+        constraint matrix is cheaper and the argument `x` is ignored.
         """
-        n = self.n
-        m = self.m
+        n = self.original_n
+        m = self.original_m
 
         # List() simply allows operations such as 1 + [2,3] -> [3,4]
         lowerC = List(self.lowerC) ; nlowerC = self.nlowerC
@@ -184,36 +265,48 @@ class SlackFramework( AmplModel ):
         lowerB = List(self.lowerB) ; nlowerB = self.nlowerB
         upperB = List(self.upperB) ; nupperB = self.nupperB
         rangeB = List(self.rangeB) ; nrangeB = self.nrangeB
-        nbnds  = nlowerB + nupperB + nrangeB
-        nSlacks = m+nrangeC
+        nbnds  = nlowerB + nupperB + 2*nrangeB
+        nSlacks = nlowerC + nupperC + 2*nrangeC
 
         # Initialize sparse Jacobian
-        nJ = n + m + nrangeC + nbnds + nrangeB
-        mJ =     m + nrangeC + nbnds + nrangeB
         nnzJ = 2 * self.nnzj + m + nrangeC + nbnds + nrangeB  # Overestimate
-        J = sp(nrow=mJ, ncol=nJ, sizeHint=nnzJ)
+        J = sp(nrow=self.m, ncol=self.n, sizeHint=nnzJ)
 
         # Insert contribution of general constraints
-        J[:m,:n] = self.jac(x)
+        if lp:
+            J[:m,:n] = AmplModel.A(self)
+        else:
+            J[:m,:n] = AmplModel.jac(self,x[:n])
         J[upperC,:n] *= -1.0               # Flip sign of 'upper' gradients
-        J[m:nSlacks,:n] = -J[rangeC,:n]    # Append 'upper' side of range const.
+        J[m:m+nrangeC,:n] = -J[rangeC,:n]  # Append 'upper' side of range const.
 
-        # Insert contribution of slacks on the general constraints
+        # Insert contribution of slacks on general constraints
         J.put(-1.0, lowerC, n+lowerC)
         J.put(-1.0, upperC, n+upperC)
         J.put(-1.0, rangeC, n+rangeC)
-        J.put(-1.0, m+rangeC, n+m+rangeC)
+        J.put(-1.0, m+rangeC, n+nlowerC+nupperC+nrangeC+rangeC)
 
         # Insert contribution of bound constraints on the original problem
-        bot  = nSlacks ; J.put( 1.0, range(bot,bot+nlowerB), lowerB)
-        bot += nlowerB ; J.put( 1.0, range(bot,bot+nrangeB), rangeB)
-        bot += nrangeB ; J.put(-1.0, range(bot,bot+nupperB), upperB)
-        bot += nupperB ; J.put(-1.0, range(bot,bot+nrangeB), rangeB)
+        bot  = m+nrangeC ; J.put( 1.0, range(bot,bot+nlowerB), lowerB)
+        bot += nlowerB   ; J.put( 1.0, range(bot,bot+nrangeB), rangeB)
+        bot += nrangeB   ; J.put(-1.0, range(bot,bot+nupperB), upperB)
+        bot += nupperB   ; J.put(-1.0, range(bot,bot+nrangeB), rangeB)
 
         # Insert contribution of slacks on the bound constraints
         bot = m+nrangeC ; J.put(-1.0, range(bot,bot+nlowerB), n+nSlacks+lowerB)
         bot += nlowerB  ; J.put(-1.0, range(bot,bot+nrangeB), n+nSlacks+rangeB)
         bot += nrangeB  ; J.put(-1.0, range(bot,bot+nupperB), n+nSlacks+upperB)
-        bot += nupperB  ; J.put(-1.0, range(bot,bot+nrangeB), n+nSlacks+rangeB)
+        bot += nupperB
+        J.put(-1.0, range(bot,bot+nrangeB), n+nSlacks+nlowerB+nrangeB+nupperB+rangeB)
 
         return J
+
+    def jac(self, x):
+        return self._jac(x, lp=False)
+
+    def A(self):
+        """
+        Return the constraint matrix if the problem is a linear program. See the
+        documentation of `Jac` for more information.
+        """
+        return self._jac(0, lp=True)
