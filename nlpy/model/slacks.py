@@ -12,6 +12,7 @@ import numpy
 from nlpy.model import AmplModel
 from nlpy.tools import List
 from pysparse.pysparseMatrix import PysparseMatrix as sp
+from pysparse import spmatrix
 
 class SlackFramework( AmplModel ):
 
@@ -154,12 +155,8 @@ class SlackFramework( AmplModel ):
         s_low = x[self.original_m + self.nrangeC:mslow]
         s_up  = x[mslow:msup]
 
-        print 's_low = ', s_low
-        print 's_up = ', s_up
-
         c = numpy.empty(m)
         c[:self.original_m] = AmplModel.cons(self, x[:self.original_n])
-        print 'original constraints: ', c[:self.original_m]
         c[self.original_m:self.original_m + self.nrangeC] = c[rangeC]
 
         c[equalC] -= self.Lcon[equalC]
@@ -183,9 +180,6 @@ class SlackFramework( AmplModel ):
         ntlow = nt + self.n_var_low
         t_low = x[nt:ntlow]
         t_up  = x[ntlow:]
-
-        print 't_low = ', t_low
-        print 't_up = ', t_up
 
         b = c[self.original_m+self.nrangeC:]
 
@@ -227,6 +221,82 @@ class SlackFramework( AmplModel ):
 
     def _jac(self, x, lp=False):
         """
+        Helper method to assemble the Jacobian matrix of the constraints of the
+        transformed problems. See the documentation of :method:jac for more
+        information.
+
+        The positional argument `lp` should be set to `True` only if the problem
+        is known to be a linear program. In this case, the evaluation of the
+        constraint matrix is cheaper and the argument `x` is ignored.
+        """
+        n = self.original_n
+        m = self.original_m
+
+        # List() simply allows operations such as 1 + [2,3] -> [3,4]
+        lowerC = List(self.lowerC) ; nlowerC = self.nlowerC
+        upperC = List(self.upperC) ; nupperC = self.nupperC
+        rangeC = List(self.rangeC) ; nrangeC = self.nrangeC
+        lowerB = List(self.lowerB) ; nlowerB = self.nlowerB
+        upperB = List(self.upperB) ; nupperB = self.nupperB
+        rangeB = List(self.rangeB) ; nrangeB = self.nrangeB
+        nbnds  = nlowerB + nupperB + 2*nrangeB
+        nSlacks = nlowerC + nupperC + 2*nrangeC
+
+        print '%d variables and %d constraints' % (self.n, self.m)
+        print '%d slack variables' % nSlacks
+        print 'nlowerC = ', nlowerC
+        print 'nupperC = ', nupperC
+        print 'nrangeC = ', nrangeC
+        print 'nlowerB = ', nlowerB
+        print 'nupperB = ', nupperB
+        print 'nrangeB = ', nrangeB
+
+        # Initialize sparse Jacobian
+        nnzJ = 2 * self.nnzj + m + nrangeC + nbnds + nrangeB  # Overestimate
+        #J = sp(nrow=self.m, ncol=self.n, sizeHint=nnzJ)
+        J = spmatrix.ll_mat(self.m, self.n, nnzJ)
+
+        # Insert contribution of general constraints
+        if lp:
+            J[:m,:n] = AmplModel.A(self)
+        else:
+            J[:m,:n] = AmplModel.jac(self,x[:n])
+        #J[upperC,:n] *= -1.0               # Flip sign of 'upper' gradients
+        J[upperC,:n].scale(-1.0)
+        J[m:m+nrangeC,:n] = J[rangeC,:n]  # Append 'upper' side of range const.
+        J[m:m+nrangeC,:n].scale(-1.0)
+
+        # Create a few index lists
+        rlowerC = List(range(nlowerC)) ; rlowerB = List(range(nlowerB))
+        rupperC = List(range(nupperC)) ; rupperB = List(range(nupperB))
+        rrangeC = List(range(nrangeC)) ; rrangeB = List(range(nrangeB))
+
+        # Insert contribution of slacks on general constraints
+        J.put(-1.0,      lowerC, n + rlowerC)
+        J.put(-1.0,      upperC, n + nlowerC + rupperC)
+        J.put(-1.0,      rangeC, n + nlowerC + nupperC + rrangeC)
+        J.put(-1.0, m + rrangeC, n + nlowerC + nupperC + nrangeC + rrangeC)
+
+        # Insert contribution of bound constraints on the original problem
+        bot  = m+nrangeC ; J.put( 1.0, bot + rlowerB, lowerB)
+        bot += nlowerB   ; J.put( 1.0, bot + rrangeB, rangeB)
+        bot += nrangeB   ; J.put(-1.0, bot + rupperB, upperB)
+        bot += nupperB   ; J.put(-1.0, bot + rrangeB, rangeB)
+
+        # Insert contribution of slacks on the bound constraints
+        bot  = m+nrangeC
+        J.put(-1.0, bot + rlowerB, n + nSlacks + rlowerB)
+        bot += nlowerB
+        J.put(-1.0, bot + rrangeB, n + nSlacks + nlowerB + rrangeB)
+        bot += nrangeB
+        J.put(-1.0, bot + rupperB, n + nSlacks + nlowerB + nrangeB + rupperB)
+        bot += nupperB
+        J.put(-1.0, bot + rrangeB, n+nSlacks+nlowerB+nrangeB+nupperB+rrangeB)
+
+        return J
+
+    def jac(self, x):
+        """
         Evaluate the Jacobian matrix of all equality constraints of the
         transformed problem. The gradients of the general constraints appear in
         'natural' order, i.e., in the order in which they appear in the problem.
@@ -257,63 +327,12 @@ class SlackFramework( AmplModel ):
 
         where the signs corresponding to 'upper' constraints and upper bounds
         should be flipped in the (1,1) and (3,1) blocks.
-
-        The positional argument `lp` should be set to `True` only if the problem
-        is known to be a linear program. In this case, the evaluation of the
-        constraint matrix is cheaper and the argument `x` is ignored.
         """
-        n = self.original_n
-        m = self.original_m
-
-        # List() simply allows operations such as 1 + [2,3] -> [3,4]
-        lowerC = List(self.lowerC) ; nlowerC = self.nlowerC
-        upperC = List(self.upperC) ; nupperC = self.nupperC
-        rangeC = List(self.rangeC) ; nrangeC = self.nrangeC
-        lowerB = List(self.lowerB) ; nlowerB = self.nlowerB
-        upperB = List(self.upperB) ; nupperB = self.nupperB
-        rangeB = List(self.rangeB) ; nrangeB = self.nrangeB
-        nbnds  = nlowerB + nupperB + 2*nrangeB
-        nSlacks = nlowerC + nupperC + 2*nrangeC
-
-        # Initialize sparse Jacobian
-        nnzJ = 2 * self.nnzj + m + nrangeC + nbnds + nrangeB  # Overestimate
-        J = sp(nrow=self.m, ncol=self.n, sizeHint=nnzJ)
-
-        # Insert contribution of general constraints
-        if lp:
-            J[:m,:n] = AmplModel.A(self)
-        else:
-            J[:m,:n] = AmplModel.jac(self,x[:n])
-        J[upperC,:n] *= -1.0               # Flip sign of 'upper' gradients
-        J[m:m+nrangeC,:n] = -J[rangeC,:n]  # Append 'upper' side of range const.
-
-        # Insert contribution of slacks on general constraints
-        J.put(-1.0, lowerC, n+lowerC)
-        J.put(-1.0, upperC, n+upperC)
-        J.put(-1.0, rangeC, n+rangeC)
-        J.put(-1.0, m+rangeC, n+nlowerC+nupperC+nrangeC+rangeC)
-
-        # Insert contribution of bound constraints on the original problem
-        bot  = m+nrangeC ; J.put( 1.0, range(bot,bot+nlowerB), lowerB)
-        bot += nlowerB   ; J.put( 1.0, range(bot,bot+nrangeB), rangeB)
-        bot += nrangeB   ; J.put(-1.0, range(bot,bot+nupperB), upperB)
-        bot += nupperB   ; J.put(-1.0, range(bot,bot+nrangeB), rangeB)
-
-        # Insert contribution of slacks on the bound constraints
-        bot = m+nrangeC ; J.put(-1.0, range(bot,bot+nlowerB), n+nSlacks+lowerB)
-        bot += nlowerB  ; J.put(-1.0, range(bot,bot+nrangeB), n+nSlacks+rangeB)
-        bot += nrangeB  ; J.put(-1.0, range(bot,bot+nupperB), n+nSlacks+upperB)
-        bot += nupperB
-        J.put(-1.0, range(bot,bot+nrangeB), n+nSlacks+nlowerB+nrangeB+nupperB+rangeB)
-
-        return J
-
-    def jac(self, x):
         return self._jac(x, lp=False)
 
     def A(self):
         """
         Return the constraint matrix if the problem is a linear program. See the
-        documentation of `Jac` for more information.
+        documentation of :method:jac for more information.
         """
         return self._jac(0, lp=True)

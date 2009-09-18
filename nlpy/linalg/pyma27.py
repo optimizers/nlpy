@@ -3,6 +3,7 @@ Ma27: Direct multifrontal solution of symmetric systems
 """
 
 import numpy
+from pysparse.pysparseMatrix import PysparseMatrix
 from pysparse import spmatrix
 from sils import Sils
 import _pyma27
@@ -54,7 +55,13 @@ class PyMa27Context( Sils ):
         Pyma27 relies on the sparse direct multifrontal code MA27
         from the Harwell Subroutine Library archive.
         """
-        Sils.__init__( self, A, **kwargs )
+
+        if isinstance(A, PysparseMatrix):
+            thisA = A.matrix
+        else:
+            thisA = A
+
+        Sils.__init__( self, thisA, **kwargs )
 
         # Statistics on A
         self.rwords = 0      # Number of real words used during factorization
@@ -70,7 +77,7 @@ class PyMa27Context( Sils ):
         self.B = spmatrix.ll_mat_sym( self.n, 0 )
 
         # Analyze and factorize matrix
-        self.context = _pyma27.factor( A, self.sqd )
+        self.context = _pyma27.factor( thisA, self.sqd )
         (self.rwords, self.iwords, self.ncomp, self.nrcomp, self.nicomp,
          self.n2x2pivots, self.neig, self.rank) = self.context.stats()
 

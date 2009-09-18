@@ -3,7 +3,7 @@ Ma57: Direct multifrontal solution of symmetric systems
 """
 
 import numpy
-from pysparse import spmatrix
+from pysparse.pysparseMatrix import PysparseMatrix
 from sils import Sils
 
 import _pyma57
@@ -75,8 +75,13 @@ class PyMa57Context( Sils ):
            Software (9), p. 302--325, 1983.
         3. http://hsl.rl.ac.uk/hsl2007/hsl20074researchers.html
         """
+
+        if isinstance(A, PysparseMatrix):
+            thisA = A.matrix
+        else:
+            thisA = A
  
-        Sils.__init__( self, A, **kwargs )
+        Sils.__init__( self, thisA, **kwargs )
 
         # Statistics on A
         self.nzFact = 0      # Number of nonzeros in factors
@@ -92,7 +97,7 @@ class PyMa57Context( Sils ):
         #self.B = spmatrix.ll_mat_sym( self.n, 0 )
 
         # Analyze and factorize matrix
-        self.context = _pyma57.factor( A, self.sqd )
+        self.context = _pyma57.factor( thisA, self.sqd )
         (self.nzFact, self.nRealFact, self.nIntFact, self.front,
          self.n2x2pivots, self.neig, self.rank) = self.context.stats()
 
