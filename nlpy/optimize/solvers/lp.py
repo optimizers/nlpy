@@ -7,6 +7,8 @@
 #
 # D. Orban, Montreal 2004. Revised September 2009.
 
+import pdb
+
 from nlpy.model import SlackFramework
 try:                            # To solve augmented systems
     from nlpy.linalg.pyma57 import PyMa57Context as LBLContext
@@ -82,8 +84,8 @@ class LPInteriorPointSolver:
         self.pFeas = np.zeros(m)
         self.comp = np.zeros(n)
 
-        self.b = lp.cons(self.dFeas)     # Right-hand side
-        self.c = lp.cost()            # Cost vector
+        self.b = -lp.cons(self.dFeas)     # Right-hand side
+        self.c =  lp.cost()            # Cost vector
         self.c0 = 0 #lp.obj(self.dFeas)     # Constant term in objective
         self.normb  = norms.norm_infty(self.b)
         self.normc  = sv.norm_infty(self.c)
@@ -91,7 +93,7 @@ class LPInteriorPointSolver:
 
         # Initialize augmented matrix
         #self.H = PysparseMatrix(size=n+m, sizeHint=n+self.A.nnz, symmetric=True)
-        self.H = spmatrix.ll_mat_sym(n+m, n+self.A.nnz)
+        self.H = spmatrix.ll_mat_sym(n+m, n+m+self.A.nnz)
         self.H[n:,:n] = self.A
 
         fmt_hdr = '%-4s  %9s  %-8s  %-7s  %-4s  %-4s  %-8s'
@@ -296,21 +298,50 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
             raise ValueError, msg
 
         # Initialize
-        LPInteriorPointSolver.__init__(self, lp, **kwargs)
-        self.regpr = kwargs.get('regpr', 1.0) ; self.regpr_min = 1.0e-8
-        self.regdu = kwargs.get('regdu', 1.0) ; self.regdu_min = 1.0e-8
+        #LPInteriorPointSolver.__init__(self, lp, **kwargs)
 
+        self.lp = lp
+        self.A = lp.A()               # Constraint matrix
+        #if not isinstance(self.A, PysparseMatrix):
+        #    self.A = PysparseMatrix(matrix=self.A)
+
+        m, n = self.A.shape
         # Record number of slack variables in LP
         self.nSlacks  = lp.n - lp.original_n
 
+        # Residuals
+        self.dFeas = np.zeros(n)
+        self.pFeas = np.zeros(m)
+        self.comp = np.zeros(self.nSlacks)
+
+        self.b = -lp.cons(self.dFeas)     # Right-hand side
+        self.c =  lp.cost()               # Cost vector
+        self.c0 = lp.obj(self.dFeas)      # Constant term in objective
+        self.normb  = norms.norm_infty(self.b)
+        self.normc  = sv.norm_infty(self.c)
+        self.normbc = 1 + max(self.normb, self.normc)
+
+        print 'c0 = ', self.c0
+        print 'c = ', self.c
+
+        # Initialize augmented matrix
+        #self.H = PysparseMatrix(size=n+m, sizeHint=n+self.A.nnz, symmetric=True)
+        self.H = spmatrix.ll_mat_sym(n+m, n+m+self.A.nnz)
+        self.H[n:,:n] = self.A
+
+        self.regpr = kwargs.get('regpr', 1.0) ; self.regpr_min = 1.0e-8
+        self.regdu = kwargs.get('regdu', 1.0) ; self.regdu_min = 1.0e-8
+
         # Initialize format strings for display
         fmt_hdr  = '%-4s  %9s  %-8s  %-8s  %-8s  %-8s  %-8s  %-7s  %-4s  %-4s'
-        fmt_hdr += '  %-8s  %-8s  %-8s'
+        fmt_hdr += '  %-8s  %-8s  %-8s  %-8s  %-8s  %-8s  %-8s  %-8s'
         self.header = fmt_hdr % ('Iter', 'Cost', 'pResid', 'dResid', 'cResid',
                                  'qNorm', 'rNorm', 'Mu', 'AlPr', 'AlDu',
-                                 'LS Resid', 'RegPr', 'RegDu')
-        self.format1 = '%-4d  %9.2e  %-8.2e  %-8.2e  %-8.2e  %-8.2e  %-8.2e'
-        self.format2 = '  %-7.1e  %-4.2f  %-4.2f  %-8.2e  %-8.2e  %-8.2e'
+                                 'LS Resid', 'RegPr', 'RegDu', 'Rho q', 'Del r',
+                                 'Min(s)', 'Min(z)', 'Max(s)')
+        self.format1  = '%-4d  %9.2e  %-8.2e  %-8.2e  %-8.2e  %-8.2e  %-8.2e'
+        self.format2  = '  %-7.1e  %-4.2f  %-4.2f  %-8.2e  %-8.2e  %-8.2e'
+        self.format2 += '  %-8.2e  %-8.2e  %-8.2e %-8.2e  %-8.2e'
 
         return
 
@@ -326,7 +357,6 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
         A = self.A ; b = self.b ; c = self.c ; H = self.H
         dFeas = self.dFeas ; pFeas = self.pFeas ; comp = self.comp
         regpr = self.regpr ; regdu = self.regdu
-        debug = self.debug
 
         # Obtain initial point from Mehrotra's heuristic.
         (x,y,z) = self.set_initial_guess(self.lp, **kwargs)
@@ -346,25 +376,22 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
         finished = False
         iter = 0
 
-        # Display initial header.
-        sys.stdout.write(self.header + '\n')
-        sys.stdout.write('-' * len(self.header) + '\n')
-
         setup_time = cputime()
 
         # Main loop.
         while not finished:
 
-            if debug:
-                sys.stderr.write(' z = ', z)
-                sys.stderr.write(' x = ', x)
+            # Display initial header every so often.
+            if iter % 20 == 0:
+                sys.stdout.write('\n' + self.header + '\n')
+                sys.stdout.write('-' * len(self.header) + '\n')
 
             # Compute residuals.
             A.matvec(x,pFeas) ; pFeas -= b ; pFeas *= -1  # pFeas = b - A x
             comp = s*z                                    # comp  = S z
             A.matvec_transp(y,dFeas) ; dFeas[on:] += z
             for k in c.keys(): dFeas[k] -= c[k]           # dFeas = A' y + z - c
-    
+
             pResid = norms.norm_infty(pFeas)
             cResid = norms.norm_infty(comp)
             dResid = norms.norm_infty(dFeas)
@@ -374,16 +401,21 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
             # Display objective and residual data.
             sys.stdout.write(self.format1 % (iter, obj_val, pResid, dResid,
                                              cResid, qNorm, rNorm))
-    
+
             if kktResid <= tolerance:
                 status = 'Optimal solution found'
                 finished = True
                 continue
 
-            if iter > itermax:
+            if iter >= itermax:
                 status = 'Maximum number of iterations reached'
                 finished = True
                 continue
+
+            # Record some quantities for display
+            mins = np.min(s)
+            minz = np.min(z)
+            maxs = np.max(s)
 
             # Solve the linear system
             #
@@ -403,6 +435,8 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
             H.put(-z/s - regpr, range(on,n))
             H.put(regdu,        range(n,n+m))
             LBL = LBLContext(H, sqd=True)
+            if not LBL.isFullRank:
+                sys.stderr.write('Primal-Dual Matrix is Rank Deficient\n')
 
             # Compute duality measure.
             mu = sum(comp)/ns
@@ -422,16 +456,12 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
                 dz = -z * (1 + ds/s)
 
                 # Compute largest allowed primal and dual stepsizes.
-                alpha_p = self.maxStepLength(s, ds)
-                alpha_d = self.maxStepLength(z, dz)
+                (alpha_p, ip) = self.maxStepLength(s, ds)
+                (alpha_d, ip) = self.maxStepLength(z, dz)
 
                 # Estimate duality gap after affine-scaling step.
                 muAff = np.dot(s + alpha_p * ds, z + alpha_d * dz)/ns
                 sigma = (muAff/mu)**3
-
-                if debug:
-                    sys.stderr.write(' alpha_pAFF, alpha_dAFF, muAFF, sigma =',
-                                     (alpha_p, alpha_d, muAff, sigma))
 
                 # Incorporate predictor information for corrector step.
                 comp += ds*dz
@@ -442,9 +472,11 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
             # Compute centering step with appropriate centering parameter.
             # Assemble right-hand side.
             comp -= sigma * mu
-            dFeas[on:] -= comp/s
-            rhs[:n] = -dFeas
-            rhs[n:] =  pFeas
+            rhs[:n]    = -dFeas
+            rhs[on:n] += comp/s
+            rhs[n:]    =  pFeas
+
+            #pdb.set_trace()
 
             # Solve augmented system.
             (step, nres, neig) = self.solveSystem(LBL, rhs)
@@ -453,15 +485,44 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
             dx = step[:n]
             ds = dx[on:]
             dy = step[n:]
-            dz = -z - (z*ds - sigma*mu)/s  # -(comp + z*dx)/x
+            dz = -(comp + z*ds)/s #-z - (z*ds - sigma*mu)/s  # -(comp + z*ds)/s
 
             # Compute largest allowed primal and dual stepsizes.
-            alpha_p = tau * self.maxStepLength(s, ds)
-            alpha_d = tau * self.maxStepLength(z, dz)
+            (alpha_p, ip) = self.maxStepLength(s, ds)
+            (alpha_d, id) = self.maxStepLength(z, dz)
+
+            if PredictorCorrector:
+                # Compute actual stepsize using Mehrotra's heuristic
+                mult = 0.1
+
+                # ip=-1 if ds ≥ 0, and id=-1 if dz ≥ 0
+                if (ip != -1 or id != -1) and ip != id:
+                    mu_tmp = np.dot(s + alpha_p * ds, z + alpha_d * dz)/ns
+
+                if ip != -1 and ip != id:
+                    zip = z[ip] + alpha_d * dz[ip]
+                    gamma_p = (mult*mu_tmp - s[ip]*zip)/(alpha_p*ds[ip]*zip)
+                    alpha_p *= max(1-mult, gamma_p)
+
+                if id != -1 and ip != id:
+                    sid = s[id] + alpha_p * ds[id]
+                    gamma_d = (mult*mu_tmp - z[id]*sid)/(alpha_d*dz[id]*sid)
+                    alpha_d *= max(1-mult, gamma_d)
+
+                if ip==id and ip != -1:
+                    # There is a division by zero in Mehrotra's heuristic
+                    # Fall back on classical rule.
+                    alpha_p *= tau
+                    alpha_d *= tau
+
+            else:
+                alpha_p *= tau
+                alpha_d *= tau
 
             # Display data.
             sys.stdout.write(self.format2 % (mu, alpha_p, alpha_d,
-                                             nres, regpr, regdu))
+                                             nres, regpr, regdu, rho_q, del_r,
+                                             mins, minz, maxs))
             sys.stdout.write('\n')
 
             # Update iterates.
@@ -471,6 +532,7 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
             q *= (1-alpha_p) ; q += alpha_p * dx
             r *= (1-alpha_d) ; r += alpha_d * dy
             qNorm = norms.norm_infty(q) ; rNorm = norms.norm_infty(r)
+            rho_q = regpr * qNorm/self.normc ; del_r = regdu * rNorm/self.normb
 
             # Update regularization parameters.
             regpr = max(regpr/2, self.regpr_min)
@@ -573,6 +635,32 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
 
         return (x,y,z)
 
+    def maxStepLength(self, x, d):
+        """
+        Returns the max step length from x to the boundary
+        of the nonnegative orthant in the direction d
+        alpha_max = min [ 1, min { -x[i]/d[i] | d[i] < 0 } ].
+        Note that 0 < alpha_max <= 1.
+        """
+        #whereneg = np.nonzero(np.where(d < 0, d, 0))[0]
+        #dxneg = [-x[i]/d[i] for i in whereneg]
+        #dxneg.append(1)
+        whereneg = np.where(d < 0)[0]
+        if len(whereneg) > 0:
+            dxneg = -x[whereneg]/d[whereneg]
+            kmin = np.argmin(dxneg)
+            stepmax = min(1.0, dxneg[kmin])
+            kmin = whereneg[kmin]
+        else:
+            stepmax = 1.0
+            kmin = -1
+        return (stepmax, kmin)
+
+    def solveSystem(self, LBL, rhs):
+        LBL.solve(rhs)
+        nr = norms.norm2(LBL.residual)
+        return (LBL.x, nr, LBL.neig)
+
 
 ############################################################
 
@@ -599,11 +687,12 @@ if __name__ == '__main__':
 
     #lpSolver = LPInteriorPointSolver(lp)
     lpSolver = RegLPInteriorPointSolver(lp)
-    lpSolver.solve(itermax=20, tolerance=1.0e-5)
+    lpSolver.solve(itermax=100, tolerance=1.0e-5, PredictorCorrector=False)
 
-    print 'Final x: ', lpSolver.x
-    print 'Final y: ', lpSolver.y
-    print 'Final z: ', lpSolver.z
+    print 'Final objective value:', lpSolver.obj_value
+    #print 'Final x: ', lpSolver.x
+    #print 'Final y: ', lpSolver.y
+    #print 'Final z: ', lpSolver.z
 
     sys.stdout.write('\n' + lpSolver.status + '\n')
     sys.stdout.write(' #Iterations: %-d\n' % lpSolver.iter)

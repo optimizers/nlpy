@@ -242,14 +242,14 @@ class SlackFramework( AmplModel ):
         nbnds  = nlowerB + nupperB + 2*nrangeB
         nSlacks = nlowerC + nupperC + 2*nrangeC
 
-        print '%d variables and %d constraints' % (self.n, self.m)
-        print '%d slack variables' % nSlacks
-        print 'nlowerC = ', nlowerC
-        print 'nupperC = ', nupperC
-        print 'nrangeC = ', nrangeC
-        print 'nlowerB = ', nlowerB
-        print 'nupperB = ', nupperB
-        print 'nrangeB = ', nrangeB
+        #print '%d variables and %d constraints' % (self.n, self.m)
+        #print '%d slack variables' % nSlacks
+        #print 'nlowerC = ', nlowerC
+        #print 'nupperC = ', nupperC
+        #print 'nrangeC = ', nrangeC
+        #print 'nlowerB = ', nlowerB
+        #print 'nupperB = ', nupperB
+        #print 'nrangeB = ', nrangeB
 
         # Initialize sparse Jacobian
         nnzJ = 2 * self.nnzj + m + nrangeC + nbnds + nrangeB  # Overestimate
