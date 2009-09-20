@@ -315,14 +315,11 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
         self.comp = np.zeros(self.nSlacks)
 
         self.b = -lp.cons(self.dFeas)     # Right-hand side
-        self.c =  lp.cost()               # Cost vector
         self.c0 = lp.obj(self.dFeas)      # Constant term in objective
+        self.c =  lp.grad(self.dFeas[:lp.original_n]) #lp.cost()               # Cost vector
         self.normb  = norms.norm_infty(self.b)
-        self.normc  = sv.norm_infty(self.c)
+        self.normc  = norms.norm_infty(self.c) #sv.norm_infty(self.c)
         self.normbc = 1 + max(self.normb, self.normc)
-
-        print 'c0 = ', self.c0
-        print 'c = ', self.c
 
         # Initialize augmented matrix
         #self.H = PysparseMatrix(size=n+m, sizeHint=n+self.A.nnz, symmetric=True)
@@ -333,16 +330,111 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
         self.regdu = kwargs.get('regdu', 1.0) ; self.regdu_min = 1.0e-8
 
         # Initialize format strings for display
-        fmt_hdr  = '%-4s  %9s  %-8s  %-8s  %-8s  %-8s  %-8s  %-7s  %-4s  %-4s'
+        fmt_hdr  = '%-4s  %9s  %-8s  %-8s  %-8s  %-8s  %-8s  %-8s  %-7s  %-4s  %-4s'
         fmt_hdr += '  %-8s  %-8s  %-8s  %-8s  %-8s  %-8s  %-8s  %-8s'
         self.header = fmt_hdr % ('Iter', 'Cost', 'pResid', 'dResid', 'cResid',
-                                 'qNorm', 'rNorm', 'Mu', 'AlPr', 'AlDu',
+                                 'rGap', 'qNorm', 'rNorm', 'Mu', 'AlPr', 'AlDu',
                                  'LS Resid', 'RegPr', 'RegDu', 'Rho q', 'Del r',
                                  'Min(s)', 'Min(z)', 'Max(s)')
-        self.format1  = '%-4d  %9.2e  %-8.2e  %-8.2e  %-8.2e  %-8.2e  %-8.2e'
-        self.format2  = '  %-7.1e  %-4.2f  %-4.2f  %-8.2e  %-8.2e  %-8.2e'
-        self.format2 += '  %-8.2e  %-8.2e  %-8.2e %-8.2e  %-8.2e'
+        self.format1  = '%-4d  %9.2e'
+        self.format1 += '  %-8.2e' * 6
+        self.format2  = '  %-7.1e  %-4.2f  %-4.2f'
+        self.format2 += '  %-8.2e' * 8
 
+        self.display_stats()
+        #self.scale()
+
+        return
+
+    def display_stats(self):
+
+        lp = self.lp
+        w = sys.stdout.write
+        w('\n')
+        w('Problem Name: %s\n' % lp.name)
+        w('Number of problem variables: %d\n' % lp.original_n)
+        w('Number of problem constraints excluding bounds: %d\n' %lp.original_m)
+        w('Number of slack variables: %d\n' % (lp.n - lp.original_n))
+        w('Adjusted number of variables: %d\n' % lp.n)
+        w('Adjusted number of constraints excluding bounds: %d\n' % lp.m)
+        w('Number of nonzeros in constraint matrix: %d\n' % self.A.nnz)
+        #w('Number of coefficients in objective: %d\n' % self.c.nnz())
+        w('Constant term in objective: %8.2e\n' % self.c0)
+        w('\n')
+        return
+
+    def scale(self, **kwargs):
+        """
+        Equilibrate the constraint matrix of the linear program. Equilibration
+        is done by first dividing every row by its largest element in absolute
+        value and then by dividing every column by its largest element in
+        absolute value.
+
+        Upon return, the matrix A and the right-hand side b are scaled and the
+        members `row_scale` and `col_scale` are set to the row and column
+        scaling factors.
+
+        The scaling may be undone by subsequently calling :meth:`unscale`.
+        """
+        w = sys.stdout.write
+        m, n = self.A.shape
+        row_scale = np.zeros(m)
+        col_scale = np.zeros(n)
+        (values,irow,jcol) = self.A.find()
+
+        w('Smallest and largest elements of A prior to scaling: ')
+        w('%8.2e ... %8.2e\n' % (np.min(np.abs(values)),np.max(np.abs(values))))
+
+        # Find row scaling.
+        for k in range(len(values)):
+            row = irow[k]
+            val = abs(values[k])
+            row_scale[row] = max(row_scale[row], val)
+        row_scale[row_scale == 0.0] = 1.0
+
+        w('Largest row scaling factor = %8.2e\n' % np.max(row_scale))
+
+        # Apply row scaling to A and b.
+        #pdb.set_trace()
+        values /= row_scale[irow]
+        self.b /= row_scale
+
+        # Find column scaling.
+        for k in range(len(values)):
+            col = jcol[k]
+            val = abs(values[k])
+            col_scale[col] = max(col_scale[col], val)
+        col_scale[col_scale == 0.0] = 1.0
+
+        w('Largest column scaling factor = %8.2e\n' % np.max(col_scale))
+
+        # Apply column scaling to A and c.
+        values /= col_scale[jcol]
+        for k in self.c.keys(): self.c[k] /= col_scale[k]
+
+        w('Smallest and largest elements of A after scaling: ')
+        w('%8.2e ... %8.2e\n' % (np.min(np.abs(values)),np.max(np.abs(values))))
+
+        # Overwrite A with scaled values.
+        self.A.put(values,irow,jcol)
+
+        # Save row and column scaling.
+        self.row_scale = row_scale
+        self.col_scale = col_scale
+        
+        return
+
+    def unscale(self, **kwargs):
+        """
+        Restore the constraint matrix A and the right-hand side b to their
+        original value by undoing the row and column equilibration scaling.
+        """
+        (values,irow,jcol) = self.A.find()
+        values *= self.col_scale[jcol]
+        values *= self.row_scale[irow]
+        self.A.put(values,irow,jcol)
+        self.b *= row_scale[irow]
+        for k in self.c.keys(): self.c[k] *= col_scale[k]
         return
 
     def solve(self, **kwargs):
@@ -390,17 +482,23 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
             A.matvec(x,pFeas) ; pFeas -= b ; pFeas *= -1  # pFeas = b - A x
             comp = s*z                                    # comp  = S z
             A.matvec_transp(y,dFeas) ; dFeas[on:] += z
-            for k in c.keys(): dFeas[k] -= c[k]           # dFeas = A' y + z - c
+            #for k in c.keys(): dFeas[k] -= c[k]         # dFeas = A' y + z - c
+            dFeas[:on] -= self.lp.grad(x[:on])
 
-            pResid = norms.norm_infty(pFeas)
+            pResid = norms.norm_infty(pFeas - regdu * r)
             cResid = norms.norm_infty(comp)
-            dResid = norms.norm_infty(dFeas)
+            dResid = norms.norm_infty(dFeas - regpr * q)
             kktResid = max(pResid, cResid, dResid) / self.normbc
-            obj_val = sv.dot(c, x)
+            obj_val = self.lp.obj(x) #sv.dot(c, x)
+            obj_dual = np.dot(b,y)
+            rgap  = obj_val - obj_dual
+            rgap += 0.5 * regpr * qNorm**2 + regpr * np.dot(x,q)
+            rgap += 0.5 * regdu * rNorm**2 + regdu * np.dot(r,y)
+            rgap  = abs(rgap) / (1 + abs(obj_val))
 
             # Display objective and residual data.
             sys.stdout.write(self.format1 % (iter, obj_val, pResid, dResid,
-                                             cResid, qNorm, rNorm))
+                                             cResid, rgap, qNorm, rNorm))
 
             if kktResid <= tolerance:
                 status = 'Optimal solution found'
@@ -435,8 +533,13 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
             H.put(-z/s - regpr, range(on,n))
             H.put(regdu,        range(n,n+m))
             LBL = LBLContext(H, sqd=True)
-            if not LBL.isFullRank:
+            while not LBL.isFullRank:
                 sys.stderr.write('Primal-Dual Matrix is Rank Deficient\n')
+                regpr *= 100 ; regdu *= 100
+                H.put(-regpr,       range(on))
+                H.put(-z/s - regpr, range(on,n))
+                H.put(regdu,        range(n,n+m))
+                LBL = LBLContext(H, sqd=True)
 
             # Compute duality measure.
             mu = sum(comp)/ns
@@ -548,7 +651,7 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
         self.x = x
         self.y = y
         self.z = z
-        self.obj_value = obj_val + self.c0
+        self.obj_value = obj_val #+ self.c0
         self.iter = iter
         self.kktResid = kktResid
         self.solve_time = solve_time
@@ -602,8 +705,9 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
         s = x[on:]  # Slack variables. Must be positive.
 
         # Assemble second right-hand side and solve.
-        rhs[:] = 0.0
-        for k in self.c.keys(): rhs[k] = self.c[k]
+        rhs[:on] = self.c
+        rhs[on:] = 0.0
+        #for k in self.c.keys(): rhs[k] = self.c[k]
         (step, nres, neig) = self.solveSystem(LBL, rhs)
         y = step[n:].copy()
         z = step[on:n].copy()
@@ -657,7 +761,7 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
         return (stepmax, kmin)
 
     def solveSystem(self, LBL, rhs):
-        LBL.solve(rhs)
+        LBL.solve(rhs)            
         nr = norms.norm2(LBL.residual)
         return (LBL.x, nr, LBL.neig)
 
@@ -687,9 +791,8 @@ if __name__ == '__main__':
 
     #lpSolver = LPInteriorPointSolver(lp)
     lpSolver = RegLPInteriorPointSolver(lp)
-    lpSolver.solve(itermax=100, tolerance=1.0e-5, PredictorCorrector=False)
+    lpSolver.solve(itermax=100, tolerance=1.0e-6, PredictorCorrector=True)
 
-    print 'Final objective value:', lpSolver.obj_value
     #print 'Final x: ', lpSolver.x
     #print 'Final y: ', lpSolver.y
     #print 'Final z: ', lpSolver.z
@@ -697,7 +800,7 @@ if __name__ == '__main__':
     sys.stdout.write('\n' + lpSolver.status + '\n')
     sys.stdout.write(' #Iterations: %-d\n' % lpSolver.iter)
     sys.stdout.write(' RelResidual: %7.1e\n' % lpSolver.kktResid)
-    sys.stdout.write(' Final cost : %7.1e\n' % lpSolver.obj_value)
+    sys.stdout.write(' Final cost : %g\n' % lpSolver.obj_value)
     sys.stdout.write(' Solve time : %6.2fs\n' % lpSolver.solve_time)
 
     # End
