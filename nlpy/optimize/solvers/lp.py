@@ -277,7 +277,7 @@ class LPInteriorPointSolver:
 
 class RegLPInteriorPointSolver(LPInteriorPointSolver):
 
-    def __init__(self, lp, **kwargs):
+    def __init__(self, lp, scale=True, **kwargs):
         """
         Solve a linear program of the form
 
@@ -317,6 +317,11 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
         self.b = -lp.cons(self.dFeas)     # Right-hand side
         self.c0 = lp.obj(self.dFeas)      # Constant term in objective
         self.c =  lp.grad(self.dFeas[:lp.original_n]) #lp.cost()               # Cost vector
+
+        # Apply problem scaling if requested.
+        self.prob_scaled = False
+        if scale: self.scale()
+
         self.normb  = norms.norm_infty(self.b)
         self.normc  = norms.norm_infty(self.c) #sv.norm_infty(self.c)
         self.normbc = 1 + max(self.normb, self.normc)
@@ -342,7 +347,6 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
         self.format2 += '  %-8.2e' * 8
 
         self.display_stats()
-        #self.scale()
 
         return
 
@@ -368,13 +372,25 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
         Equilibrate the constraint matrix of the linear program. Equilibration
         is done by first dividing every row by its largest element in absolute
         value and then by dividing every column by its largest element in
-        absolute value.
+        absolute value. In effect the original problem
+
+          minimize c'x  subject to  A1 x + A2 s = b, x >= 0
+
+        is converted to
+
+          minimize (Cc)'x  subject to  R A1 C x + R A2 C s = Rb, x >= 0,
+
+        where the diagonal matrices R and C operate row and column scaling
+        respectively.
 
         Upon return, the matrix A and the right-hand side b are scaled and the
         members `row_scale` and `col_scale` are set to the row and column
         scaling factors.
 
-        The scaling may be undone by subsequently calling :meth:`unscale`.
+        The scaling may be undone by subsequently calling :meth:`unscale`. It is
+        necessary to unscale the problem in order to unscale the final dual
+        variables. Normally, the :meth:`solve` method takes care of unscaling
+        the problem upon termination.
         """
         w = sys.stdout.write
         m, n = self.A.shape
@@ -410,7 +426,8 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
 
         # Apply column scaling to A and c.
         values /= col_scale[jcol]
-        for k in self.c.keys(): self.c[k] /= col_scale[k]
+        self.c[:self.lp.original_n] /= col_scale[:self.lp.original_n]
+        #for k in self.c.keys(): self.c[k] /= col_scale[k]
 
         w('Smallest and largest elements of A after scaling: ')
         w('%8.2e ... %8.2e\n' % (np.min(np.abs(values)),np.max(np.abs(values))))
@@ -421,6 +438,8 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
         # Save row and column scaling.
         self.row_scale = row_scale
         self.col_scale = col_scale
+
+        self.prob_scaled = True
         
         return
 
@@ -430,11 +449,21 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
         original value by undoing the row and column equilibration scaling.
         """
         (values,irow,jcol) = self.A.find()
+
+        # Unscale constraint matrix A.
         values *= self.col_scale[jcol]
         values *= self.row_scale[irow]
         self.A.put(values,irow,jcol)
-        self.b *= row_scale[irow]
-        for k in self.c.keys(): self.c[k] *= col_scale[k]
+
+        # Unscale right-hand side and cost vectors.
+        self.b *= self.row_scale
+        self.c[:self.lp.original_n] *= self.col_scale[:self.lp.original_n]
+        #for k in self.c.keys(): self.c[k] *= self.col_scale[k]
+
+        # Recover unscaled multipliers y and z.
+        self.y *= self.row_scale
+        self.z /= self.col_scale[self.lp.original_n:]
+
         return
 
     def solve(self, **kwargs):
@@ -488,16 +517,21 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
             pResid = norms.norm_infty(pFeas - regdu * r)
             cResid = norms.norm_infty(comp)
             dResid = norms.norm_infty(dFeas - regpr * q)
-            kktResid = max(pResid, cResid, dResid) / self.normbc
-            obj_val = self.lp.obj(x) #sv.dot(c, x)
-            obj_dual = np.dot(b,y)
-            rgap  = obj_val - obj_dual
+
+            # Compute relative duality gap.
+            cx = np.dot(c,x[:on]) #sv.dot(c, x)
+            by = np.dot(b,y)
+            rgap  = cx - by
             rgap += 0.5 * regpr * qNorm**2 + regpr * np.dot(x,q)
             rgap += 0.5 * regdu * rNorm**2 + regdu * np.dot(r,y)
-            rgap  = abs(rgap) / (1 + abs(obj_val))
+            rgap  = abs(rgap) / (1 + abs(cx))
+
+            # Compute overall residual for stopping condition.
+            #kktResid = max(max(pResid, dResid)/self.normbc, rgap)
+            kktResid = max(pResid, cResid, dResid) / self.normbc
 
             # Display objective and residual data.
-            sys.stdout.write(self.format1 % (iter, obj_val, pResid, dResid,
+            sys.stdout.write(self.format1 % (iter, cx, pResid, dResid,
                                              cResid, rgap, qNorm, rNorm))
 
             if kktResid <= tolerance:
@@ -588,7 +622,7 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
             dx = step[:n]
             ds = dx[on:]
             dy = step[n:]
-            dz = -(comp + z*ds)/s #-z - (z*ds - sigma*mu)/s  # -(comp + z*ds)/s
+            dz = -(comp + z*ds)/s
 
             # Compute largest allowed primal and dual stepsizes.
             (alpha_p, ip) = self.maxStepLength(s, ds)
@@ -651,11 +685,17 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
         self.x = x
         self.y = y
         self.z = z
-        self.obj_value = obj_val #+ self.c0
         self.iter = iter
         self.kktResid = kktResid
         self.solve_time = solve_time
         self.status = status
+
+        # Unscale problem if applicable.
+        if self.prob_scaled: self.unscale()
+
+        # Recompute final objective value.
+        self.obj_value = np.dot(self.c, x[:on])
+
         return
 
     def set_initial_guess(self, lp, **kwargs):
