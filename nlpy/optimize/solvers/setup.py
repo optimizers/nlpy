@@ -6,7 +6,7 @@ def configuration(parent_package='',top_path=None):
 
     config = Configuration('solvers', parent_package, top_path)
 
-    config.add_scripts(['nlpy_trunk.py','nlpy_lbfgs.py'])
+    config.add_scripts(['nlpy_trunk.py','nlpy_lbfgs.py','nlpy_reglp.py'])
 
     config.make_config_py()
     return config

@@ -760,48 +760,11 @@ class RegLPInteriorPointSolver(LPInteriorPointSolver):
             kmin = -1
         return (stepmax, kmin)
 
-    def solveSystem(self, LBL, rhs):
+    def solveSystem(self, LBL, rhs, itref_threshold=1.0e-5, nitrefmax=5):
         LBL.solve(rhs)            
+        nr = norms.norm2(LBL.residual)
+        LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
         nr = norms.norm2(LBL.residual)
         return (LBL.x, nr, LBL.neig)
 
 
-############################################################
-
-def usage():
-    sys.stderr.write('Use: %-s problem_name\n' % sys.argv[0])
-    sys.stderr.write(' where problem_name represents a linear program\n')
-
-
-if __name__ == '__main__':
-
-    from nlpy.model import AmplModel, SlackFramework
-
-    if len(sys.argv) < 2:
-        usage()
-        sys.exit(-1)
-
-    probname = sys.argv[1]
-
-    #lp = AmplModel(probname)
-    lp = SlackFramework(probname)
-    if not lp.islp():
-        sys.stderr.write('Input problem must be a linear program\n')
-        sys.exit(1)
-
-    #lpSolver = LPInteriorPointSolver(lp)
-    lpSolver = RegLPInteriorPointSolver(lp)
-    lpSolver.solve(itermax=100, tolerance=1.0e-6, PredictorCorrector=True)
-
-    #print 'Final x: ', lpSolver.x
-    #print 'Final y: ', lpSolver.y
-    #print 'Final z: ', lpSolver.z
-
-    sys.stdout.write('\n' + lpSolver.status + '\n')
-    sys.stdout.write(' #Iterations: %-d\n' % lpSolver.iter)
-    sys.stdout.write(' RelResidual: %7.1e\n' % lpSolver.kktResid)
-    sys.stdout.write(' Final cost : %g\n' % lpSolver.obj_value)
-    sys.stdout.write(' Solve time : %6.2fs\n' % lpSolver.solve_time)
-
-    # End
-    lp.close()
