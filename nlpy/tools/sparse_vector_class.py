@@ -9,12 +9,8 @@ import operator
 import math
 
 """
-A dictionary-based sparse vector class
-which supports elementwise mathematical operations
-and operations with other sparse vectors
-and numpy arrays.
-
-$Id: sparse_vector_class.py 88 2008-09-29 04:43:15Z d-orban $
+A dictionary-based sparse vector class which supports elementwise mathematical
+operations and operations with other sparse vectors and numpy arrays.
 """
 
 class SparseVector:

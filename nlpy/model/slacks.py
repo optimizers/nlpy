@@ -253,18 +253,19 @@ class SlackFramework( AmplModel ):
 
         # Initialize sparse Jacobian
         nnzJ = 2 * self.nnzj + m + nrangeC + nbnds + nrangeB  # Overestimate
-        #J = sp(nrow=self.m, ncol=self.n, sizeHint=nnzJ)
-        J = spmatrix.ll_mat(self.m, self.n, nnzJ)
+        J = sp(nrow=self.m, ncol=self.n, sizeHint=nnzJ)
+        #J = spmatrix.ll_mat(self.m, self.n, nnzJ)
 
         # Insert contribution of general constraints
         if lp:
             J[:m,:n] = AmplModel.A(self)
         else:
             J[:m,:n] = AmplModel.jac(self,x[:n])
-        #J[upperC,:n] *= -1.0               # Flip sign of 'upper' gradients
-        J[upperC,:n].scale(-1.0)
+        J[upperC,:n] *= -1.0               # Flip sign of 'upper' gradients
+        #J[upperC,:n].scale(-1.0)
         J[m:m+nrangeC,:n] = J[rangeC,:n]  # Append 'upper' side of range const.
-        J[m:m+nrangeC,:n].scale(-1.0)
+        #J[m:m+nrangeC,:n].scale(-1.0)
+        J[m:m+nrangeC,:n] *= -1.0        # Flip sign of 'upper' range gradients.
 
         # Create a few index lists
         rlowerC = List(range(nlowerC)) ; rlowerB = List(range(nlowerB))

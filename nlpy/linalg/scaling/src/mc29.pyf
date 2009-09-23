@@ -1,0 +1,20 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module mc29module
+    interface
+        subroutine mc29ad(m,n,ne,a,irn,icn,r,c,w,lp,ifail)
+            integer,intent(in) :: m
+            integer,intent(in) :: n
+            integer optional,check(len(a)>=ne),intent(in,hide),depend(a) :: ne=len(a)
+            double precision dimension(ne),intent(in) :: a
+            integer dimension(ne),depend(ne),intent(in) :: irn
+            integer dimension(ne),depend(ne),intent(in) :: icn
+            double precision dimension(m),intent(out) :: r
+            double precision dimension(n),intent(out) :: c
+            double precision dimension(m*2+n*3),depend(m,n),intent(hide,cache) :: w
+            integer optional, intent(in) :: lp=0
+            integer, intent(out) :: ifail
+        end subroutine mc29ad
+    end interface 
+end python module mc29module

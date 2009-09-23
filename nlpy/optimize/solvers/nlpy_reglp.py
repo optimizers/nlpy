@@ -21,9 +21,9 @@ if not lp.islp():
     sys.exit(1)
 
 reglp = RegLPInteriorPointSolver(lp)
-reglp.solve(itermax=100, tolerance=1.0e-6, PredictorCorrector=True)
+reglp.solve(PredictorCorrector=True)
 
-print 'Final x: ', reglp.x
+print 'Final x: ', reglp.x[:lp.original_n]
 print 'Final y: ', reglp.y
 print 'Final z: ', reglp.z
 

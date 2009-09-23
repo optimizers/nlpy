@@ -3,9 +3,9 @@ from nlpy.tools import norms
 from nlpy.tools.timing import cputime
 import numpy
 
-class InverseLbfgs:
+class InverseLBFGS:
     """
-    Class InverseLbfgs is a container used to store and manipulate
+    Class InverseLBFGS is a container used to store and manipulate
     limited-memory BFGS matrices. It may be used, e.g., in a LBFGS solver for
     unconstrained minimization or as a preconditioner. The limited-memory
     matrix that is implicitly stored is a positive definite approximation to
@@ -15,7 +15,7 @@ class InverseLbfgs:
 
     Instantiation is as follows
 
-        lbfgsupdate = LbfgsUpdate(n)
+        lbfgsupdate = InverseLBFGS(n)
 
     where n is the number of variables of the problem.
     
@@ -105,14 +105,14 @@ class InverseLbfgs:
         return self.matvec(iter, v)
 
 
-class LbfgsFramework:
+class LBFGSFramework:
     """
-    Class LbfgsFramework provides a framework for solving unconstrained
+    Class LBFGSFramework provides a framework for solving unconstrained
     optimization problems by means of the limited-memory BFGS method.
 
     Instantiation is done by
 
-        lbfgs = LbfgsFramework(nlp)
+        lbfgs = LBFGSFramework(nlp)
 
     where nlp is an instance of a nonlinear problem. A solution of the
     problem is obtained by called the solve member function, as in
@@ -125,7 +125,7 @@ class LbfgsFramework:
         x0          the starting point (default: nlp.x0)
         maxiter     the maximum number of iterations (default: max(10n,1000))
 
-    Other keyword arguments will be passed to LbfgsUpdate.
+    Other keyword arguments will be passed to InverseLBFGS.
         
     The linesearch used in this version is Jorge Nocedal's modified More and
     Thuente linesearch, attempting to ensure satisfaction of the strong Wolfe
@@ -141,7 +141,7 @@ class LbfgsFramework:
         self.nresets = 0
         self.converged = False
         
-        self.lbfgs = InverseLbfgs(self.nlp.n, **kwargs)
+        self.lbfgs = InverseLBFGS(self.nlp.n, **kwargs)
 
         self.x = kwargs.get('x0', self.nlp.x0)
         self.f = self.nlp.obj(self.x)

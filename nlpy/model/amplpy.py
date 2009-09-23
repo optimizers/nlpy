@@ -99,6 +99,7 @@ class AmplModel:
         self.name = model
 
         # Get basic info on problem
+        self.minimize = (_amplpy.obj_type() == 0)
         (self.n, self.m) = _amplpy.get_dim()  # nvar and ncon
         self.x0   = _amplpy.get_x0()          # initial primal estimate
         self.pi0  = _amplpy.get_pi0()         # initial dual estimate
@@ -225,7 +226,9 @@ class AmplModel:
 
     def OptimalityResiduals(self, x, y, z, **kwargs):
         """
-        Evaluate the KKT  or Fritz-John residuals at (x, y, z).
+        Evaluate the KKT  or Fritz-John residuals at (x, y, z). The sign of the
+        objective gradient is adjusted in this method as if the problem were a
+        minimization problem.
 
         :parameters:
 
@@ -408,10 +411,13 @@ class AmplModel:
         FJ = ('FJ' in kwargs.keys())
         objMult = kwargs.get('FJ', 1.0)
 
+        sign = 1
+        if not self.minimize: sign = -1  # Account for minimization problem.
+
         if not FJ:
-            dFeas += self.grad(x)
+            dFeas += sign * self.grad(x)
         else:
-            if float(objMult) != 0.0: dFeas += objMult * self.grad(x)
+            if float(objMult) != 0.0: dFeas += objMult * sign * self.grad(x)
 
         return (dFeas, gComp, bComp, pFeas, bRes)
 
@@ -449,23 +455,30 @@ class AmplModel:
     def obj(self, x):
         """
         Evaluate objective function value at x.
-        Returns a floating-point number.
+        Returns a floating-point number. This method changes the sign of the
+        objective value if the problem is a maximization problem.
         """
+        f = _amplpy.eval_obj(x)
         self.feval += 1
-        return _amplpy.eval_obj(x)
+        if not self.minimize: return -f
+        return f
 
     def grad(self, x):
         """
         Evaluate objective gradient at x.
-        Returns a numpy array.
+        Returns a numpy array. This method changes the sign of the objective
+        gradient if the problem is a maximization problem.
         """
+        g = _amplpy.grad_obj(x)
         self.geval += 1
-        return _amplpy.grad_obj(x)
+        if not self.minimize: g *= -1
+        return g
 
     def sgrad(self, x):
         """
         Evaluate sparse objective gradient at x.
-        Returns a sparse vector.
+        Returns a sparse vector. This method changes the sign of the objective
+        gradient if the problem is a maximization problem.
         """
         try:
             sg_dict = _amplpy.eval_sgrad(x)
@@ -474,13 +487,15 @@ class AmplModel:
             return None
         self.geval += 1
         sg = sv.SparseVector(self.n, sg_dict)
+        if not self.minimize: sg *= -1
         return sg
 
     def cost(self):
         """
         Evaluate sparse cost vector.
         Useful when problem is a linear program.
-        Return a sparse vector.
+        Return a sparse vector. This method changes the sign of the cost vector
+        if the problem is a maximization problem.
         """
         try:
             sc_dict = _amplpy.eval_cost()
@@ -488,6 +503,7 @@ class AmplModel:
             raise RunTimeError, "Failed to fetch sparse cost vector"
             return None
         sc = sv.SparseVector(self.n, sc_dict)
+        if not self.minimize: sc *= -1
         return sc
 
     def cons(self, x):
@@ -672,7 +688,8 @@ class AmplModel:
         than' constraints is flipped, and `JR` is the Jacobian of the 'less
         than' side of range constraints.
         """
-        n = self.n ; m = self.m ; nrangeC = self.nrangeC    
+        n = self.n ; m = self.m ; nrangeC = self.nrangeC
+        upperC = self.upperC ; rangeC = self.rangeC
 
         # Initialize sparse Jacobian
         J = sp(nrow=m + nrangeC, ncol=n, sizeHint=self.nnzj+10*nrangeC)
@@ -689,6 +706,9 @@ class AmplModel:
         Evaluate sparse lower triangular Hessian at (x, z).
         Returns a sparse matrix in format self.mformat
         (0 = compressed sparse row, 1 = linked list).
+
+        Note that the sign of the Hessian matrix of the objective function
+        appears as if the problem were a minimization problem.
         """
         if len(args) > 0:
             if type(args[0]).__name__ == 'll_mat':
@@ -703,6 +723,9 @@ class AmplModel:
         """
         Evaluate matrix-vector product H(x,z) * v.
         Returns a numpy array.
+
+        Note that the sign of the Hessian matrix of the objective function
+        appears as if the problem were a minimization problem.
         """
         self.Hprod += 1
         return _amplpy.H_prod(z, v)

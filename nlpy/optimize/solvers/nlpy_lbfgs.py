@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from nlpy.model import amplpy
-from nlpy.optimize.solvers.lbfgs import LbfgsFramework
+from nlpy.optimize.solvers.lbfgs import LBFGSFramework
 from nlpy.tools.timing import cputime
 import numpy
 import sys
@@ -23,7 +23,7 @@ for ProblemName in sys.argv[1:]:
         continue
 
     nlp.stop_d = 1.0e-12    
-    lbfgs = LbfgsFramework(nlp, npairs=5, scaling=True, silent=False)
+    lbfgs = LBFGSFramework(nlp, npairs=5, scaling=True, silent=False)
     t_setup = cputime() - t_setup
 
     lbfgs.solve()

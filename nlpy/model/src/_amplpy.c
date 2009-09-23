@@ -40,6 +40,7 @@ void init_amplpy( void );
 static PyObject *AmplPy_Init(          PyObject *self, PyObject *args );
 static PyObject *AmplPy_Terminate(     PyObject *self, PyObject *args );
 static PyObject *AmplPy_WriteSolution( PyObject *self, PyObject *args );
+static PyObject *AmplPy_Get_Obj_Type(  PyObject *self, PyObject *args );
 static PyObject *AmplPy_Get_Dimension( PyObject *self, PyObject *args );
 static PyObject *AmplPy_Get_nnzj(      PyObject *self, PyObject *args );
 static PyObject *AmplPy_Get_nnzh(      PyObject *self, PyObject *args );
@@ -229,6 +230,17 @@ static PyObject *AmplPy_Terminate( PyObject *self, PyObject *args ) {
     /* Return to caller */
     Py_INCREF( Py_None );
     return Py_None;
+}
+
+/* ========================================================================== */
+
+static char AmplPy_Get_Obj_Type_Doc[] = "Determine whether problem is a\
+ minimization or maximization problem.";
+
+static PyObject *AmplPy_Get_Obj_Type( PyObject *self, PyObject *args ) {
+
+  /* objtype[0]=0 means that we have a minimization problem. */
+  return Py_BuildValue("i", objtype[0]);
 }
 
 /* ========================================================================== */
@@ -1217,36 +1229,37 @@ static PyObject *AmplPy_Unset_x( PyObject *self, PyObject *args ) {
 /* ========================================================================== */
 
 static PyMethodDef AmplPyMethods[] = {
-  { "ampl_init",  AmplPy_Init,          METH_VARARGS, AmplPy_Init_Doc          },
-  { "ampl_shut",  AmplPy_Terminate,     METH_VARARGS, AmplPy_Terminate_Doc     },
-  { "ampl_sol",   AmplPy_WriteSolution, METH_VARARGS, AmplPy_WriteSolution_Doc },
-  { "get_dim",    AmplPy_Get_Dimension, METH_VARARGS, AmplPy_Get_Dimension_Doc },
-  { "get_nnzj",   AmplPy_Get_nnzj,      METH_VARARGS, AmplPy_Get_nnzj_Doc      },
-  { "get_nnzh",   AmplPy_Get_nnzh,      METH_VARARGS, AmplPy_Get_nnzh_Doc      },
-  { "get_CType",  AmplPy_Get_ConType,   METH_VARARGS, AmplPy_Get_ConType_Doc   },
-  { "get_x0",     AmplPy_Get_x0,        METH_VARARGS, AmplPy_Get_x0_Doc        },
-  { "get_pi0",    AmplPy_Get_pi0,       METH_VARARGS, AmplPy_Get_pi0_Doc       },
-  { "get_Lvar",   AmplPy_Get_Lvar,      METH_VARARGS, AmplPy_Get_Lvar_Doc      },
-  { "get_Uvar",   AmplPy_Get_Uvar,      METH_VARARGS, AmplPy_Get_Uvar_Doc      },
-  { "get_Lcon",   AmplPy_Get_Lcon,      METH_VARARGS, AmplPy_Get_Lcon_Doc      },
-  { "get_Ucon",   AmplPy_Get_Ucon,      METH_VARARGS, AmplPy_Get_Ucon_Doc      },
-  { "eval_obj",   AmplPy_Eval_obj,      METH_VARARGS, AmplPy_Eval_obj_Doc      },
-  { "grad_obj",   AmplPy_Grad_obj,      METH_VARARGS, AmplPy_Grad_obj_Doc      },
-  { "eval_cons",  AmplPy_Eval_cons,     METH_VARARGS, AmplPy_Eval_cons_Doc     },
-  { "eval_ci",    AmplPy_Eval_ci,       METH_VARARGS, AmplPy_Eval_ci_Doc       },
-  { "eval_gi",    AmplPy_Eval_gi,       METH_VARARGS, AmplPy_Eval_gi_Doc       },
-  { "eval_sgi",   AmplPy_Eval_sgi,      METH_VARARGS, AmplPy_Eval_sgi_Doc      },
-  { "eval_sgrad", AmplPy_Eval_sgrad,    METH_VARARGS, AmplPy_Eval_sgrad_Doc    },
-  { "eval_cost",  AmplPy_Eval_cost,     METH_VARARGS, AmplPy_Eval_cost_Doc     },
-  { "eval_row",   AmplPy_Eval_row,      METH_VARARGS, AmplPy_Eval_row_Doc      },
-  { "eval_J",     AmplPy_Eval_J,        METH_VARARGS, AmplPy_Eval_J_Doc        },
-  { "eval_A",     AmplPy_Eval_A,        METH_VARARGS, AmplPy_Eval_A_Doc        },
-  { "eval_H",     AmplPy_Eval_H,        METH_VARARGS, AmplPy_Eval_H_Doc        },
-  { "H_prod",     AmplPy_Prod_Hv,       METH_VARARGS, AmplPy_Prod_Hv_Doc       },
-  { "is_lp",      AmplPy_IsLP,          METH_VARARGS, AmplPy_IsLP_Doc          },
-  { "set_x",      AmplPy_Set_x,         METH_VARARGS, AmplPy_Set_x_Doc         },
-  { "unset_x",    AmplPy_Unset_x,       METH_VARARGS, AmplPy_Unset_x_Doc       },
-  { NULL,         NULL,                 0,            NULL                     }
+  {"ampl_init", AmplPy_Init,          METH_VARARGS, AmplPy_Init_Doc          },
+  {"ampl_shut", AmplPy_Terminate,     METH_VARARGS, AmplPy_Terminate_Doc     },
+  {"ampl_sol",  AmplPy_WriteSolution, METH_VARARGS, AmplPy_WriteSolution_Doc },
+  {"obj_type",  AmplPy_Get_Obj_Type,  METH_VARARGS, AmplPy_Get_Obj_Type_Doc  },
+  {"get_dim",   AmplPy_Get_Dimension, METH_VARARGS, AmplPy_Get_Dimension_Doc },
+  {"get_nnzj",  AmplPy_Get_nnzj,      METH_VARARGS, AmplPy_Get_nnzj_Doc      },
+  {"get_nnzh",  AmplPy_Get_nnzh,      METH_VARARGS, AmplPy_Get_nnzh_Doc      },
+  {"get_CType", AmplPy_Get_ConType,   METH_VARARGS, AmplPy_Get_ConType_Doc   },
+  {"get_x0",    AmplPy_Get_x0,        METH_VARARGS, AmplPy_Get_x0_Doc        },
+  {"get_pi0",   AmplPy_Get_pi0,       METH_VARARGS, AmplPy_Get_pi0_Doc       },
+  {"get_Lvar",  AmplPy_Get_Lvar,      METH_VARARGS, AmplPy_Get_Lvar_Doc      },
+  {"get_Uvar",  AmplPy_Get_Uvar,      METH_VARARGS, AmplPy_Get_Uvar_Doc      },
+  {"get_Lcon",  AmplPy_Get_Lcon,      METH_VARARGS, AmplPy_Get_Lcon_Doc      },
+  {"get_Ucon",  AmplPy_Get_Ucon,      METH_VARARGS, AmplPy_Get_Ucon_Doc      },
+  {"eval_obj",  AmplPy_Eval_obj,      METH_VARARGS, AmplPy_Eval_obj_Doc      },
+  {"grad_obj",  AmplPy_Grad_obj,      METH_VARARGS, AmplPy_Grad_obj_Doc      },
+  {"eval_cons", AmplPy_Eval_cons,     METH_VARARGS, AmplPy_Eval_cons_Doc     },
+  {"eval_ci",   AmplPy_Eval_ci,       METH_VARARGS, AmplPy_Eval_ci_Doc       },
+  {"eval_gi",   AmplPy_Eval_gi,       METH_VARARGS, AmplPy_Eval_gi_Doc       },
+  {"eval_sgi",  AmplPy_Eval_sgi,      METH_VARARGS, AmplPy_Eval_sgi_Doc      },
+  {"eval_sgrad", AmplPy_Eval_sgrad,    METH_VARARGS, AmplPy_Eval_sgrad_Doc   },
+  {"eval_cost", AmplPy_Eval_cost,     METH_VARARGS, AmplPy_Eval_cost_Doc     },
+  {"eval_row",  AmplPy_Eval_row,      METH_VARARGS, AmplPy_Eval_row_Doc      },
+  {"eval_J",    AmplPy_Eval_J,        METH_VARARGS, AmplPy_Eval_J_Doc        },
+  {"eval_A",    AmplPy_Eval_A,        METH_VARARGS, AmplPy_Eval_A_Doc        },
+  {"eval_H",    AmplPy_Eval_H,        METH_VARARGS, AmplPy_Eval_H_Doc        },
+  {"H_prod",    AmplPy_Prod_Hv,       METH_VARARGS, AmplPy_Prod_Hv_Doc       },
+  {"is_lp",     AmplPy_IsLP,          METH_VARARGS, AmplPy_IsLP_Doc          },
+  {"set_x",     AmplPy_Set_x,         METH_VARARGS, AmplPy_Set_x_Doc         },
+  {"unset_x",   AmplPy_Unset_x,       METH_VARARGS, AmplPy_Unset_x_Doc       },
+  {NULL,        NULL,                 0,            NULL                     }
 };
 
 /* ========================================================================== */
