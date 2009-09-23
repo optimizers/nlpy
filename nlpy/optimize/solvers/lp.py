@@ -488,8 +488,8 @@ class RegLPInteriorPointSolver:
             rho_q = regpr * qNorm/self.normc ; del_r = regdu * rNorm/self.normb
 
             # Update regularization parameters.
-            regpr = max(regpr/2, self.regpr_min)
-            regdu = max(regdu/2, self.regdu_min)
+            regpr = max(min(regpr/2, regpr**(1.1)), self.regpr_min)
+            regdu = max(min(regdu/2, regdu**(1.1)), self.regdu_min)
 
             iter += 1
 
