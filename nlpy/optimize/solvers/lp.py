@@ -22,6 +22,7 @@ from nlpy.tools.timing import cputime
 from pysparse import spmatrix
 from pysparse.pysparseMatrix import PysparseMatrix
 import numpy as np
+from math import sqrt
 import sys
 
 
@@ -67,6 +68,7 @@ class RegLPInteriorPointSolver:
             raise ValueError, msg
 
         self.verbose = kwargs.get('verbose', True)
+        self.stabilize = kwargs.get('stabilize', False)
 
         self.lp = lp
         self.A = lp.A()               # Constraint matrix
@@ -78,15 +80,16 @@ class RegLPInteriorPointSolver:
         self.nSlacks  = lp.n - lp.original_n
 
         # Residuals
-        self.dFeas = np.zeros(n)
-        self.pFeas = np.zeros(m)
-        self.comp = np.zeros(self.nSlacks)
+        #self.dFeas = np.zeros(n)
+        #self.pFeas = np.zeros(m)
+        #self.comp = np.zeros(self.nSlacks)
+        zero = np.zeros(n)
 
-        self.b = -lp.cons(self.dFeas)     # Right-hand side
-        self.c0 = lp.obj(self.dFeas)      # Constant term in objective
-        self.c =  lp.grad(self.dFeas[:lp.original_n]) #lp.cost()  # Cost vector
+        self.b = -lp.cons(zero)     # Right-hand side
+        self.c0 = lp.obj(zero)      # Constant term in objective
+        self.c =  lp.grad(zero[:lp.original_n]) #lp.cost()  # Cost vector
 
-        # Apply problem scaling if requested.
+        # Apply in-place problem scaling if requested.
         self.prob_scaled = False
         if scale: self.scale()
 
@@ -96,10 +99,21 @@ class RegLPInteriorPointSolver:
 
         # Initialize augmented matrix
         self.H = PysparseMatrix(size=n+m, sizeHint=n+self.A.nnz, symmetric=True)
-        self.H[n:,:n] = self.A
+
+        # If not scaling augmented systems at each iteration, the (2,1) block
+        # will always remain A. We store it now once and for all.
+        if not self.stabilize:
+            self.H[n:,:n] = self.A
 
         self.regpr = kwargs.get('regpr', 1.0) ; self.regpr_min = 1.0e-8
         self.regdu = kwargs.get('regdu', 1.0) ; self.regdu_min = 1.0e-8
+
+        # Check input parameters.
+        if self.regpr < 0.0: self.regpr = 0.0
+        if self.regdu < 0.0: self.regdu = 0.0
+
+        # Dual regularization is necessary for stabilization.
+        if self.stabilize and self.regdu == 0.0: self.regdu = 1.0
 
         # Initialize format strings for display
         fmt_hdr = '%-4s  %9s' + '  %-8s'*6 + '  %-7s  %-4s  %-4s' + '  %-8s'*8
@@ -220,15 +234,13 @@ class RegLPInteriorPointSolver:
         vector c to their original value by undoing the row and column
         equilibration scaling.
         """
-        (values,irow,jcol) = self.A.find()
         row_scale = self.row_scale
         col_scale = self.col_scale
         on = self.lp.original_n
 
         # Unscale constraint matrix A.
-        values *= col_scale[jcol]
-        values *= row_scale[irow]
-        self.A.put(values,irow,jcol)
+        self.A.row_scale(row_scale)
+        self.A.col_scale(col_scale)
 
         # Unscale right-hand side and cost vectors.
         self.b *= row_scale
@@ -273,13 +285,13 @@ class RegLPInteriorPointSolver:
         """
         lp = self.lp
         itermax = kwargs.get('itermax', 10*lp.n)
-        tolerance = kwargs.get('tolerance', 1.0e-6)
+        tolerance = kwargs.get('tolerance', 1.0e-5)
         PredictorCorrector = kwargs.get('PredictorCorrector', True)
 
         # Transfer pointers for convenience.
         m, n = self.A.shape ; on = lp.original_n
         A = self.A ; b = self.b ; c = self.c ; H = self.H
-        dFeas = self.dFeas ; pFeas = self.pFeas ; comp = self.comp
+        #dFeas = self.dFeas ; pFeas = self.pFeas ; comp = self.comp
         regpr = self.regpr ; regdu = self.regdu
 
         # Obtain initial point from Mehrotra's heuristic.
@@ -290,6 +302,8 @@ class RegLPInteriorPointSolver:
 
         # Initialize steps in dual variables.
         dz = np.zeros(ns)
+
+        col_scale = np.empty(n)
 
         # Allocate room for right-hand side of linear systems.
         rhs = np.zeros(n+m)
@@ -368,9 +382,19 @@ class RegLPInteriorPointSolver:
             # We recover ∆z = -z - S^{-1} (Z ∆s + µ e).
 
             # Compute augmented matrix and factorize it.
-            H.put(-regpr,       range(on))
-            H.put(-z/s - regpr, range(on,n))
-            H.put(regdu,        range(n,n+m))
+            if self.stabilize:
+                col_scale[:on] = sqrt(regpr)
+                col_scale[on:] = np.sqrt(z/s + regpr)
+                H.put(-sqrt(regdu), range(n))
+                H.put( sqrt(regdu), range(n,n+m))
+                AA = self.A.copy()
+                AA.col_scale(1/col_scale)
+                H[n:,:n] = AA
+            else:
+                H.put(-regpr,       range(on))
+                H.put(-z/s - regpr, range(on,n))
+                H.put(regdu,        range(n,n+m))
+
             LBL = LBLContext(H, sqd=True)
 
             # If the augmented matrix does not have full rank, bump up the
@@ -380,9 +404,20 @@ class RegLPInteriorPointSolver:
                 if self.verbose:
                     sys.stderr.write('Primal-Dual Matrix is Rank Deficient\n')
                 regpr *= 100 ; regdu *= 100
-                H.put(-regpr,       range(on))
-                H.put(-z/s - regpr, range(on,n))
-                H.put(regdu,        range(n,n+m))
+
+                if self.stabilize:
+                    col_scale[:on] = sqrt(regpr)
+                    col_scale[on:] = np.sqrt(z/s + regpr)
+                    H.put(-sqrt(regdu), range(n))
+                    H.put( sqrt(regdu), range(n,n+m))
+                    AA = self.A.copy()
+                    AA.col_scale(1/col_scale)
+                    H[n:,:n] = AA
+                else:
+                    H.put(-regpr,       range(on))
+                    H.put(-z/s - regpr, range(on,n))
+                    H.put(regdu,        range(n,n+m))
+
                 LBL = LBLContext(H, sqd=True)
                 nb_bump += 1
 
@@ -400,8 +435,18 @@ class RegLPInteriorPointSolver:
                 rhs[:n]    = -dFeas
                 rhs[on:n] += z
                 rhs[n:]    = -pFeas
+
+                # if 'stabilize' is on, must scale right-hand side.
+                if self.stabilize:
+                    rhs[:n] /= col_scale
+                    rhs[n:] /= sqrt(regdu)
+
                 (step, nres, neig) = self.solveSystem(LBL, rhs)
                 
+                # Unscale step if 'stabilize' is on.
+                if self.stabilize:
+                    step[:n] *= sqrt(regdu) / col_scale
+
                 # Recover dx and dz.
                 dx = step[:n]
                 ds = dx[on:]
@@ -428,8 +473,17 @@ class RegLPInteriorPointSolver:
             rhs[on:n] += comp/s
             rhs[n:]    = -pFeas
 
+            # if 'stabilize' is on, must scale right-hand side.
+            if self.stabilize:
+                rhs[:n] /= col_scale
+                rhs[n:] /= sqrt(regdu)
+
             # Solve augmented system.
             (step, nres, neig) = self.solveSystem(LBL, rhs)
+
+            # Unscale step if 'stabilize' is on.
+            if self.stabilize:
+                step[:n] *= sqrt(regdu) / col_scale
 
             # Recover step.
             dx = step[:n]
@@ -694,14 +748,13 @@ class RegLPInteriorPointSolver29(RegLPInteriorPointSolver):
         vector c to their original value by undoing the row and column
         equilibration scaling.
         """
-        (values, irow, jcol) = self.A.find()
         row_scale = self.row_scale
         col_scale = self.col_scale
         on = self.lp.original_n
 
         # Unscale constraint matrix A.
-        values /= row_scale[irow]
-        values /= col_scale[jcol]
+        self.A.row_scale(1/row_scale)
+        self.A.col_scale(1/col_scale)
 
         # Unscale right-hand side b.
         self.b /= row_scale
@@ -710,8 +763,8 @@ class RegLPInteriorPointSolver29(RegLPInteriorPointSolver):
         self.c[:on] /= col_scale[:on]
 
         # Recover unscaled multipliers y and z.
-        self.y *= row_scale
-        self.z /= col_scale[on:]
+        self.y /= row_scale
+        self.z *= col_scale[on:]
 
         self.prob_scaled = False
 

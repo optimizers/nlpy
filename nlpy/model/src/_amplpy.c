@@ -217,8 +217,8 @@ static PyObject *AmplPy_Terminate( PyObject *self, PyObject *args ) {
     //if( pi0 ) free( pi0 );
     //if( Urhsx ) free( Urhsx );
     //if( LUv ) free( LUv );
-    // ASL_free( (ASL **)(&asl) );
-    free( asl );
+    ASL_free( (ASL **)(&asl) );
+  //free( asl );
 
     /* Output a dummy solution if none has been output */
     //if( !ampl_written_sol )
