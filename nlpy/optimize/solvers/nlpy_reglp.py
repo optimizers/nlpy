@@ -34,7 +34,7 @@ for probname in sys.argv[1:]:
         continue
 
     # Pass problem to RegLP.
-    reglp = RegLPInteriorPointSolver(lp, scale=True, stabilize=True, verbose=oneproblem)
+    reglp = RegLPInteriorPointSolver(lp, stabilize=True, verbose=oneproblem)
     reglp.solve()
 
     # Display summary line.

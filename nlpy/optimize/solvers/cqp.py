@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-# Long-step primal-dual interior-point method for linear programming
+# Long-step primal-dual interior-point method for convex quadratic programming
 # From Algorithm IPF on p.110 of Stephen J. Wright's book
 # "Primal-Dual Interior-Point Methods", SIAM ed., 1997.
 # The method uses the augmented system formulation. These systems
 # are solved using PyMa27 or PyMa57.
 #
-# D. Orban, Montreal 2004. Revised September 2009.
+# D. Orban, Montreal 2009.
 
 import pdb
 
@@ -26,20 +26,21 @@ from math import sqrt
 import sys
 
 
-class RegLPInteriorPointSolver:
+class RegQPInteriorPointSolver:
 
-    def __init__(self, lp, scale=True, **kwargs):
+    def __init__(self, qp, scale=True, **kwargs):
         """
-        Solve a linear program of the form
+        Solve a convex quadratic program of the form
 
-           minimize    c' x
+           minimize    c' x + 1/2 x' Q x
            subject to  A1 x + A2 s = b,                                 (LP)
                        s >= 0,
 
-        where the variables x are the original problem variables and s are
-        slack variables. Any linear program may be converted to the above form
-        by instantiation of the `SlackFramework` class. The conversion to the
-        slack formulation is mandatory in this implementation.
+        where Q is a symmetric positive semi-definite matrix, the variables
+        x are the original problem variables and s are slack variables. Any
+        quadratic program may be converted to the above form by instantiation
+        of the `SlackFramework` class. The conversion to the slack formulation
+        is mandatory in this implementation.
 
         The method is a variant of Mehrotra's predictor-corrector method where
         steps are computed by solving the primal-dual system in augmented form.
@@ -63,20 +64,20 @@ class RegLPInteriorPointSolver:
         in augmented form.
         """
 
-        if not isinstance(lp, SlackFramework):
+        if not isinstance(qp, SlackFramework):
             msg = 'Input problem must be an instance of SlackFramework'
             raise ValueError, msg
 
         self.verbose = kwargs.get('verbose', True)
         self.stabilize = kwargs.get('stabilize', False)
 
-        self.lp = lp
+        self.qp = qp
         self.A = lp.A()               # Constraint matrix
         if not isinstance(self.A, PysparseMatrix):
             self.A = PysparseMatrix(matrix=self.A)
 
         m, n = self.A.shape
-        # Record number of slack variables in LP
+        # Record number of slack variables in QP
         self.nSlacks  = lp.n - lp.original_n
 
         # Residuals
@@ -85,9 +86,10 @@ class RegLPInteriorPointSolver:
         #self.comp = np.zeros(self.nSlacks)
         zero = np.zeros(n)
 
-        self.b = -lp.cons(zero)     # Right-hand side
-        self.c0 = lp.obj(zero)      # Constant term in objective
-        self.c =  lp.grad(zero[:lp.original_n]) #lp.cost()  # Cost vector
+        self.b = -qp.cons(zero)                  # Right-hand side
+        self.c0 = qp.obj(zero)                   # Constant term in objective
+        self.c =  qp.grad(zero[:qp.original_n])  # Cost vector
+        self.Q =  qp.hess(zero[:qp.original_n])
 
         # Apply in-place problem scaling if requested.
         self.prob_scaled = False
@@ -99,23 +101,22 @@ class RegLPInteriorPointSolver:
 
         # Initialize augmented matrix
         self.H = PysparseMatrix(size=n+m,
-                                sizeHint=n+m+self.A.nnz,
+                                sizeHint=n+m+self.A.nnz+self.Q.nnz,
                                 symmetric=True)
 
-        # If not scaling augmented systems at each iteration, the (2,1) block
-        # will always remain A. We store it now once and for all.
-        if not self.stabilize:
-            self.H[n:,:n] = self.A
+        # The (2,1) block will always be A. We store it now once and for all.
+        self.H[n:,:n] = self.A
 
+        # It will be more efficient to store the diagonal of Q.
+        self.diagQ = self.Q.take(range(qp.original_n))
+
+        # Set regularization parameters.
         self.regpr = kwargs.get('regpr', 1.0) ; self.regpr_min = 1.0e-8
         self.regdu = kwargs.get('regdu', 1.0) ; self.regdu_min = 1.0e-8
 
         # Check input parameters.
         if self.regpr < 0.0: self.regpr = 0.0
         if self.regdu < 0.0: self.regdu = 0.0
-
-        # Dual regularization is necessary for stabilization.
-        if self.stabilize and self.regdu == 0.0: self.regdu = 1.0
 
         # Initialize format strings for display
         fmt_hdr = '%-4s  %9s' + '  %-8s'*6 + '  %-7s  %-4s  %-4s' + '  %-8s'*8
@@ -136,17 +137,16 @@ class RegLPInteriorPointSolver:
         """
         Display vital statistics about the input problem.
         """
-        lp = self.lp
+        qp = self.qp
         w = sys.stdout.write
         w('\n')
-        w('Problem Name: %s\n' % lp.name)
-        w('Number of problem variables: %d\n' % lp.original_n)
-        w('Number of problem constraints excluding bounds: %d\n' %lp.original_m)
-        w('Number of slack variables: %d\n' % (lp.n - lp.original_n))
-        w('Adjusted number of variables: %d\n' % lp.n)
-        w('Adjusted number of constraints excluding bounds: %d\n' % lp.m)
+        w('Problem Name: %s\n' % qp.name)
+        w('Number of problem variables: %d\n' % qp.original_n)
+        w('Number of problem constraints excluding bounds: %d\n' %qp.original_m)
+        w('Number of slack variables: %d\n' % (qp.n - qp.original_n))
+        w('Adjusted number of variables: %d\n' % qp.n)
+        w('Adjusted number of constraints excluding bounds: %d\n' % qp.m)
         w('Number of nonzeros in constraint matrix: %d\n' % self.A.nnz)
-        #w('Number of coefficients in objective: %d\n' % self.c.nnz())
         w('Constant term in objective: %8.2e\n' % self.c0)
         w('\n')
         return
@@ -158,11 +158,13 @@ class RegLPInteriorPointSolver:
         value and then by dividing every column by its largest element in
         absolute value. In effect the original problem
 
-          minimize c'x  subject to  A1 x + A2 s = b, x >= 0
+          minimize c' x + 1/2 x' Q x
+          subject to  A1 x + A2 s = b, x >= 0
 
         is converted to
 
-          minimize (Cc)'x  subject to  R A1 C x + R A2 C s = Rb, x >= 0,
+          minimize (Cc)' x + 1/2 x' (CQC') x
+          subject to  R A1 C x + R A2 C s = Rb, x >= 0,
 
         where the diagonal matrices R and C operate row and column scaling
         respectively.
