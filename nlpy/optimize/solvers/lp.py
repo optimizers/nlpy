@@ -330,8 +330,10 @@ class RegLPInteriorPointSolver:
             # At the first iteration, initialize perturbation vectors
             # (q=primal, r=dual).
             if iter == 0:
-                q =  dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
-                r = -pFeas/regdu ; rNorm = norm2(r) ; del_r = regdu * rNorm
+                #q =  dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
+                #r = -pFeas/regdu ; rNorm = norm2(r) ; del_r = regdu * rNorm
+                q = np.zeros(n) ; qNorm = 0 ; rho_q = 0
+                r = np.zeros(m) ; rNorm = 0 ; del_r = 0
 
             pResid = norm_infty(pFeas + regdu * r)/(1+self.normc)
             cResid = norm_infty(comp)/self.normbc
@@ -382,28 +384,9 @@ class RegLPInteriorPointSolver:
             # We recover ∆z = -z - S^{-1} (Z ∆s + µ e).
 
             # Compute augmented matrix and factorize it.
-            if self.stabilize:
-                col_scale[:on] = sqrt(regpr)
-                col_scale[on:] = np.sqrt(z/s + regpr)
-                H.put(-sqrt(regdu), range(n))
-                H.put( sqrt(regdu), range(n,n+m))
-                AA = self.A.copy()
-                AA.col_scale(1/col_scale)
-                H[n:,:n] = AA
-            else:
-                H.put(-regpr,       range(on))
-                H.put(-z/s - regpr, range(on,n))
-                H.put(regdu,        range(n,n+m))
-
-            LBL = LBLContext(H, sqd=True)
-
-            # If the augmented matrix does not have full rank, bump up the
-            # regularization parameters.
+            factorized = False
             nb_bump = 0
-            while not LBL.isFullRank and nb_bump < 5:
-                if self.verbose:
-                    sys.stderr.write('Primal-Dual Matrix is Rank Deficient\n')
-                regpr *= 100 ; regdu *= 100
+            while not factorized and nb_bump < 5:
 
                 if self.stabilize:
                     col_scale[:on] = sqrt(regpr)
@@ -419,8 +402,18 @@ class RegLPInteriorPointSolver:
                     H.put(regdu,        range(n,n+m))
 
                 LBL = LBLContext(H, sqd=True)
-                nb_bump += 1
+                factorized = True
 
+                # If the augmented matrix does not have full rank, bump up the
+                # regularization parameters.
+                if not LBL.isFullRank:
+                    if self.verbose:
+                        sys.stderr.write('Primal-Dual Matrix Rank Deficient\n')
+                    regpr *= 100 ; regdu *= 100
+                    nb_bump += 1
+                    factorized = False
+
+            # Abandon if regularization is unsuccessful.
             if not LBL.isFullRank and nb_bump == 5:
                 status = 'Unable to regularize sufficiently.'
                 finished = True
@@ -440,6 +433,8 @@ class RegLPInteriorPointSolver:
                 if self.stabilize:
                     rhs[:n] /= col_scale
                     rhs[n:] /= sqrt(regdu)
+
+                #pdb.set_trace()
 
                 (step, nres, neig) = self.solveSystem(LBL, rhs)
                 
@@ -466,17 +461,23 @@ class RegLPInteriorPointSolver:
                 # Use long-step method: Compute centering parameter.
                 sigma = min(0.1, 100*mu)
 
-            # Compute centering step with appropriate centering parameter.
-            # Assemble right-hand side.
+            # Assemble right-hand side with centering information.
             comp -= sigma * mu
-            rhs[:n]    = -dFeas
-            rhs[on:n] += comp/s
-            rhs[n:]    = -pFeas
 
-            # if 'stabilize' is on, must scale right-hand side.
-            if self.stabilize:
-                rhs[:n] /= col_scale
-                rhs[n:] /= sqrt(regdu)
+            if PredictorCorrector:
+                # Only update rhs[on:n]; the rest of the vector did not change.
+                if self.stabilize: rhs[on:n] *= col_scale[on:n]
+                rhs[on:n] += comp/s - z
+                if self.stabilize: rhs[on:n] /= col_scale[on:n]
+            else:
+                rhs[:n]    = -dFeas
+                rhs[on:n] += comp/s
+                rhs[n:]    = -pFeas
+
+                # if 'stabilize' is on, must scale right-hand side.
+                if self.stabilize:
+                    rhs[:n] /= col_scale
+                    rhs[n:] /= sqrt(regdu)
 
             # Solve augmented system.
             (step, nres, neig) = self.solveSystem(LBL, rhs)
