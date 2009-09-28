@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from nlpy.tool.pprof import parse_cmdline, PerformanceProfile
+from nlpy.tools.pprof import parse_cmdline, PerformanceProfile
 import sys
 
 # Usage from the command line
