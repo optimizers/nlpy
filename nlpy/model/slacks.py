@@ -150,9 +150,9 @@ class SlackFramework( AmplModel ):
         upperC = self.upperC ; nupperC = self.nupperC
         rangeC = self.rangeC ; nrangeC = self.nrangeC
 
-        mslow = self.original_m + self.nrangeC + self.n_con_low
+        mslow = self.original_n + self.nrangeC + self.n_con_low
         msup  = mslow + self.n_con_up
-        s_low = x[self.original_m + self.nrangeC:mslow]
+        s_low = x[self.original_n + self.nrangeC:mslow]
         s_up  = x[mslow:msup]
 
         c = numpy.empty(m)

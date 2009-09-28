@@ -36,7 +36,7 @@ for probname in sys.argv[1:]:
     #    continue
 
     # Pass problem to RegQP.
-    regqp = RegQPInteriorPointSolver(qp, scale=False, verbose=oneproblem)
+    regqp = RegQPInteriorPointSolver(qp, scale=True, verbose=oneproblem)
     regqp.solve()
 
     # Display summary line.

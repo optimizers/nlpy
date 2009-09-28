@@ -79,10 +79,7 @@ class RegQPInteriorPointSolver:
         # Record number of slack variables in QP
         self.nSlacks  = qp.n - qp.original_n
 
-        # Residuals
-        #self.dFeas = np.zeros(n)
-        #self.pFeas = np.zeros(m)
-        #self.comp = np.zeros(self.nSlacks)
+        # Collect basic info about the problem.
         zero = np.zeros(n)
 
         self.b  = -qp.cons(zero)                  # Right-hand side
@@ -93,10 +90,15 @@ class RegQPInteriorPointSolver:
 
         # Apply in-place problem scaling if requested.
         self.prob_scaled = False
-        if scale: self.scale()
+        if scale:
+            self.scale()
+        else:
+            # self.scale() sets self.normQ to the Frobenius norm of Q
+            # as a by-product. If we're not scaling, set normQ manually.
+            self.normQ = self.Q.matrix.norm('fro')
 
         self.normb  = norm_infty(self.b)
-        self.normc  = norm_infty(self.c) #sv.norm_infty(self.c)
+        self.normc  = norm_infty(self.c)
         self.normbc = 1 + max(self.normb, self.normc)
 
         # Initialize augmented matrix
@@ -226,6 +228,7 @@ class RegQPInteriorPointSolver:
 
         # Apply scaling to Hessian matrix Q.
         (values,irow,jcol) = self.Q.find()
+        self.normQ = norm2(values)  # Frobenius norm of Q
         values /= col_scale[irow]
         values /= col_scale[jcol]
         self.Q.put(values,irow,jcol)
@@ -299,7 +302,7 @@ class RegQPInteriorPointSolver:
          status.........string describing the exit status.
         """
         qp = self.qp
-        itermax = kwargs.get('itermax', 10*qp.n)
+        itermax = kwargs.get('itermax', max(100,10*qp.n))
         tolerance = kwargs.get('tolerance', 1.0e-5)
         PredictorCorrector = kwargs.get('PredictorCorrector', True)
 
@@ -349,30 +352,35 @@ class RegQPInteriorPointSolver:
             # At the first iteration, initialize perturbation vectors
             # (q=primal, r=dual).
             if iter == 0:
-                #q =  dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
-                #r = -pFeas/regdu ; rNorm = norm2(r) ; del_r = regdu * rNorm
-                q = np.zeros(n) ; qNorm = 0 ; rho_q = 0
-                r = np.zeros(m) ; rNorm = 0 ; del_r = 0
+                q =  dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
+                r = -pFeas/regdu ; rNorm = norm2(r) ; del_r = regdu * rNorm
+                #q = np.zeros(n) ; qNorm = 0 ; rho_q = 0
+                #r = np.zeros(m) ; rNorm = 0 ; del_r = 0
 
-            pResid = norm_infty(pFeas + regdu * r)/(1+self.normc)
-            cResid = norm_infty(comp)/self.normbc
-            dResid = norm_infty(dFeas - regpr * q)/(1+self.normb)
+            pResid = norm_infty(pFeas + regdu * r)/(1+self.normc+self.normQ)
+            if ns > 0:
+                cResid = norm_infty(comp)/(self.normbc+self.normQ)
+            else:
+                cResid = 0.0
+            dResid = norm_infty(dFeas - regpr * q)/(1+self.normb+self.normQ)
 
             # Compute relative duality gap.
             cx = np.dot(c,x[:on])
+            xQx = np.dot(x[:on],Qx)
             by = np.dot(b,y)
-            rgap  = cx + np.dot(x[:on],Qx) - by
-            #rgap += regdu * (rNorm**2 + np.dot(r,y))
-            rgap  = abs(rgap) / (1 + abs(cx))
+            rgap  = cx + xQx - by
+            rgap += regdu * (rNorm**2 + np.dot(r,y))
+            rgap  = abs(rgap) / (1 + abs(cx) + self.normQ)
 
             # Compute overall residual for stopping condition.
-            #kktResid = max(max(pResid, dResid)/self.normbc, rgap)
-            kktResid = max(pResid, cResid, dResid)
+            kktResid = max(max(pResid, dResid)/self.normbc, rgap)
+            #kktResid = max(pResid, cResid, dResid)
 
             # Display objective and residual data.
             if self.verbose:
-                sys.stdout.write(self.format1 % (iter, cx, pResid, dResid,
-                                                 cResid, rgap, qNorm, rNorm))
+                sys.stdout.write(self.format1 % (iter, cx + 0.5 * xQx, pResid,
+                                                 dResid, cResid, rgap, qNorm,
+                                                 rNorm))
 
             if kktResid <= tolerance:
                 status = 'Optimal solution found'
@@ -385,9 +393,12 @@ class RegQPInteriorPointSolver:
                 continue
 
             # Record some quantities for display
-            mins = np.min(s)
-            minz = np.min(z)
-            maxs = np.max(s)
+            if ns > 0:
+                mins = np.min(s)
+                minz = np.min(z)
+                maxs = np.max(s)
+            else:
+                mins = minz = maxs = 0
 
             # Solve the linear system
             #
@@ -429,7 +440,10 @@ class RegQPInteriorPointSolver:
                 continue
 
             # Compute duality measure.
-            mu = sum(comp)/ns
+            if ns > 0:
+                mu = sum(comp)/ns
+            else:
+                mu = 0.0
 
             if PredictorCorrector:
                 # Use Mehrotra predictor-corrector method.
@@ -558,7 +572,7 @@ class RegQPInteriorPointSolver:
         if self.prob_scaled: self.unscale()
 
         # Recompute final objective value.
-        self.obj_value = np.dot(self.c, x[:on]) + 0.5 * np.dot(x[:on], Q*x[:on]) + self.c0
+        self.obj_value = cx + 0.5 * xQx
 
         return
 
@@ -615,6 +629,9 @@ class RegQPInteriorPointSolver:
         (step, nres, neig) = self.solveSystem(LBL, rhs)
         y = step[n:].copy()
         z = step[on:n].copy()
+
+        # If there are no inequality constraints, this is it
+        if n == on: return (x,y,z)
 
         # Use Mehrotra's heuristic to ensure (s,z) > 0.
         if np.all(s >= 0):
