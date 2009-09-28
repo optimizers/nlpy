@@ -33,7 +33,7 @@ class RegQPInteriorPointSolver:
         Solve a convex quadratic program of the form
 
            minimize    c' x + 1/2 x' Q x
-           subject to  A1 x + A2 s = b,                                 (LP)
+           subject to  A1 x + A2 s = b,                                 (QP)
                        s >= 0,
 
         where Q is a symmetric positive semi-definite matrix, the variables
@@ -50,7 +50,7 @@ class RegQPInteriorPointSolver:
         positive real numbers and should not be "too large". By default they are
         set to 1.0 and updated at each iteration.
 
-        If `scale` is set to `True`, (LP) is scaled automatically prior to
+        If `scale` is set to `True`, (QP) is scaled automatically prior to
         solution so as to equilibrate the rows and columns of the constraint
         matrix [A1 A2].
 
@@ -69,16 +69,15 @@ class RegQPInteriorPointSolver:
             raise ValueError, msg
 
         self.verbose = kwargs.get('verbose', True)
-        self.stabilize = kwargs.get('stabilize', False)
 
         self.qp = qp
-        self.A = lp.A()               # Constraint matrix
+        self.A = qp.A()               # Constraint matrix
         if not isinstance(self.A, PysparseMatrix):
             self.A = PysparseMatrix(matrix=self.A)
 
         m, n = self.A.shape
         # Record number of slack variables in QP
-        self.nSlacks  = lp.n - lp.original_n
+        self.nSlacks  = qp.n - qp.original_n
 
         # Residuals
         #self.dFeas = np.zeros(n)
@@ -86,10 +85,11 @@ class RegQPInteriorPointSolver:
         #self.comp = np.zeros(self.nSlacks)
         zero = np.zeros(n)
 
-        self.b = -qp.cons(zero)                  # Right-hand side
-        self.c0 = qp.obj(zero)                   # Constant term in objective
-        self.c =  qp.grad(zero[:qp.original_n])  # Cost vector
-        self.Q =  qp.hess(zero[:qp.original_n])
+        self.b  = -qp.cons(zero)                  # Right-hand side
+        self.c0 =  qp.obj(zero)                   # Constant term in objective
+        self.c  =  qp.grad(zero[:qp.original_n])  # Cost vector
+        self.Q  =  PysparseMatrix(matrix=qp.hess(zero[:qp.original_n], 
+                                                 np.zeros(qp.original_m)))
 
         # Apply in-place problem scaling if requested.
         self.prob_scaled = False
@@ -146,6 +146,7 @@ class RegQPInteriorPointSolver:
         w('Number of slack variables: %d\n' % (qp.n - qp.original_n))
         w('Adjusted number of variables: %d\n' % qp.n)
         w('Adjusted number of constraints excluding bounds: %d\n' % qp.m)
+        w('Number of nonzeros in Hessian matrix Q: %d\n' % self.Q.nnz)
         w('Number of nonzeros in constraint matrix: %d\n' % self.A.nnz)
         w('Constant term in objective: %8.2e\n' % self.c0)
         w('\n')
@@ -214,8 +215,7 @@ class RegQPInteriorPointSolver:
 
         # Apply column scaling to A and c.
         values /= col_scale[jcol]
-        self.c[:self.lp.original_n] /= col_scale[:self.lp.original_n]
-        #for k in self.c.keys(): self.c[k] /= col_scale[k]
+        self.c[:self.qp.original_n] /= col_scale[:self.qp.original_n]
 
         if self.verbose:
             w('Smallest and largest elements of A after scaling: ')
@@ -223,6 +223,12 @@ class RegQPInteriorPointSolver:
 
         # Overwrite A with scaled values.
         self.A.put(values,irow,jcol)
+
+        # Apply scaling to Hessian matrix Q.
+        (values,irow,jcol) = self.Q.find()
+        values /= col_scale[irow]
+        values /= col_scale[jcol]
+        self.Q.put(values,irow,jcol)
 
         # Save row and column scaling.
         self.row_scale = row_scale
@@ -240,7 +246,7 @@ class RegQPInteriorPointSolver:
         """
         row_scale = self.row_scale
         col_scale = self.col_scale
-        on = self.lp.original_n
+        on = self.qp.original_n
 
         # Unscale constraint matrix A.
         self.A.row_scale(row_scale)
@@ -249,7 +255,12 @@ class RegQPInteriorPointSolver:
         # Unscale right-hand side and cost vectors.
         self.b *= row_scale
         self.c[:on] *= col_scale[:on]
-        #for k in self.c.keys(): self.c[k] *= self.col_scale[k]
+
+        # Unscale Hessian matrix Q.
+        (values,irow,jcol) = self.Q.find()
+        values *= col_scale[irow]
+        values *= col_scale[jcol]
+        self.Q.put(values,irow,jcol)
 
         # Recover unscaled multipliers y and z.
         self.y *= self.row_scale
@@ -284,22 +295,26 @@ class RegQPInteriorPointSolver:
          obj_value......final cost
          iter...........total number of iterations
          kktResid.......final relative residual
-         solve_time.....time to solve the LP
+         solve_time.....time to solve the QP
          status.........string describing the exit status.
         """
-        lp = self.lp
-        itermax = kwargs.get('itermax', 10*lp.n)
+        qp = self.qp
+        itermax = kwargs.get('itermax', 10*qp.n)
         tolerance = kwargs.get('tolerance', 1.0e-5)
         PredictorCorrector = kwargs.get('PredictorCorrector', True)
 
         # Transfer pointers for convenience.
-        m, n = self.A.shape ; on = lp.original_n
-        A = self.A ; b = self.b ; c = self.c ; H = self.H
-        #dFeas = self.dFeas ; pFeas = self.pFeas ; comp = self.comp
+        m, n = self.A.shape ; on = qp.original_n
+        A = self.A ; b = self.b ; c = self.c ; Q = self.Q ; diagQ = self.diagQ
+        H = self.H
+
         regpr = self.regpr ; regdu = self.regdu
 
         # Obtain initial point from Mehrotra's heuristic.
-        (x,y,z) = self.set_initial_guess(self.lp, **kwargs)
+        (x,y,z) = self.set_initial_guess(self.qp, **kwargs)
+
+        # The (1,1) block will always be Q (save for its diagonal).
+        self.H[:on,:on] = -self.Q
 
         # Slack variables are the trailing variables in x.
         s = x[on:] ; ns = self.nSlacks
@@ -326,10 +341,10 @@ class RegQPInteriorPointSolver:
 
             # Compute residuals.
             pFeas = A*x - b
-            comp = s*z                                      # comp   = S z
-            dFeas = y*A ; dFeas[:on] -= self.c              # dFeas1 = A1'y - c
-            dFeas[on:] += z                                 # dFeas2 = A2'y + z
-            #for k in c.keys(): dFeas[k] -= c[k]
+            comp = s*z                                  # comp   = S z
+            Qx = Q*x[:on]
+            dFeas = y*A ; dFeas[:on] -= self.c + Qx     # dFeas1 = A1'y - c - Qx
+            dFeas[on:] += z                             # dFeas2 = A2'y + z
 
             # At the first iteration, initialize perturbation vectors
             # (q=primal, r=dual).
@@ -344,15 +359,15 @@ class RegQPInteriorPointSolver:
             dResid = norm_infty(dFeas - regpr * q)/(1+self.normb)
 
             # Compute relative duality gap.
-            cx = np.dot(c,x[:on]) #sv.dot(c, x)
+            cx = np.dot(c,x[:on])
             by = np.dot(b,y)
-            rgap  = cx - by
-            rgap += regdu * (rNorm**2 + np.dot(r,y))
+            rgap  = cx + np.dot(x[:on],Qx) - by
+            #rgap += regdu * (rNorm**2 + np.dot(r,y))
             rgap  = abs(rgap) / (1 + abs(cx))
 
             # Compute overall residual for stopping condition.
-            kktResid = max(max(pResid, dResid)/self.normbc, rgap)
-            #kktResid = max(pResid, cResid, dResid)
+            #kktResid = max(max(pResid, dResid)/self.normbc, rgap)
+            kktResid = max(pResid, cResid, dResid)
 
             # Display objective and residual data.
             if self.verbose:
@@ -376,9 +391,9 @@ class RegQPInteriorPointSolver:
 
             # Solve the linear system
             #
-            # [ -pI          0          A1' ] [∆x] = [ c - A1' y              ]
-            # [  0   -(S^{-1} Z + pI)   A2' ] [∆s]   [   - A2' y - µ S^{-1} e ]
-            # [  A1          A2         dI  ] [∆y]   [ b - A1 x - A2 s        ]
+            # [ -(Q+pI)      0             A1' ] [∆x] = [c + Q x - A1' y       ]
+            # [  0      -(S^{-1} Z + pI)   A2' ] [∆s]   [  - A2' y - µ S^{-1} e]
+            # [  A1          A2            dI  ] [∆y]   [ b - A1 x - A2 s      ]
             #
             # where s are the slack variables, p is the primal regularization
             # parameter, d is the dual regularization parameter, and
@@ -392,19 +407,9 @@ class RegQPInteriorPointSolver:
             nb_bump = 0
             while not factorized and nb_bump < 5:
 
-                if self.stabilize:
-                    col_scale[:on] = sqrt(regpr)
-                    col_scale[on:] = np.sqrt(z/s + regpr)
-                    H.put(-sqrt(regdu), range(n))
-                    H.put( sqrt(regdu), range(n,n+m))
-                    AA = self.A.copy()
-                    AA.col_scale(1/col_scale)
-                    H[n:,:n] = AA
-                else:
-                    H.put(-regpr,       range(on))
-                    H.put(-z/s - regpr, range(on,n))
-                    H.put(regdu,        range(n,n+m))
-
+                H.put(-diagQ - regpr,    range(on))
+                H.put(-z/s   - regpr,  range(on,n))
+                H.put(regdu,          range(n,n+m))
                 LBL = LBLContext(H, sqd=True)
                 factorized = True
 
@@ -433,19 +438,10 @@ class RegQPInteriorPointSolver:
                 rhs[on:n] += z
                 rhs[n:]    = -pFeas
 
-                # if 'stabilize' is on, must scale right-hand side.
-                if self.stabilize:
-                    rhs[:n] /= col_scale
-                    rhs[n:] /= sqrt(regdu)
-
                 #pdb.set_trace()
 
                 (step, nres, neig) = self.solveSystem(LBL, rhs)
                 
-                # Unscale step if 'stabilize' is on.
-                if self.stabilize:
-                    step[:n] *= sqrt(regdu) / col_scale
-
                 # Recover dx and dz.
                 dx = step[:n]
                 ds = dx[on:]
@@ -470,27 +466,14 @@ class RegQPInteriorPointSolver:
 
             if PredictorCorrector:
                 # Only update rhs[on:n]; the rest of the vector did not change.
-                if self.stabilize:
-                    rhs[on:n] += (comp/s - z)/col_scale[on:n]
-                else:
-                    rhs[on:n] += comp/s - z
+                rhs[on:n] += comp/s - z
             else:
                 rhs[:n]    = -dFeas
                 rhs[on:n] += comp/s
                 rhs[n:]    = -pFeas
 
-                # If 'stabilize' is on, must scale right-hand side.
-                # In the predictor-corrector method, this has already been done.
-                if self.stabilize:
-                    rhs[:n] /= col_scale
-                    rhs[n:] /= sqrt(regdu)
-
             # Solve augmented system.
             (step, nres, neig) = self.solveSystem(LBL, rhs)
-
-            # Unscale step if 'stabilize' is on.
-            if self.stabilize:
-                step[:n] *= sqrt(regdu) / col_scale
 
             # Recover step.
             dx = step[:n]
@@ -575,11 +558,11 @@ class RegQPInteriorPointSolver:
         if self.prob_scaled: self.unscale()
 
         # Recompute final objective value.
-        self.obj_value = np.dot(self.c, x[:on]) + self.c0
+        self.obj_value = np.dot(self.c, x[:on]) + 0.5 * np.dot(x[:on], Q*x[:on]) + self.c0
 
         return
 
-    def set_initial_guess(self, lp, **kwargs):
+    def set_initial_guess(self, qp, **kwargs):
         """
         Compute initial guess according the Mehrotra's heuristic. Initial values
         of x are computed as the solution to the least-squares problem
@@ -610,7 +593,7 @@ class RegQPInteriorPointSolver:
         The values of s and z are subsequently adjusted to ensure they are
         positive. See [Methrotra, 1992] for details.
         """
-        n = lp.n ; m = lp.m ; ns = self.nSlacks ; on = lp.original_n
+        n = qp.n ; m = qp.m ; ns = self.nSlacks ; on = qp.original_n
 
         # Set up augmented system matrix and factorize it.
         self.H.put(1.0e-4, range(on))
@@ -628,7 +611,7 @@ class RegQPInteriorPointSolver:
         # Assemble second right-hand side and solve.
         rhs[:on] = self.c
         rhs[on:] = 0.0
-        #for k in self.c.keys(): rhs[k] = self.c[k]
+
         (step, nres, neig) = self.solveSystem(LBL, rhs)
         y = step[n:].copy()
         z = step[on:n].copy()
@@ -689,7 +672,7 @@ class RegQPInteriorPointSolver:
         return (LBL.x, nr, LBL.neig)
 
 
-class RegLPInteriorPointSolver29(RegLPInteriorPointSolver):
+class RegQPInteriorPointSolver29(RegQPInteriorPointSolver):
 
     def scale(self, **kwargs):
         """
@@ -699,11 +682,13 @@ class RegLPInteriorPointSolver29(RegLPInteriorPointSolver):
 
         In effect the original problem
 
-          minimize c'x  subject to  A1 x + A2 s = b, x >= 0
+          minimize c'x + 1/2 x'Qx
+          subject to  A1 x + A2 s = b, x >= 0
 
         is converted to
 
-          minimize (Cc)'x  subject to  R A1 C x + R A2 C s = Rb, x >= 0,
+          minimize (Cc)'x + 1/2 x' (CQC') x
+          subject to  R A1 C x + R A2 C s = Rb, x >= 0,
 
         where the diagonal matrices R and C operate row and column scaling
         respectively.
@@ -739,7 +724,7 @@ class RegLPInteriorPointSolver29(RegLPInteriorPointSolver):
         self.b *= row_scale
 
         # Apply column scaling to cost vector c.
-        self.c[:self.lp.original_n] *= col_scale[:self.lp.original_n]
+        self.c[:self.qp.original_n] *= col_scale[:self.qp.original_n]
 
         # Save row and column scaling.
         self.row_scale = row_scale
@@ -757,7 +742,7 @@ class RegLPInteriorPointSolver29(RegLPInteriorPointSolver):
         """
         row_scale = self.row_scale
         col_scale = self.col_scale
-        on = self.lp.original_n
+        on = self.qp.original_n
 
         # Unscale constraint matrix A.
         self.A.row_scale(1/row_scale)

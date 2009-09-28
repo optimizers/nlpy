@@ -398,7 +398,7 @@ class AmplModel:
 
         if self.m > 0:
             dFeas = np.empty(self.n)
-            J = kwargs.get('J', self.jac(x))
+            J = kwargs.get('J', self.jac(x)[self.permC,:])
             J.matvec_transp(-yloc, dFeas)
         else:
             dFeas = np.zeros(self.n)
