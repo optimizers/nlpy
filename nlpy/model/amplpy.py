@@ -49,13 +49,15 @@ def GenTemplate(model, data = None, opts = None):
         pass
     
     # Template file body.
+    if model[-4:] == '.mod': model = model[:-4]
     template.write("model %s.mod;\n"     % model)
+
     if data is not None:
+        if data[-4:] == '.dat': data = data[:-4]
         template.write("data  %s.dat;\n" % data)
-    template.write("write g%s;\n"        % model)
+    template.write("write g%s;\n" % model)
 
     # Finish off the template file.
-    #template.write("quit;\n")
     template.close()
 
     # We'll need to know the template file name.
@@ -91,6 +93,7 @@ class AmplModel:
             
         # Initialize the ampl module
         try:
+            if model[-4:] == '.mod': model = model[:-4]
             _amplpy.ampl_init(model)
         except:
             raise ValueError, 'Cannot initialize model %s' % model
@@ -240,6 +243,16 @@ class AmplModel:
             :z:  NumPy array of length :attr:`nbounds` + :attr:`nrangeB` giving
                  the vector of Lagrange multipliers for simple bounds (see
                  below).
+
+        :keywords:
+
+            :c:  constraints vector, if known. Must be in appropriate order
+                 (see below).
+
+            :g:  objective gradient, if known.
+
+            :J:  constraints Jacobian, if known. Must be in appropriate order
+                 (see below).
 
         :returns:
 
@@ -415,7 +428,8 @@ class AmplModel:
         if not self.minimize: sign = -1  # Account for minimization problem.
 
         if not FJ:
-            dFeas += sign * self.grad(x)
+            g = kwargs.get('g', self.grad(x))
+            dFeas += sign * g
         else:
             if float(objMult) != 0.0: dFeas += objMult * sign * self.grad(x)
 
