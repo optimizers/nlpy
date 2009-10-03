@@ -20,7 +20,6 @@ from nlpy.tools import norms
 from math import sqrt
 from nlpy.tools.timing import cputime
 
-import pdb
 
 class ProjectedCG( ProjectedKrylov ):
 
@@ -303,7 +302,6 @@ class ProjectedCG( ProjectedKrylov ):
                 # p is a direction of singularity or negative curvature
                 # or next iterate will lie past the boundary of the trust region
                 # Move to boundary of trust-region
-                pdb.set_trace()
                 self.x += sigma * p
                 xNorm2 = self.radius * self.radius
                 status = 'on boundary (sigma = %g)' % sigma

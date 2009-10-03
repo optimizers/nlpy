@@ -94,7 +94,7 @@ class PrimalDualInteriorPointFramework:
         # Assemble the part of the primal-dual Hessian matrix that is constant.
         n = self.nlp.n ; ndual = self.ndual
         self.B = self.PDHessTemplate()
-        self.diagB = np.empty(ndual)  # For diagonal preconditioning.
+        #self.diagB = np.empty(ndual)  # For diagonal preconditioning.
 
         self.iter = 0
         self.cgiter = 0
@@ -436,8 +436,8 @@ class PrimalDualInteriorPointFramework:
         B.put((Uvar[rangeB]-x[rangeB])/z[n3:], n+nlowerB+nupperB+nrangeB+rrangeB)
 
         # Store diagonal of B for diagonal preconditioning.
-        B.take(self.diagB, range(ndual))
-        self.diagB = np.maximum(1, self.diagB)
+        #B.take(self.diagB, range(ndual))
+        #self.diagB = np.maximum(1, self.diagB)
 
         return None
 
@@ -485,6 +485,7 @@ class PrimalDualInteriorPointFramework:
         """
         Generic preconditioning method---must be overridden
         """
+        #pdb.set_trace()
         return v #/self.diagB
 
     def UpdatePrecon(self, **kwargs):
