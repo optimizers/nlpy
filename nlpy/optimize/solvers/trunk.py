@@ -143,7 +143,9 @@ class TrunkFramework:
                                         #H = nlp.hess(self.x,nlp.pi0),
                                         prec = self.Precon,
                                         radius = self.TR.Delta,
-                                        reltol = cgtol)
+                                        reltol = cgtol,
+                                        #debug=True
+                                        )
             self.solver.Solve()
 
             step = self.solver.step

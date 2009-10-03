@@ -20,6 +20,8 @@ from nlpy.tools import norms
 from math import sqrt
 from nlpy.tools.timing import cputime
 
+import pdb
+
 class ProjectedCG( ProjectedKrylov ):
 
     def __init__( self, c, **kwargs ):
@@ -154,8 +156,8 @@ class ProjectedCG( ProjectedKrylov ):
                 cur_iter = xk.
         This ensures that no copy of xk occurs and only a pointer to xk is used.
 
-        References
-        ----------
+        Reference
+        ---------
 
         .. [GHN01]  N.I.M. Gould, M.E. Hribar and J. Nocedal, *On the Solution
                     of Equality Constrained Quadratic Programming Problems
@@ -176,6 +178,7 @@ class ProjectedCG( ProjectedKrylov ):
 
         self.btol = kwargs.get( 'btol', None )
         self.cur_iter = kwargs.get( 'cur_iter', None )
+        self.precon = kwargs.get('precon', None)
 
         # Initializations
         self.x_feasible = None
@@ -300,9 +303,10 @@ class ProjectedCG( ProjectedKrylov ):
                 # p is a direction of singularity or negative curvature
                 # or next iterate will lie past the boundary of the trust region
                 # Move to boundary of trust-region
+                pdb.set_trace()
                 self.x += sigma * p
                 xNorm2 = self.radius * self.radius
-                status = 'on boundary'
+                status = 'on boundary (sigma = %g)' % sigma
                 onBoundary = True
                 continue
 
@@ -380,7 +384,7 @@ class ProjectedCG( ProjectedKrylov ):
             status = 'max iter'
         self.iter = iter
         self.nMatvec = iter
-        self.residNorm = rg
+        self.residNorm = sqrt(rg)
         self.status = status
 
         return

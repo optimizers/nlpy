@@ -1,10 +1,13 @@
 """
 Class definition for Trust-Region Algorithm
 """
-from nlpy.krylov.pcg  import trpcg
+
+from nlpy.krylov.pcg  import TruncatedCG
 from nlpy.krylov.ppcg import ProjectedCG
-import numpy
+import numpy as np
 from math import sqrt
+
+__docformat__ = 'restructuredtext'
 
 class TrustRegionFramework:
 
@@ -96,9 +99,55 @@ class TrustRegionCG(TrustRegionSolver):
 
     def __init__(self, g, **kwargs):
         """
+        Instantiate a trust-region subproblem solver based on the truncated
+        conjugate gradient method of Steihaug and Toint. See module `pcg` for
+        more information.
+
+        The main difference between this class and the :class:`TrustRegionPCG`
+        class is that :class:`TrustRegionPCG` only accepts explicit
+        preconditioners (i.e. in matrix form). This class accepts an implicit
+        preconditioner, i.e., any callable object.
+        """
+        TrustRegionSolver.__init__(self, g, **kwargs)
+        self.cgSolver = TruncatedCG(g, **kwargs)
+        self.niter = 0
+        self.stepNorm = 0.0
+        self.step = None
+        self.hprod = kwargs.get('matvec', None)
+        self.H = kwargs.get('H', None)
+        if self.hprod is None and self.H is None:
+            raise ValueError, 'Specify one of hprod and H'
+        self.m = None # Model value at candidate solution
+
+    def Solve(self, **kwargs):
+        """
+        Solve trust-region subproblem using the truncated conjugate-gradient
+        algorithm.
+        """
+        self.cgSolver.Solve(**kwargs)
+        self.niter = self.cgSolver.niter
+        self.stepNorm = self.cgSolver.stepNorm
+        self.step= self.cgSolver.step
+        # Compute model reduction
+        m = np.dot(self.g, self.step)
+        if self.hprod:
+            m += 0.5 * np.dot(self.step, self.hprod(self.step))
+        else:
+            v = np.empty(self.H.shape[0], 'd')
+            self.H.matvec(self.step, v)
+            m += 0.5 * np.dot(self.step, v)
+        self.m = m
+        #print self.niter, self.stepNorm, m, self.cgSolver.status
+        return
+
+
+class TrustRegionPCG(TrustRegionSolver):
+
+    def __init__(self, g, **kwargs):
+        """
         Instantiate a trust-region subproblem solver based on the projected 
-        truncated conjugate gradient of Steihaug and Toint.
-        See module `ppcg` for more information.
+        truncated conjugate gradient of Gould, Hribar and Nocedal. See module
+        `ppcg` for more information.
         """
         TrustRegionSolver.__init__(self, g, **kwargs)
         self.cgSolver = ProjectedCG(g, **kwargs)
@@ -121,14 +170,15 @@ class TrustRegionCG(TrustRegionSolver):
         self.stepNorm = sqrt(self.cgSolver.xNorm2)
         self.step= self.cgSolver.x
         # Compute model reduction
-        m = numpy.dot(self.g, self.step)
+        m = np.dot(self.g, self.step)
         if self.hprod:
-            m += 0.5 * numpy.dot(self.step, self.hprod(self.step))
+            m += 0.5 * np.dot(self.step, self.hprod(self.step))
         else:
-            v = numpy.empty(self.H.shape[0], 'd')
+            v = np.empty(self.H.shape[0], 'd')
             self.H.matvec(self.step, v)
-            m += 0.5 * numpy.dot(self.step, v)
+            m += 0.5 * np.dot(self.step, v)
         self.m = m
+        #print self.niter, self.stepNorm, m, self.cgSolver.status
         return
 
 

@@ -44,7 +44,6 @@ References
 .. [Orb08] D. Orban, *Projected Krylov Methods for Unsymmetric Augmented
            Systems*, Cahiers du GERAD G-2008-46, GERAD, Montreal, Canada, 2008.
 
-$Id: projKrylov.py 93 2008-10-01 23:33:39Z d-orban $
 """
 
 __docformat__ = 'restructuredtext'

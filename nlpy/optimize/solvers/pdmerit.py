@@ -436,7 +436,7 @@ class PrimalDualInteriorPointFramework:
         B.put((Uvar[rangeB]-x[rangeB])/z[n3:], n+nlowerB+nupperB+nrangeB+rrangeB)
 
         # Store diagonal of B for diagonal preconditioning.
-        B.take(self.diagB, range(ndual)))
+        B.take(self.diagB, range(ndual))
         self.diagB = np.maximum(1, self.diagB)
 
         return None
@@ -485,7 +485,7 @@ class PrimalDualInteriorPointFramework:
         """
         Generic preconditioning method---must be overridden
         """
-        return v/self.diagB
+        return v #/self.diagB
 
     def UpdatePrecon(self, **kwargs):
         """

@@ -11,6 +11,7 @@ D. Orban, Montreal.
 
 import numpy as np
 from math import sqrt
+import sys
 
 __docformat__ = 'restructuredtext'
 
@@ -32,7 +33,7 @@ class TruncatedCG:
         :keywords:
 
           :radius:     the trust-region radius (default: ||g||),
-          :hprod:      a function to compute matrix-vector products with `H`,
+          :matvec:     a function to compute matrix-vector products with `H`,
           :H:          the explicit matrix `H`,
           :abstol:     absolute stopping tolerance (default: 1.0e-8),
           :reltol:     relative stopping tolerance (default: 1.0e-6),
@@ -45,10 +46,10 @@ class TruncatedCG:
           :it:         number of iterations,
           :snorm:      Euclidian norm of the step.
 
-        If both `hprod` and `H` are specified, `hprod` takes precedence. If
-        `hprod` is specified, it is supposed to receive a vector `p` as input and
-        return the matrix-vector product `H*p`. If `H` is given, it must have a
-        method named `matvec` to compute matrix-vector products.
+        If both `matvec` and `H` are specified, `matvec` takes precedence. If
+        `matvec` is specified, it is supposed to receive a vector `p` as input
+        and return the matrix-vector product `H*p`. If `H` is given, it must
+        have a method named `matvec` to compute matrix-vector products.
 
         The algorithm stops as soon as the preconditioned norm of the gradient
         falls under
@@ -63,18 +64,34 @@ class TruncatedCG:
         self.g = g
         self.n = len(g)
 
+        self.prefix = 'Pcg: '
+        self.name = 'Truncated CG'
+
         # Grab optional arguments
-        self.hprod = kwargs.get('hprod', None)
-        if self.hprod is None:
+        self.matvec = kwargs.get('matvec', None)
+        if self.matvec is None:
             self.H = kwargs.get('H', None)
             if self.H is None:
-                raise ValueError, 'Specify one of hprod or H'
+                raise ValueError, 'Specify one of matvec or H'
 
+        self.radius = kwargs.get('radius', 1.0)
         self.abstol = kwargs.get('absol', 1.0e-8)
         self.reltol = kwargs.get('reltol', 1.0e-6)
         self.maxiter = kwargs.get('maxiter', 2*self.n)
         self.prec = kwargs.get('prec', lambda v: v)
+        self.debug = kwargs.get('debug', False)
+        self.status = '?'
+
+        # Formats for display
+        self.hd_fmt = ' %-5s  %9s  %8s\n'
+        self.header = self.hd_fmt % ('Iter', '<r,g>', 'curv')
+        self.fmt = ' %-5d  %9.2e  %8.2e\n'
+
         return
+
+
+    def _write( self, msg ):
+        sys.stderr.write(self.prefix + msg)
 
 
     def to_boundary(self, s, p, radius, ss=None):
@@ -92,78 +109,89 @@ class TruncatedCG:
         sigma /= pp
         return sigma
 
-    def solve(self, **kwargs):
+    def Solve(self, **kwargs):
         """
         Solve the trust-region subproblem.
-
-        :keywords:
-
-          :radius:     the trust-region radius (default: ||g||),
         """
         n = self.n
         g = self.g
-        hprod = self.hprod
-        if hprod is None: H = self.H
+        matvec = self.matvec
+        if matvec is None: H = self.H
         prec = self.prec
 
         # Initialization
         y = prec(g)
-        res = sqrt(np.dot(g, y))
-        stopTol = max(self.abstol, self.reltol * res)
+        ry = np.dot(g, y)
+        sqrtry = sqrt(ry)
+        stopTol = max(self.abstol, self.reltol * sqrtry)
 
-        Delta = kwargs.get('radius', res)
-        s = np.zeros(n) ; snorm = 0.0
+        Delta = self.radius
+        debug = self.debug
+
+        s = np.zeros(n) ; snorm2 = 0.0
 
         # Initialize r as a copy of g not to alter the original g
         r = g.copy()                 # r = g + H s0 = g
         p = -y                       # p = - preconditioned residual
         k = 0
-        Hp = np.empty(n)
+        if matvec is None: Hp = np.empty(n)
 
-        hitBoundary = False
+        onBoundary = False
 
-        while res > stopTol and k < self.maxiter and not hitBoundary:
+        if self.debug:
+            self._write(self.header)
+            self._write('-' * len(self.header) + '\n')
+
+        while sqrtry > stopTol and k < self.maxiter and not onBoundary:
 
             # Compute matrix-vector product H*p.
-            if hprod is not None:
-                Hp = hprod(p)
+            if matvec is not None:
+                Hp = matvec(p)
             else:
                 H.matvec(p, Hp)
-
             pHp = np.dot(p, Hp)
 
+            if debug:
+                self._write(self.fmt % (k, ry, pHp))
+
             # Compute steplength to the boundary.
-            sigma = self.to_boundary(s,p,Delta,ss=snorm*snorm)
+            sigma = self.to_boundary(s,p,Delta,ss=snorm2)
 
             # Compute CG steplength.
-            alpha = res*res/pHp
+            alpha = ry/pHp
 
             if pHp <= 0.0 or alpha > sigma:
                 # Either p is direction of singularity or negative curvature or
                 # leads past the trust-region boundary. Follow p to the boundary.
                 s += sigma * p
-                snorm = Delta
-                self.step = s
-                self.niter = k
-                self.stepNorm = snorm
-                hitBoundary = True
+                snorm2 = Delta*Delta
+                self.status = 'on boundary (sigma = %g)' % sigma
+                onBoundary = True
                 continue
 
             # Move to next iterate.
             s += alpha * p
-            snorm = sqrt(np.dot(s,s))
             r += alpha * Hp
             y = prec(r)
-            res1 = sqrt(np.dot(r, y))
-            res1overres = res1/res
-            beta = res1overres * res1overres
+            ry_next = np.dot(r, y)
+            beta = ry_next/ry
             p = -y + beta * p
-            res = res1
+            ry = ry_next
+            sqrtry = sqrt(ry)
+            snorm2 = np.dot(s,s)
             k += 1
 
+        # Output info about the last iteration.
+        if debug:
+            self._write(self.fmt % (k, ry, pHp))
+
+        if k < self.maxiter and not onBoundary:
+            self.status = 'residual small'
+        elif k >= self.maxiter:
+            self.status = 'max iter'
         self.step = s
         self.niter = k
-        self.stepNorm = snorm
+        self.stepNorm = sqrt(snorm2)
         return
 
 
@@ -209,7 +237,7 @@ if __name__ == '__main__':
     t_setup = cputime() - t_setup
 
     t_solve = cputime()
-    #(s,it,snorm) = trpcg(g, Delta=40.0, hprod = lambda p: H_prod(H,p))
+    #(s,it,snorm) = trpcg(g, Delta=40.0, matvec = lambda p: H_prod(H,p))
     (s,it,snorm) = trpcg(g,
                          Delta = 33.5,
                          H = H,
