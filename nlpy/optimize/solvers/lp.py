@@ -91,7 +91,11 @@ class RegLPInteriorPointSolver:
 
         # Apply in-place problem scaling if requested.
         self.prob_scaled = False
-        if scale: self.scale()
+        if scale:
+            t = cputime()
+            self.scale()
+            t = cputime() - t
+            sys.stdout.write('Time for scaling: %6.2fs\n' % t)
 
         self.normb  = norm_infty(self.b)
         self.normc  = norm_infty(self.c) #sv.norm_infty(self.c)
@@ -213,7 +217,6 @@ class RegLPInteriorPointSolver:
         # Apply column scaling to A and c.
         values /= col_scale[jcol]
         self.c[:self.lp.original_n] /= col_scale[:self.lp.original_n]
-        #for k in self.c.keys(): self.c[k] /= col_scale[k]
 
         if self.verbose:
             w('Smallest and largest elements of A after scaling: ')

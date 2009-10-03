@@ -10,8 +10,6 @@ as described in
 with the addition of an optional trust-region constraint.
 
 D. Orban, Montreal, May 2006 and July 2007.
-
-$Id: ppcg.py 95 2009-03-25 13:59:21Z d-orban $
 """
 
 __docformat__ = 'restructuredtext'
@@ -264,7 +262,7 @@ class ProjectedCG( ProjectedKrylov ):
         else:
             Hp = self._hp
         pHp = None
-    
+
         self.residNorm0 = numpy.dot(r,g)
         rg  = self.residNorm0
         threshold = max( self.abstol, self.reltol * sqrt(self.residNorm0) )

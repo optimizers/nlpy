@@ -22,13 +22,14 @@ D. Orban, Montreal
 from pysparse          import spmatrix
 from nlpy.tools        import List
 from nlpy.tools.timing import cputime
+from nlpy.tools.norms  import norm2, norm_infty
 from math              import sqrt
+
 
 import numpy as np
 import sys
 
 import pdb
-
 
 class PrimalDualInteriorPointFramework:
 
@@ -52,7 +53,6 @@ class PrimalDualInteriorPointFramework:
 
         self.TR = TR
         self.TrSolver = TrSolver
-        self.solver = None
 
         self.explicit = kwargs.get('explicit', False)  # Form Hessian or not
         self.mu = kwargs.get('mu', 1.0)
@@ -94,6 +94,7 @@ class PrimalDualInteriorPointFramework:
         # Assemble the part of the primal-dual Hessian matrix that is constant.
         n = self.nlp.n ; ndual = self.ndual
         self.B = self.PDHessTemplate()
+        self.diagB = np.empty(ndual)  # For diagonal preconditioning.
 
         self.iter = 0
         self.cgiter = 0
@@ -117,9 +118,9 @@ class PrimalDualInteriorPointFramework:
         self.printFrequency = 50
 
         # Optimality residuals, updated along the iterations
-        self.d_res = None
-        self.c_res = None
-        self.p_res = None
+        self.dRes = None
+        self.cRes = None
+        self.pRes = None
 
         self.optimal = False
         self.debug = kwargs.get('debug', False)
@@ -127,6 +128,13 @@ class PrimalDualInteriorPointFramework:
         #self.path = []
 
         return
+
+
+    def AtOptimality(self, x, z, **kwargs):
+        """
+        Shortcut.
+        """
+        return self.nlp.AtOptimality(x, np.array([]), z, **kwargs)
 
 
     def StartingPoint(self, **kwargs):
@@ -212,15 +220,12 @@ class PrimalDualInteriorPointFramework:
         The components z[i] (b+q <= i < b+2q) correspond to the upper bounds on
         variables that are bounded below and above.
 
-        This function returns the value of the primal-dual merit function. If
-        `store_f` is set to True, it also updates the value of the objective
-        function stored in the instance member `f`. By default, `store_f` is
-        set to False. The current value of the objective function can be
-        supplied via the keyword argument `f`.
+        This function returns the value of the primal-dual merit function. The
+        current value of the objective function can be supplied via the keyword
+        argument `f`.
         """
         mu = kwargs.get('mu', self.mu)
         f = kwargs.get('f', None)
-        store_f = kwargs.get('store_f', False)
         n = self.nlp.n
         Lvar = self.nlp.Lvar ; Uvar = self.nlp.Uvar
         lowerB = self.lowerB ; upperB = self.upperB ; rangeB = self.rangeB
@@ -230,9 +235,6 @@ class PrimalDualInteriorPointFramework:
         if f is None:
             f = self.nlp.obj(x)
         merit = f
-
-        # Store value of f if requested.
-        if store_f: self.f = f
 
         # Include contribution of bound constraints.
         slow = x[lowerB] - Lvar[lowerB]
@@ -264,8 +266,7 @@ class PrimalDualInteriorPointFramework:
         """
         mu = kwargs.get('mu', self.mu)
         check_optimal = kwargs.get('check_optimal', False)
-        store_g = kwargs.get('store_g', False)
-        have_g = kwargs.get('g', None)
+        gf = kwargs.get('g', None)
 
         n = self.nlp.n
         Lvar = self.nlp.Lvar ; Uvar = self.nlp.Uvar
@@ -275,17 +276,15 @@ class PrimalDualInteriorPointFramework:
         g = np.empty(n + self.ndual)
 
         # Gradient of the objective function.
-        if have_g is None:
+        if gf is None:
             g[:n] = self.nlp.grad(x)
         else:
-            g[:n] = have_g.copy()
-
-        # Store a copy of the objective gradient if requested.
-        if store_g:
-            self.gf = g[:n].copy()
+            g[:n] = gf.copy()
 
         # Check optimality conditions at this point if requested.
-        if check_optimal: self.optimal = self.nlp.AtOptimality(x, z, g=g[:n])
+        if check_optimal: 
+            res, self.optimal = self.AtOptimality(x, z, g=g[:n])
+            self.dRes = res[0] ; self.cRes = res[2] ; self.pRes = res[4]
 
         # Segement z for conciseness
         n1 = nlowerB ; n2 = n1 + nupperB ; n3 = n2 + nrangeB
@@ -435,47 +434,58 @@ class PrimalDualInteriorPointFramework:
         B.put((Uvar[upperB]-x[upperB])/z[n1:n2], n+nlowerB+rupperB)
         B.put((x[rangeB]-Lvar[rangeB])/z[n2:n3], n+nlowerB+nupperB+rrangeB)
         B.put((Uvar[rangeB]-x[rangeB])/z[n3:], n+nlowerB+nupperB+nrangeB+rrangeB)
+
+        # Store diagonal of B for diagonal preconditioning.
+        B.take(self.diagB, range(ndual)))
+        self.diagB = np.maximum(1, self.diagB)
+
         return None
 
     def ftb(self, x, z, step, **kwargs):
         """
         Compute the largest alpha in ]0,1] such that
             (x,z) + alpha * step >= (1 - tau) * (x,z)
-        where 0 < tau < 1. By default, tau = 0.99.
+        where 0 < tau < 1. By default, tau = 0.9.
         """
         tau = kwargs.get('tau', 0.9)
-        alpha = 1.0
         n = self.nlp.n
-        Lvar = self.nlp.Lvar
-        Uvar = self.nlp.Uvar
+        Lvar = self.nlp.Lvar ; Uvar = self.nlp.Uvar
+        lowerB = self.lowerB ; upperB = self.upperB ; rangeB = self.rangeB
 
-        for i in self.lowerB:
-            k = self.lowerB.index(i)
-            if step[i] < 0.0: alpha = min(alpha, -tau * (x[i]-Lvar[i])/step[i])
-            if step[n+k] < 0.0: alpha = min(alpha, -tau * z[k]/step[n+k])
+        #pdb.set_trace()
 
-        for i in self.upperB:
-            k = self.nlowerB + self.upperB.index(i)
-            if step[i] > 0.0: alpha = min(alpha, tau * (Uvar[i]-x[i])/step[i])
-            if step[n+k] < 0.0: alpha = min(alpha, -tau * z[k]/step[n+k])
+        dx = step[:n]  # Step in x.
+        lowerneg = np.where(dx[lowerB] < 0)[0]
+        upperneg = np.where(dx[upperB] < 0)[0]
+        rangeneg = np.where(dx[rangeB] < 0)[0]
+        stpmax = 1.0
+        if len(lowerneg) > 0:
+            idx = lowerB[lowerneg]
+            stpmax = min(stpmax, np.min(-tau*(x[idx]-Lvar[idx])/dx[idx]))
+        if len(upperneg) > 0:
+            idx = upperB[upperneg]
+            stpmax = min(stpmax, np.min(-tau*(Uvar[idx]-x[idx])/dx[idx]))
+        if len(rangeneg) > 0:
+            idx = rangeB[rangeneg]
+            stpmax = min(stpmax, np.min(-tau*(x[idx]-Lvar[idx])/dx[idx]))
+            stpmax = min(stpmax, np.min(-tau*(Uvar[idx]-x[idx])/dx[idx]))
 
-        for i in self.rangeB:
-            k = self.nlowerB + self.nupperB + self.rangeB.index(i)
-            if step[i] < 0.0:
-                alpha = min(alpha, -tau * (x[i]-Lvar[i])/step[i])
-            if step[i] > 0.0:
-                alpha = min(alpha,  tau * (Uvar[i]-x[i])/step[i])
-            if step[n+k] < 0.0: alpha = min(alpha, -tau * z[k]/step[n+k])
-            k += self.nrangeB
-            if step[n+k] < 0.0: alpha = min(alpha, -tau * z[k]/step[n+k])
+        stpx = stpmax
 
-        return alpha
+        dz = step[n:]  # Step in z.
+        stpmax = 1.0
+        whereneg = np.where(dz < 0)[0]
+        if len(whereneg) > 0:
+            stpmax = min(stpmax, np.min(-tau * z[whereneg]/dz[whereneg]))
+
+        return stpx, stpmax
+
 
     def Precon(self, v, **kwargs):
         """
         Generic preconditioning method---must be overridden
         """
-        return v
+        return v/self.diagB
 
     def UpdatePrecon(self, **kwargs):
         """
@@ -490,7 +500,7 @@ class PrimalDualInteriorPointFramework:
         merit function with the current value of the barrier parameter to within
         some given tolerance. The only optional argument recognized is
 
-            stoptol     stopping tolerance (default: 10 mu).
+            stopTol     stopping tolerance (default: 10 mu).
         """
 
         nlp = self.nlp
@@ -510,157 +520,160 @@ class PrimalDualInteriorPointFramework:
 
         # Obtain first-order data at starting point
         if self.iter == 0:
-            psi = self.PDMerit(x, z)
-            self.g = self.GradPDMerit(x, z, check_optimal=True, eval_g=True)
+            f = nlp.obj(x) ; gf = nlp.grad(x)
         else:
-            psi = self.PDMerit(x, z, eval_f=False)
-            self.g = self.GradPDMerit(x, z, check_optimal=True, eval_g=True)
-        self.gNorm = np.linalg.norm(self.g, ord = self.ord)
+            f = self.f ; gf = self.gf
+
+        psi = self.PDMerit(x, z, f=f)
+        g = self.GradPDMerit(x, z, g=gf, check_optimal=True)
+        gNorm = norm2(g) #np.linalg.norm(g, ord=self.ord)
         if self.optimal: return
         
         # Reset initial trust-region radius
-        self.TR.Delta = 0.1 * self.gNorm #max(10.0, self.gNorm)
+        self.TR.Delta = 0.1 * gNorm #max(10.0, gNorm)
 
         # Set inner iteration stopping tolerance
-        stopTol = kwargs.get('stopTol', 1.0e-3 * self.gNorm)
-
-        # Initialize Hessian matrix
-        B = self.PDHessTemplate()
-
-        #(dRes, cRes, pRes) = self.OptimalityResidual(x, z, mu = self.mu)
-        #maxRes = max(np.linalg.norm(dRes, ord=np.inf), cRes, pRes)
-        #while (maxRes > stopTol) and (self.iter <= self.maxiter):
-
-        finished = (self.gNorm <= stopTol) or (self.iter > self.maxiter)
+        stopTol = kwargs.get('stopTol', 10*self.mu) #1.0e-3 * gNorm)
+        finished = (gNorm <= stopTol) or (self.iter > self.maxiter)
 
         while not finished:
 
-            #self.path.append(list(self.x))
-
             # Print out header every so many iterations
-            if self.iter % self.printFrequency == 0 and not self.silent:
-                sys.stdout.write(self.hline)
-                sys.stdout.write(self.header)
-                sys.stdout.write(self.hline)
-    
             if not self.silent:
+                if self.iter % self.printFrequency == 0:
+                    sys.stdout.write(self.hline)
+                    sys.stdout.write(self.header)
+                    sys.stdout.write(self.hline)
+    
                 if inner_iter == 0:
                     sys.stdout.write(('*' + self.itFormat) % self.iter)
                 else:
                     sys.stdout.write((' ' + self.itFormat) % self.iter)
-                sys.stdout.write(self.format % (self.f,
-                                 max(self.d_res, self.c_res, self.p_res),
+
+                sys.stdout.write(self.format % (f,
+                                 max(norm_infty(self.dRes),
+                                     norm_infty(self.cRes),
+                                     norm_infty(self.pRes)),
                                  self.mu, alpha, niter, rho,
                                  self.TR.Delta, status))
 
-            if self.debug:
-                self._debugMsg('g = ' + np.str(g))
-                self._debugMsg('gNorm = ' + str(self.gNorm))
-                self._debugMsg('stopTol = ' + str(stopTol))
-
-            # Save current gradient
-            if self.save_g:
-                self.g_old = self.g.copy()
-
-            # Set stopping tolerance for trust-region subproblem
+            # Set stopping tolerance for trust-region subproblem.
             if self.inexact:
-                cgtol = max(1.0e-8, min(0.1 * cgtol, sqrt(self.gNorm)))
+                cgtol = max(1.0e-8, min(0.1 * cgtol, sqrt(gNorm)))
                 if self.debug: self._debugMsg('cgtol = ' + str(cgtol))
 
+            # Update Hessian matrix with current iteration information.
+            self.PDHess(x,z)
 
-            # Update Hessian matrix with current iteration information
-            self.PDHess(B,x,z)
+            if self.debug:
+                self._debugMsg('H = ') ; print self.B
+                self._debugMsg('g = ' + np.str(g))
+                self._debugMsg('gNorm = ' + str(gNorm))
+                self._debugMsg('stopTol = ' + str(stopTol))
+                self._debugMsg('dRes = ' + np.str(self.dRes))
+                self._debugMsg('cRes = ' + np.str(self.cRes))
+                self._debugMsg('pRes = ' + np.str(self.pRes))
+                self._debugMsg('optimal = ' + str(self.optimal))
 
             # Iteratively minimize the quadratic model in the trust region
             # m(s) = <g, s> + 1/2 <s, Hs>
             # Note that m(s) does not include f(x): m(0) = 0.            
-            self.solver = self.TrSolver(
-                               self.g,
-                               #matvec = lambda v: self.PDHessProd(x,z,v),
-                               H = B,
-                               prec = self.Precon,
-                               radius = self.TR.Delta,
-                               reltol = cgtol #,
-                               #btol = .9,
-                               #cur_iter = np.concatenate((x,z))
-                              )
-            self.solver.Solve()
-
-            step  = self.solver.step
-            snorm = self.solver.stepNorm
-            niter = self.solver.niter
+            solver = self.TrSolver(g,
+                                   #matvec=lambda v: self.PDHessProd(x,z,v),
+                                   H = self.B,
+                                   prec=self.Precon,
+                                   radius=self.TR.Delta,
+                                   reltol=cgtol,
+                                   #debug=True,
+                                   #btol=.9,
+                                   #cur_iter=np.concatenate((x,z))
+                                   )
+            solver.Solve()
 
             if self.debug:
                 self._debugMsg('x = ' + np.str(x))
                 self._debugMsg('z = ' + np.str(z))
-                self._debugMsg('step = ' + np.str(step))
+                self._debugMsg('step = ' + np.str(solver.step))
+                self._debugMsg('step norm = ' + str(solver.stepNorm))
 
-            # Obtain model value at next candidate
-            m = self.solver.m
-            self.cgiter += niter
+            # Record total number of CG iterations.
+            niter = solver.niter
+            self.cgiter += solver.niter
 
-            # Compute maximal step to the boundary and next candidate
-            alpha = self.ftb(x, z, step)
-            x_trial = x + alpha * step[:n]
-            z_trial = z + alpha * step[n:]
-            #x_trial = x + step[:n]
-            #z_trial = z + step[n:]
-            psi_trial = self.PDMerit(x_trial, z_trial)
-            rho  = self.TR.Rho(psi, psi_trial, m)
+            # Compute maximal step to the boundary and next candidate.
+            alphax, alphaz = self.ftb(x, z, solver.step)
+            alpha = min(alphax, alphaz)
+            dx = solver.step[:n] ; dz = solver.step[n:]
+            x_trial = x + alphax * dx
+            z_trial = z + alphaz * dz
+            f_trial = nlp.obj(x_trial)
+            psi_trial = self.PDMerit(x_trial, z_trial, f=f_trial)
+
+            # Compute ratio of predicted versus achieved reduction.
+            rho  = self.TR.Rho(psi, psi_trial, solver.m)
+
+            if self.debug:
+                self._debugMsg('m = ' + str(solver.m))
+                self._debugMsg('x_trial = ' + np.str(x_trial))
+                self._debugMsg('z_trial = ' + np.str(z_trial))
+                self._debugMsg('psi_trial = ' + str(psi_trial))
+                self._debugMsg('rho = ' + str(rho))
 
             # Accept or reject next candidate
             status = 'Rej'
             if rho >= self.TR.eta1:
-                self.TR.UpdateRadius(rho, snorm)
+                self.TR.UpdateRadius(rho, solver.stepNorm)
                 x = x_trial
                 z = z_trial
+                f = f_trial
                 psi = psi_trial
-                self.g = self.GradPDMerit(x, z, check_optimal=True, eval_g=True)
-                try:
-                    self.gNorm = np.linalg.norm(self.g, ord=self.ord)
-                except:
-                    print 'Offending g = ', self.g
-                    sys.exit(1)
+                gf = nlp.grad(x)
+                g = self.GradPDMerit(x, z, g=gf, check_optimal=True)
+                gNorm = norm2(g) #np.linalg.norm(g, ord=self.ord)
                 if self.optimal:
                     finished = True
                     continue
                 status = 'Acc'
             else:
                 if self.ny: # Backtracking linesearch a la "Nocedal & Yuan"
-                    slope = np.dot(self.g, step)
+                    slope = np.dot(g, solver.step)
                     target = psi + 1.0e-4 * alpha * slope
                     j = 0
 
                     while (psi_trial >= target) and (j < self.nyMax):
-                        alpha /= 1.2
+                        alphax /= 1.2 ; alphaz /= 1.2
+                        alpha = min(alphax, alphaz)
                         target = psi + 1.0e-4 * alpha * slope
-                        x_trial = x + alpha * step[:n]
-                        z_trial = z + alpha * step[n:]
-                        psi_trial = self.PDMerit(x_trial, z_trial)
+                        x_trial = x + alphax * dx
+                        z_trial = z + alphaz * dz
+                        f_trial = nlp.obj(x_trial)
+                        psi_trial = self.PDMerit(x_trial, z_trial, f=f_trial)
                         j += 1
 
                     if self.opportunistic or (j < self.nyMax):
                         x = x_trial
                         z = z_trial
+                        f = f_trial
                         psi = psi_trial
-                        self.g = self.GradPDMerit(x, z, check_optimal=True, eval_g=True)
-                        self.gNorm = np.linalg.norm(self.g, ord=self.ord)
+                        gf = nlp.grad(x)
+                        g = self.GradPDMerit(x, z, g=gf, check_optimal=True)
+                        gNorm = norm2(g) #np.linalg.norm(g, ord=self.ord)
                         if self.optimal:
                             finished = True
                             continue
-                        self.TR.Delta = alpha * snorm
+                        self.TR.Delta = alpha * solver.stepNorm
                         status = 'N-Y'
 
                     else:
-                        self.TR.UpdateRadius(rho, snorm)
+                        self.TR.UpdateRadius(rho, solver.stepNorm)
 
                 else:
-                    self.TR.UpdateRadius(rho, snorm)
+                    self.TR.UpdateRadius(rho, solver.stepNorm)
 
             self.UpdatePrecon()
             self.iter += 1
             inner_iter += 1
-            finished = (self.gNorm <= stopTol) or (self.iter > self.maxiter)
+            finished = (gNorm <= stopTol) or (self.iter > self.maxiter)
             if self.debug: sys.stderr.write('\n')
 
             #(dRes, cRes, pRes) = self.OptimalityResidual(x, z, mu = self.mu)
@@ -668,6 +681,10 @@ class PrimalDualInteriorPointFramework:
 
         # Store final iterate
         (self.x, self.z) = (x, z)
+        self.f = f
+        self.gf = gf
+        self.g = g
+        self.gNorm = gNorm
         self.psi = psi
         return
 
@@ -675,7 +692,6 @@ class PrimalDualInteriorPointFramework:
 
         nlp = self.nlp
         n = nlp.n
-
         print self.x
         
         # Measure solve time
@@ -683,10 +699,10 @@ class PrimalDualInteriorPointFramework:
 
         # Solve sequence of inner iterations
         while (not self.optimal) and (self.mu >= self.mu_min) and \
-                (self.iter <= self.maxiter):
-            self.SolveInner(stopTol = max(1.0e-7, 5*self.mu))
-            self.z = self.PrimalMultipliers(self.x)
-            self.optimal = self.AtOptimality(self.x, self.z)
+                (self.iter < self.maxiter):
+            self.SolveInner(stopTol=max(1.0e-7, 5*self.mu))
+            #self.z = self.PrimalMultipliers(self.x)
+            res, self.optimal = self.AtOptimality(self.x, self.z)
             self.UpdateMu()
 
         self.tsolve = cputime() - t    # Solve time
@@ -702,71 +718,17 @@ class PrimalDualInteriorPointFramework:
         """
         Update the barrier parameter before the next round of inner iterations.
         """
-        res = max(self.d_res, self.c_res)
+        self.mu /= 5
+        #res = max(self.dRes, self.cRes)
         #guard = min(res/5.0, res**(1.5))
         #if guard <= self.mu/5.0:
         #    self.mu = guard
         #else:
         #    self.mu = min(self.mu/5.0, self.mu**(1.5))
         #self.mu = min(self.mu/5.0, self.mu**(1.5))
-        self.mu = min(self.mu/2.0, max(self.mu/5.0, res/5.0))
+        #self.mu = min(self.mu/2.0, max(self.mu/5.0, res/5.0))
         return None
-        
-#     def OptimalityResidual(self, x, z, **kwargs):
-#         """
-#         Compute optimality residual for bound-constrained problem
-#            [ g - z ]
-#            [  Xz   ],
-#         where g is the gradient of the objective function.
-#         """
-#         gradf = kwargs.get('gradf', self.gf)
-#         mu = kwargs.get('mu', 0.0)
-#         n = self.nlp.n
-#         Lvar = self.nlp.Lvar
-#         Uvar = self.nlp.Uvar
-        
-#         # Compute dual feasibility and complementarity residuals
-#         d_res = gradf.copy()
-#         c_res = 0.0
-#         p_res = 0.0
-#         for i in self.lowerB:
-#             k = self.lowerB.index(i)
-#             d_res[i] -= z[k]
-#             c_res = max(c_res, abs((x[i] - Lvar[i]) * z[k] - mu))
-#             p_res = max(p_res, max(0.0, Lvar[i]-x[i]))
-#         for i in self.upperB:
-#             k = self.nlowerB + self.upperB.index(i)
-#             d_res[i] += z[k]
-#             c_res = max(c_res, abs((Uvar[i] - x[i]) * z[k] - mu))
-#             p_res = max(p_res, max(0.0, x[i]-Uvar[i]))
-#         for i in self.rangeB:
-#             k = self.nlowerB + self.nupperB + self.rangeB.index(i)
-#             d_res[i] -= z[k]
-#             c_res = max(c_res, abs((x[i] - Lvar[i]) * z[k] - mu))
-#             p_res = max(p_res, max(0.0, Lvar[i]-x[i]))
-#             k += self.nrangeB
-#             d_res[i] += z[k]
-#             c_res = max(c_res, abs((Uvar[i] - x[i]) * z[k] - mu))
-#             p_res = max(p_res, max(0.0, x[i]-Uvar[i]))
-        
-#         return (d_res, c_res, p_res)
 
-#     def AtOptimality(self, x, z, **kwargs):
-#         """
-#         Compute the infinity norm of the optimality residual at (x,z). See
-#         help(OptimalityResidual) for more information.
-#         """
-#         # We could save computation by computing the infinity norm directly
-#         # without forming the residual vector.
-#         nlp = self.nlp
-#         n = nlp.n
-#         (dual_res, self.c_res, self.p_res) = self.OptimalityResidual(x,z)
-#         self.d_res = np.linalg.norm(dual_res, ord = self.ord)
-
-#         if self.d_res <= nlp.stop_d and self.c_res <= nlp.stop_c and \
-#            self.p_res <= nlp.stop_p:
-#             return True
-#         return False
 
     def _debugMsg(self, msg):
         sys.stderr.write('Debug:: ' + msg + '\n')
@@ -814,15 +776,15 @@ if __name__ == '__main__':
 
     # Scale stopping conditions
     g = nlp.grad(TRIP.x)
-    (d_res, c_res, p_res) = nlp.OptimalityResidual(TRIP.x, TRIP.z, gradf = g)
-    d_res_norm = np.linalg.norm(d_res, ord=TRIP.ord)
-    TRIP.nlp.stop_d = max(TRIP.nlp.stop_d, 1.0e-8 * max(1.0, d_res_norm))
-    TRIP.nlp.stop_c = max(TRIP.nlp.stop_c, 1.0e-6 * max(1.0, c_res))
+    (dRes, cRes, pRes) = nlp.OptimalityResidual(TRIP.x, TRIP.z, gradf = g)
+    dRes_norm = np.linalg.norm(dRes, ord=TRIP.ord)
+    TRIP.nlp.stop_d = max(TRIP.nlp.stop_d, 1.0e-8 * max(1.0, dRes_norm))
+    TRIP.nlp.stop_c = max(TRIP.nlp.stop_c, 1.0e-6 * max(1.0, cRes))
     print 'Target tolerances: (%7.1e, %7.1e)' % \
         (TRIP.nlp.stop_d, TRIP.nlp.stop_c)
 
     # Reset initial value of mu to a more sensible value
-    TRIP.mu = 10.0 #max(d_res_norm, c_res) #* 100
+    TRIP.mu = 10.0 #max(dRes_norm, cRes) #* 100
     #TRIP.mu = np.linalg.norm(np.core.multiply(TRIP.x, g), ord=np.inf)
     
     # Solve problem
@@ -836,9 +798,9 @@ if __name__ == '__main__':
     print 'Variables: ', TRIP.nlp.n
     print '# lower, upper, 2-sided bounds: %-d, %-d, %-d' % \
         (TRIP.nlowerB, TRIP.nupperB, TRIP.nrangeB)
-    print 'Primal feasibility error  = %15.7e' % TRIP.p_res
-    print 'Dual   feasibility error  = %15.7e' % TRIP.d_res
-    print 'Complementarity error     = %15.7e' % TRIP.c_res
+    print 'Primal feasibility error  = %15.7e' % TRIP.pRes
+    print 'Dual   feasibility error  = %15.7e' % TRIP.dRes
+    print 'Complementarity error     = %15.7e' % TRIP.cRes
     print 'Number of function evals  = %d' % TRIP.nlp.feval
     print 'Number of gradient evals  = %d' % TRIP.nlp.geval
     print 'Number of Hessian  evals  = %d' % TRIP.nlp.Heval

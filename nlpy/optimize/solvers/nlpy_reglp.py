@@ -28,8 +28,10 @@ for probname in sys.argv[1:]:
 
     lp = SlackFramework(probname)
 
+    islp = True
     if not lp.islp():
         sys.stderr.write('Problem %s is not a linear program\n' % probname)
+        islp = False
         lp.close()
         continue
 
@@ -51,15 +53,16 @@ for probname in sys.argv[1:]:
 
     lp.close()
 
-if not oneproblem:
-    sys.stderr.write('-'*len(hdr) + '\n')
-else:
-    print 'Final x: ', reglp.x[:lp.original_n]
-    print 'Final y: ', reglp.y
-    print 'Final z: ', reglp.z
+if islp:
+    if not oneproblem:
+        sys.stderr.write('-'*len(hdr) + '\n')
+    else:
+        print 'Final x: ', reglp.x[:lp.original_n]
+        print 'Final y: ', reglp.y
+        print 'Final z: ', reglp.z
 
-    sys.stdout.write('\n' + reglp.status + '\n')
-    sys.stdout.write(' #Iterations: %-d\n' % reglp.iter)
-    sys.stdout.write(' RelResidual: %7.1e\n' % reglp.kktResid)
-    sys.stdout.write(' Final cost : %21.15e\n' % reglp.obj_value)
-    sys.stdout.write(' Solve time : %6.2fs\n' % reglp.solve_time)
+        sys.stdout.write('\n' + reglp.status + '\n')
+        sys.stdout.write(' #Iterations: %-d\n' % reglp.iter)
+        sys.stdout.write(' RelResidual: %7.1e\n' % reglp.kktResid)
+        sys.stdout.write(' Final cost : %21.15e\n' % reglp.obj_value)
+        sys.stdout.write(' Solve time : %6.2fs\n' % reglp.solve_time)

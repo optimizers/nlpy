@@ -374,7 +374,7 @@ class AmplModel:
         if 'c' in kwargs:
             pFeas[:self.m] = c.copy()
         else:
-            pFeas[:self.m] = self.cons(x)
+            pFeas[:self.m] = self.cons(x)[self.permC]
         pFeas[self.m:] = pFeas[rangeC]
 
         # Primal feasibility, part 1
@@ -453,14 +453,16 @@ class AmplModel:
         res = self.OptimalityResiduals(x, y, z, **kwargs)
 
         df = np.linalg.norm(res[0], ord=np.inf)
-        cp = max(np.linalg.norm(res[1], ord=np.inf),
-                 np.linalg.norm(res[2], ord=np.inf))
-        fs = max(np.linalg.norm(res[3], ord=np.inf),
-                 np.linalg.norm(res[4], ord=np.inf))
+        cp = 0.0 ; fs = 0.0
+        if self.m > 0:
+            cp = max(cp, np.linalg.norm(res[1], ord=np.inf))
+            fs = max(fs, np.linalg.norm(res[3], ord=np.inf))
+        if self.nbounds > 0:
+            cp = max(cp, np.linalg.norm(res[2], ord=np.inf))
+            fs = max(fs, np.linalg.norm(res[4], ord=np.inf))
         
-        if (df <= self.stop_d) and (cp <= self.stop_c) and (fs <= self.stop_p):
-            return (res, True)
-        return (res, False)
+        opt = (df<=self.stop_d) and (cp<=self.stop_c) and (fs<=self.stop_p)
+        return (res, opt)
 
 ###############################################################################
 

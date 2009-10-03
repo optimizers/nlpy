@@ -91,7 +91,10 @@ class RegQPInteriorPointSolver:
         # Apply in-place problem scaling if requested.
         self.prob_scaled = False
         if scale:
+            t = cputime()
             self.scale()
+            t = cputime() - t
+            sys.stdout.write('Time for scaling: %6.2fs\n' % t)
         else:
             # self.scale() sets self.normQ to the Frobenius norm of Q
             # as a by-product. If we're not scaling, set normQ manually.
