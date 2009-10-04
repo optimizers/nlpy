@@ -56,7 +56,6 @@ class PrimalDualInteriorPointFramework:
 
         self.explicit = kwargs.get('explicit', False)  # Form Hessian or not
         self.mu = kwargs.get('mu', 1.0)
-        self.mu_min = 1.0e-12
         self.bound_rel_factor = 0.1
         self.bound_abs_factor = 0.1
 
@@ -66,6 +65,8 @@ class PrimalDualInteriorPointFramework:
         self.inexact       = kwargs.get('inexact', False)
         self.nyMax         = kwargs.get('nyMax',   5)
         self.opportunistic = kwargs.get('opportunistic', True)
+        self.muerrfact     = kwargs.get('muerrfact', 10)
+        self.mu_min = 1.0e-09
 
         # Shortcuts for convenience
         self.lowerB  = np.array(self.nlp.lowerB, dtype=np.int)
@@ -88,13 +89,12 @@ class PrimalDualInteriorPointFramework:
 
         # Set appropriate primal-dual starting point
         (self.x, self.z) = self.StartingPoint()
-        assert np.all(self.x > 0)
+        #assert np.all(self.x > 0)
         assert np.all(self.z > 0)
 
         # Assemble the part of the primal-dual Hessian matrix that is constant.
         n = self.nlp.n ; ndual = self.ndual
         self.B = self.PDHessTemplate()
-        #self.diagB = np.empty(ndual)  # For diagonal preconditioning.
 
         self.iter = 0
         self.cgiter = 0
@@ -436,8 +436,9 @@ class PrimalDualInteriorPointFramework:
         B.put((Uvar[rangeB]-x[rangeB])/z[n3:], n+nlowerB+nupperB+nrangeB+rrangeB)
 
         # Store diagonal of B for diagonal preconditioning.
-        #B.take(self.diagB, range(ndual))
-        #self.diagB = np.maximum(1, self.diagB)
+        self.diagB = np.empty(n+ndual)
+        B.take(self.diagB, range(n+ndual))
+        self.diagB = np.maximum(1, np.abs(self.diagB))
 
         return None
 
@@ -485,8 +486,8 @@ class PrimalDualInteriorPointFramework:
         """
         Generic preconditioning method---must be overridden
         """
-        #pdb.set_trace()
-        return v #/self.diagB
+        return v/self.diagB
+
 
     def UpdatePrecon(self, **kwargs):
         """
@@ -495,13 +496,14 @@ class PrimalDualInteriorPointFramework:
         """
         return None
 
+
     def SolveInner(self, **kwargs):
         """
         Perform a series of inner iterations so as to minimize the primal-dual
         merit function with the current value of the barrier parameter to within
         some given tolerance. The only optional argument recognized is
 
-            stopTol     stopping tolerance (default: 10 mu).
+            stopTol     stopping tolerance (default: muerrfact * mu).
         """
 
         nlp = self.nlp
@@ -531,11 +533,11 @@ class PrimalDualInteriorPointFramework:
         if self.optimal: return
         
         # Reset initial trust-region radius
-        self.TR.Delta = 0.1 * gNorm #max(10.0, gNorm)
+        self.TR.Delta = max(10, 0.1 * gNorm) #max(10.0, gNorm)
 
         # Set inner iteration stopping tolerance
-        stopTol = kwargs.get('stopTol', 10*self.mu) #1.0e-3 * gNorm)
-        finished = (gNorm <= stopTol) or (self.iter > self.maxiter)
+        stopTol = kwargs.get('stopTol', self.muerrfact * self.mu)
+        finished = (gNorm <= stopTol) or (self.iter >= self.maxiter)
 
         while not finished:
 
@@ -653,7 +655,7 @@ class PrimalDualInteriorPointFramework:
 
                     if self.opportunistic or (j < self.nyMax):
                         x = x_trial
-                        z = z_trial
+                        z = z_trial #self.PrimalMultipliers(x)
                         f = f_trial
                         psi = psi_trial
                         gf = nlp.grad(x)
@@ -674,7 +676,7 @@ class PrimalDualInteriorPointFramework:
             self.UpdatePrecon()
             self.iter += 1
             inner_iter += 1
-            finished = (gNorm <= stopTol) or (self.iter > self.maxiter)
+            finished = (gNorm <= stopTol) or (self.iter >= self.maxiter)
             if self.debug: sys.stderr.write('\n')
 
             #(dRes, cRes, pRes) = self.OptimalityResidual(x, z, mu = self.mu)
@@ -694,6 +696,9 @@ class PrimalDualInteriorPointFramework:
         nlp = self.nlp
         n = nlp.n
         print self.x
+
+        err = min(nlp.stop_d, nlp.stop_c, nlp.stop_p)
+        self.mu_min = min(self.mu_min, (err/(1 + self.muerrfact))/2)
         
         # Measure solve time
         t = cputime()
@@ -701,7 +706,7 @@ class PrimalDualInteriorPointFramework:
         # Solve sequence of inner iterations
         while (not self.optimal) and (self.mu >= self.mu_min) and \
                 (self.iter < self.maxiter):
-            self.SolveInner(stopTol=max(1.0e-7, 5*self.mu))
+            self.SolveInner() #stopTol=max(1.0e-7, 5*self.mu))
             #self.z = self.PrimalMultipliers(self.x)
             res, self.optimal = self.AtOptimality(self.x, self.z)
             self.UpdateMu()
@@ -713,6 +718,7 @@ class PrimalDualInteriorPointFramework:
             print 'Maximum number of iterations reached'
         else:
             print 'Reached smallest allowed value of barrier parameter'
+            print '(mu = %8.2e, mu_min = %8.2e)' % (self.mu, self.mu_min)
         return
 
     def UpdateMu(self, **kwargs):
