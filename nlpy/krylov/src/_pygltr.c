@@ -14,9 +14,9 @@
 
 #include "Python.h"                /* Main Python header file */
 #include "arrayflavor.h"
-#include "pysparse/spmatrix.h"
-#include "pysparse/spmatrix_api.h"
-#include "pysparse/ll_mat.h"
+// #include "pysparse/spmatrix.h"
+// #include "pysparse/spmatrix_api.h"
+// #include "pysparse/ll_mat.h"
 
 /* ========================================================================== */
 
@@ -115,19 +115,19 @@ static PygltrObject *NewPygltrObject( PyObject *args ) {
     /* Make sure arrays are 1-dimensional arrays of doubles of length n */
     if( !a_g ) return NULL;
     if( a_g->nd != 1 ) return NULL;
-    if( a_g->descr->type_num != tFloat64 ) return NULL;
+    if( a_g->descr->type_num != NPY_FLOAT ) return NULL;
     n = a_g->dimensions[0];
     if( n <= 0 ) return NULL;
     
     if( !a_step ) return NULL;
     if( a_step->nd != 1 ) return NULL;
     if( a_step->dimensions[0] != n ) return NULL;
-    if( a_step->descr->type_num != tFloat64 ) return NULL;
+    if( a_step->descr->type_num != NPY_FLOAT ) return NULL;
 
     if( !a_vector ) return NULL;
     if( a_vector->nd != 1 ) return NULL;
     if( a_vector->dimensions[0] != n ) return NULL;
-    if( a_vector->descr->type_num != tFloat64 ) return NULL;
+    if( a_vector->descr->type_num != NPY_FLOAT ) return NULL;
     
     /* Create new instance of object */
     if( !(self = PyObject_New( PygltrObject, &PygltrType ) ) )
@@ -203,7 +203,7 @@ static PyObject *Pygltr_reassign( PygltrObject *self, PyObject *args ) {
         return NULL;
     if( a_vector->nd != 1 ) return NULL;
     if( a_vector->dimensions[0] != self->n ) return NULL;
-    if( a_vector->descr->type_num != tFloat64 ) return NULL;
+    if( a_vector->descr->type_num != NPY_FLOAT ) return NULL;
 
     vp = (double *)a_vector->data;
     for( i = 0; i < self->n; i++ )

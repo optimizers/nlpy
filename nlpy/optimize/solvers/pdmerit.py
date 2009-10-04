@@ -158,13 +158,14 @@ class PrimalDualInteriorPointFramework:
         x[upperB] = np.maximum(x0[upperB],
                                (1-np.sign(Uvar[upperB])*bnd_rel)*Uvar[upperB]+ \
                                    bnd_abs)
-        for i in rangeB:
-            sgn = np.sign(Lvar[i])
-            sl = (1+sgn*bnd_rel) * Lvar[i] + bnd_abs
-            sgn = np.sign(Uvar[i])
-            su = (1-sgn*bnd_rel) * Uvar[i] + bnd_abs
-            x[i] = max(min(x0[i], su), sl)
-            #x[i] = 0.5 * (Lvar[i] + Uvar[i])
+        #for i in rangeB:
+        #    sgn = np.sign(Lvar[i])
+        #    sl = (1+sgn*bnd_rel) * Lvar[i] + bnd_abs
+        #    sgn = np.sign(Uvar[i])
+        #    su = (1-sgn*bnd_rel) * Uvar[i] + bnd_abs
+        #    x[i] = max(min(x0[i], su), sl)
+
+        x[rangeB] = (Lvar[rangeB] + Uvar[rangeB])/2
 
         # Compute dual starting guess.
 
@@ -482,9 +483,16 @@ class PrimalDualInteriorPointFramework:
         return stpx, stpmax
 
 
+    def SetupPrecon(self, **kwargs):
+        """
+        Construct or set up the preconditioner---must be overridden.
+        """
+        return None
+
+
     def Precon(self, v, **kwargs):
         """
-        Generic preconditioning method---must be overridden
+        Generic preconditioning method---must be overridden.
         """
         return v/self.diagB
 
@@ -577,6 +585,9 @@ class PrimalDualInteriorPointFramework:
                 self._debugMsg('cRes = ' + np.str(self.cRes))
                 self._debugMsg('pRes = ' + np.str(self.pRes))
                 self._debugMsg('optimal = ' + str(self.optimal))
+
+            # Set up the preconditioner if applicable.
+            self.SetupPrecon()
 
             # Iteratively minimize the quadratic model in the trust region
             # m(s) = <g, s> + 1/2 <s, Hs>
@@ -708,7 +719,7 @@ class PrimalDualInteriorPointFramework:
                 (self.iter < self.maxiter):
             self.SolveInner() #stopTol=max(1.0e-7, 5*self.mu))
             #self.z = self.PrimalMultipliers(self.x)
-            res, self.optimal = self.AtOptimality(self.x, self.z)
+            #res, self.optimal = self.AtOptimality(self.x, self.z)
             self.UpdateMu()
 
         self.tsolve = cputime() - t    # Solve time
@@ -718,7 +729,7 @@ class PrimalDualInteriorPointFramework:
             print 'Maximum number of iterations reached'
         else:
             print 'Reached smallest allowed value of barrier parameter'
-            print '(mu = %8.2e, mu_min = %8.2e)' % (self.mu, self.mu_min)
+            #print '(mu = %8.2e, mu_min = %8.2e)' % (self.mu, self.mu_min)
         return
 
     def UpdateMu(self, **kwargs):
