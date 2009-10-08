@@ -35,7 +35,7 @@ def configuration(parent_package='',top_path=None):
 
     # Build PyGLTR
     config.add_library(
-        name='gltr',
+        name='nlpy_gltr',
         sources=libgltr_src,
         extra_info=blas_info,
         )
@@ -43,7 +43,7 @@ def configuration(parent_package='',top_path=None):
     config.add_extension(
         name='_pygltr',
         sources=[os.path.join('src',name) for name in pygltr_src],
-        libraries=['gltr'],
+        libraries=['nlpy_gltr'],
         include_dirs=['src'],
         extra_info=blas_info,
         )

@@ -25,7 +25,7 @@ def configuration(parent_package='',top_path=None):
 
     # Build PyCFS
     config.add_library(
-        name='icfs',
+        name='nlpy_icfs',
         sources=[os.path.join(icfs_dir,'src','icf',name) for name in icfs_src],
         libraries=[],
         library_dirs=[],
@@ -37,7 +37,7 @@ def configuration(parent_package='',top_path=None):
         name='_pycfs',
         sources=[os.path.join('src',name) for name in pycfs_src],
         depends=[],
-        libraries=['icfs'],
+        libraries=['nlpy_icfs'],
         library_dirs=[],
         include_dirs=['src'],
         extra_info=blas_info,

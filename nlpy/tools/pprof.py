@@ -10,7 +10,7 @@ import numpy
 import numpy.ma as ma
 from   string import atoi, atof
 
-PROGNAME = "pprof.py"
+PROGNAME = "nlpy_pprof.py"
 
 def usage():
     instructions = """
@@ -53,8 +53,6 @@ Options
 - Use --sep 'S' to indicate columns are separated by character S.
 - Use --sep "r'RE'" to separate instead by a regular expression.
 - Any line starting with a %% or a # is ignored.
-
-$Id: pprofmm.py 96 2009-03-25 22:53:56Z d-orban $
 """ % (PROGNAME,PROGNAME,PROGNAME)
 
     print instructions

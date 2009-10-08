@@ -20,7 +20,7 @@ def configuration(parent_package='',top_path=None):
     pymcsrch_src = ['_pymcsrch.c']
 
     config.add_library(
-        name='csrch',
+        name='nlpy_csrch',
         sources=[os.path.join('src',name) for name in libcsrch_src],
         libraries=[],
         library_dirs=[],
@@ -32,14 +32,14 @@ def configuration(parent_package='',top_path=None):
         name='_pycsrch',
         sources=[os.path.join('src',name) for name in pycsrch_src],
         depends=[],
-        libraries=['csrch'],
+        libraries=['nlpy_csrch'],
         library_dirs=[],
         include_dirs=['src'],
         extra_info=blas_info,
         )
 
     config.add_library(
-        name='mcsrch',
+        name='nlpy_mcsrch',
         sources=[os.path.join('src',name) for name in libmcsrch_src],
         libraries=[],
         library_dirs=[],
@@ -51,7 +51,7 @@ def configuration(parent_package='',top_path=None):
         name='_pymcsrch',
         sources=[os.path.join('src',name) for name in pymcsrch_src],
         depends=[],
-        libraries=['mcsrch'],
+        libraries=['nlpy_mcsrch'],
         library_dirs=[],
         include_dirs=['src'],
         extra_info=blas_info,
