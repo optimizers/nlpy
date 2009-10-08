@@ -4,7 +4,8 @@ is solved for several values of the limited-memory parameter.
 """
 
 from nlpy.model import amplpy
-from nlpy.optimize.solvers.lbfgs import LbfgsFramework
+from nlpy.optimize.solvers.lbfgs import LBFGSFramework
+import os
 import sys
 
 headerfmt = '%-15s  %-6s  %-5s  %-12s  %-12s  %-6s  %-7s\n'
@@ -18,11 +19,11 @@ for ProblemName in sys.argv[1:]:
     nlp = amplpy.AmplModel( ProblemName )
 
     for m in [1,2,3,4,5,10,15,20]:
-        lbfgs = LbfgsFramework(nlp, npairs=m, scaling=False, silent=True)
+        lbfgs = LBFGSFramework(nlp, npairs=m, scaling=False, silent=True)
         lbfgs.solve()
 
         # Output final statistics
-        probname = ProblemName
+        probname = os.path.basename(ProblemName)
         if probname[-3:] == '.nl': probname = probname[:-3]
         sys.stdout.write(format % (probname, nlp.n, lbfgs.npairs, lbfgs.f,
                                    lbfgs.gnorm, lbfgs.iter, lbfgs.tsolve))

@@ -3,8 +3,14 @@
 def configuration(parent_package='',top_path=None):
     import numpy
     import os
+    import ConfigParser
     from numpy.distutils.misc_util import Configuration
     from numpy.distutils.system_info import get_info, NotFoundError
+
+    # Read relevant NLPy-specific configuration options.
+    nlpy_config = ConfigParser.SafeConfigParser()
+    nlpy_config.read(os.path.join(top_path, 'site.cfg'))
+    icfs_dir = nlpy_config.get('ICFS', 'icfs_dir')
 
     config = Configuration('precon', parent_package, top_path)
 
@@ -12,19 +18,15 @@ def configuration(parent_package='',top_path=None):
     blas_info = get_info('blas_opt',0)
     if not blas_info:
         print 'No blas info found'
-    #icfs_dir = get_info('icfs_dir')
-    #if not icfs_dir:
-    #    raise NotFoundError, 'no icfs resources found'
-    icfs_dir = '/Users/dpo/local/linalg/icfs'
 
-    icfs_dir = os.path.join(icfs_dir,os.path.join('src','icf'))
-    icfs_src = ['dicf.f','dpcg.f','dsel2.f','dstrsol.f','insort.f','dicfs.f','dsel.f','dssyax.f','ihsort.f','srtdat2.f']
+    icfs_src = ['dicf.f','dpcg.f','dsel2.f','dstrsol.f','insort.f','dicfs.f',
+                'dsel.f','dssyax.f','ihsort.f','srtdat2.f']
     pycfs_src = ['_pycfs.c']
 
     # Build PyCFS
     config.add_library(
         name='icfs',
-        sources=[os.path.join(icfs_dir,name) for name in icfs_src],
+        sources=[os.path.join(icfs_dir,'src','icf',name) for name in icfs_src],
         libraries=[],
         library_dirs=[],
         include_dirs=['src'],

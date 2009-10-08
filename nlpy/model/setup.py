@@ -7,17 +7,20 @@ def configuration(parent_package='',top_path=None):
     from numpy.distutils.misc_util import Configuration
     from numpy.distutils.system_info import get_info, NotFoundError
 
-
+    # Read relevant NLPy-specific configuration options.
+    nlpy_config = ConfigParser.SafeConfigParser()
+    nlpy_config.read(os.path.join(top_path, 'site.cfg'))
+    libampl_dir = nlpy_config.get('LIBAMPL', 'libampl_dir')
 
     config = Configuration('model', parent_package, top_path)
 
-    libampl_dir = '/Users/dpo/local/dev/libampl'
     libampl_libdir = os.path.join(libampl_dir, 'Lib')
     libampl_include = os.path.join(libampl_dir, os.path.join('Src','solvers'))
+    amplpy_src = os.path.join('src','_amplpy.c')
 
     config.add_extension(
         name='_amplpy',
-        sources=['src/_amplpy.c'],
+        sources=amplpy_src,
         libraries=['ampl', 'funcadd0'],
         library_dirs=[libampl_libdir],
         include_dirs=['src', libampl_include],

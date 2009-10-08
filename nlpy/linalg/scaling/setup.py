@@ -2,23 +2,23 @@
 
 def configuration(parent_package='',top_path=None):
     import numpy
+    import ConfigParser
+    import os
     from numpy.distutils.misc_util import Configuration
+
+    # Read relevant NLPy-specific configuration options.
+    nlpy_config = ConfigParser.SafeConfigParser()
+    nlpy_config.read(os.path.join(top_path, 'site.cfg'))
+    hsl_dir = nlpy_config.get('HSL', 'hsl_dir')
 
     config = Configuration('scaling', parent_package, top_path)
 
-    #libhsl = get_info('libhsl')
-    #if not libhsl:
-    #    raise NotFoundError, 'no libhsl resources found'
-    #libhsl_dir = libhsl.get('libhsl_dir')
-    #hsllibname = libhsl.get('hsllibname')
-    libhsl_dir = '/Users/dpo/local/linalg/hsl/g95'
-    hsllibname = 'hsl_g95' # Must be in LD_LIBRARY_PATH and called .so
+    mc29_sources = [os.path.join(hsl_dir,'mc29ad.f'),
+                    os.path.join('src','mc29.pyf')]
 
     config.add_extension(
         name='mc29module',
-        sources=['src/mc29.pyf'],
-        libraries=[hsllibname],
-        library_dirs=[libhsl_dir],
+        sources=mc29_sources,
         include_dirs=['src'],
         extra_link_args=[])
 
