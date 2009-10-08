@@ -102,37 +102,40 @@ static PygltrObject *NewPygltrObject( PyObject *args ) {
 
     /* Parse arguments */
     if( !PyArg_ParseTuple( args, "O!O!O!dddiiiiiid",
-                                 &PyArray_Type, &a_g,
-                                 &PyArray_Type, &a_step,
-                                 &PyArray_Type, &a_vector,
-                                 &radius, &stop_rel, &stop_abs,
-                                 &itmax, &litmax, &unitm, &ST,
-                                 &boundary, &equality, &fraction_opt ) )
-        return NULL;
+                           &PyArray_Type, &a_g,
+                           &PyArray_Type, &a_step,
+                           &PyArray_Type, &a_vector,
+                           &radius, &stop_rel, &stop_abs,
+                           &itmax, &litmax, &unitm, &ST,
+                           &boundary, &equality, &fraction_opt ) ) {
+      PyErr_SetString(PyExc_ValueError,
+                      "PyGLTR: Error while reading input arguments\n");
+      return NULL;
+    }
 
     if( radius <= 0 ) return NULL;
 
     /* Make sure arrays are 1-dimensional arrays of doubles of length n */
     if( !a_g ) return NULL;
     if( a_g->nd != 1 ) return NULL;
-    if( a_g->descr->type_num != NPY_FLOAT ) return NULL;
+    if( a_g->descr->type_num != NPY_FLOAT64 ) return NULL;
     n = a_g->dimensions[0];
     if( n <= 0 ) return NULL;
     
     if( !a_step ) return NULL;
     if( a_step->nd != 1 ) return NULL;
     if( a_step->dimensions[0] != n ) return NULL;
-    if( a_step->descr->type_num != NPY_FLOAT ) return NULL;
+    if( a_step->descr->type_num != NPY_FLOAT64 ) return NULL;
 
     if( !a_vector ) return NULL;
     if( a_vector->nd != 1 ) return NULL;
     if( a_vector->dimensions[0] != n ) return NULL;
-    if( a_vector->descr->type_num != NPY_FLOAT ) return NULL;
-    
+    if( a_vector->descr->type_num != NPY_FLOAT64 ) return NULL;
+
     /* Create new instance of object */
     if( !(self = PyObject_New( PygltrObject, &PygltrType ) ) )
         return NULL;
-    
+
     /* Allocate room for problem gradient */
     self->g = (double *)malloc( n * sizeof( double ) );
     if( self->g == NULL ) return NULL;
@@ -203,7 +206,7 @@ static PyObject *Pygltr_reassign( PygltrObject *self, PyObject *args ) {
         return NULL;
     if( a_vector->nd != 1 ) return NULL;
     if( a_vector->dimensions[0] != self->n ) return NULL;
-    if( a_vector->descr->type_num != NPY_FLOAT ) return NULL;
+    if( a_vector->descr->type_num != NPY_FLOAT64 ) return NULL;
 
     vp = (double *)a_vector->data;
     for( i = 0; i < self->n; i++ )

@@ -206,20 +206,20 @@ try:
                 raise ValueError, 'Specify one of hprod and H'
             self.m = None
 
-            def Solve(self):
-                """
-                Solve the trust-region subproblem using the generalized Lanczos
-                method.
-                """
-                if self.hprod is not None:
-                    self.gltrSolver.implicit_solve(self.hprod)
-                else:
-                    self.gltrSolver.explicit_solve(self.H)
+        def Solve(self):
+            """
+            Solve the trust-region subproblem using the generalized Lanczos
+            method.
+            """
+            if self.hprod is not None:
+                self.gltrSolver.implicit_solve(self.hprod)
+            else:
+                self.gltrSolver.explicit_solve(self.H)
                     
-                    self.niter = self.gltrSolver.niter
-                    self.stepNorm = self.gltrSolver.snorm
-                    self.step = self.gltrSolver.step
-                    self.m = self.gltrSolver.m
-                    return
+            self.niter = self.gltrSolver.niter
+            self.stepNorm = self.gltrSolver.snorm
+            self.step = self.gltrSolver.step
+            self.m = self.gltrSolver.m
+            return
 except:
     pass

@@ -107,15 +107,14 @@ class PrimalDualInteriorPointFramework:
         self.save_g = False
         self.ord = 2       # Norm used throughout
 
-        self.hformat = ' %-5s  %8s  %7s  %7s  %7s  %5s  %8s  %8s  %4s\n'
-        head = ('Iter','f(x)','Resid','mu','alpha','cg','rho','Delta','Stat')
+        self.hformat = ' %-5s  %8s  %7s  %7s  %7s  %7s  %5s  %8s  %8s  %4s\n'
+        head = ('Iter','f(x)','Resid','gPhi','mu','alpha','cg','rho','Delta','Stat')
         self.header  = self.hformat % head
         self.hlen    = len(self.header)
         self.hline   = '-' * self.hlen + '\n'
         self.itFormat = '%-5d  '
-        self.format='%8.1e  %7.1e  %7.1e  %7.1e  %5d  %8.1e  %8.1e  %4s\n'
-        self.format0='%8.1e  %7.1e  %7.1e  %7.1e  %5d  %8.1e  %8.1e  %4s\n'
-        self.printFrequency = 50
+        self.format='%8.1e  %7.1e  %7.1e  %7.1e  %7.1e  %5d  %8.1e  %8.1e  %4s\n'
+        self.printFrequency = 20
 
         # Optimality residuals, updated along the iterations
         self.dRes = None
@@ -494,7 +493,7 @@ class PrimalDualInteriorPointFramework:
         """
         Generic preconditioning method---must be overridden.
         """
-        return v/self.diagB
+        return v #/self.diagB
 
 
     def UpdatePrecon(self, **kwargs):
@@ -515,7 +514,7 @@ class PrimalDualInteriorPointFramework:
         """
 
         nlp = self.nlp
-        n = nlp.n
+        n = nlp.n ; ndual = self.ndual
         rho = 1                  # Dummy initial value for rho
         niter = 0                # Dummy initial value for number of inners
         status = ''              # Dummy initial step status
@@ -523,7 +522,7 @@ class PrimalDualInteriorPointFramework:
         if self.inexact:
             cgtol = 1.0
         else:
-            cgtol = 1.0e-6
+            cgtol = -1.0 #1.0e-6
         inner_iter = 0           # Inner iteration counter
             
         # Obtain starting point
@@ -541,7 +540,7 @@ class PrimalDualInteriorPointFramework:
         if self.optimal: return
         
         # Reset initial trust-region radius
-        self.TR.Delta = max(10, 0.1 * gNorm) #max(10.0, gNorm)
+        self.TR.Delta = 0.1*gNorm #max(10, 0.1 * gNorm) #max(10.0, gNorm)
 
         # Set inner iteration stopping tolerance
         stopTol = kwargs.get('stopTol', self.muerrfact * self.mu)
@@ -565,6 +564,7 @@ class PrimalDualInteriorPointFramework:
                                  max(norm_infty(self.dRes),
                                      norm_infty(self.cRes),
                                      norm_infty(self.pRes)),
+                                 gNorm,
                                  self.mu, alpha, niter, rho,
                                  self.TR.Delta, status))
 
@@ -577,7 +577,7 @@ class PrimalDualInteriorPointFramework:
             self.PDHess(x,z)
 
             if self.debug:
-                self._debugMsg('H = ') ; print self.B
+                #self._debugMsg('H = ') ; print self.B
                 self._debugMsg('g = ' + np.str(g))
                 self._debugMsg('gNorm = ' + str(gNorm))
                 self._debugMsg('stopTol = ' + str(stopTol))
@@ -595,9 +595,11 @@ class PrimalDualInteriorPointFramework:
             solver = self.TrSolver(g,
                                    #matvec=lambda v: self.PDHessProd(x,z,v),
                                    H = self.B,
-                                   prec=self.Precon,
-                                   radius=self.TR.Delta,
-                                   reltol=cgtol,
+                                   prec = self.Precon,
+                                   radius = self.TR.Delta,
+                                   reltol = cgtol,
+                                   #fraction = 0.5,
+                                   itmax = 2*(n+ndual),
                                    #debug=True,
                                    #btol=.9,
                                    #cur_iter=np.concatenate((x,z))
