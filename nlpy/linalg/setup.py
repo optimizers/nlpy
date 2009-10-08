@@ -26,21 +26,21 @@ def configuration(parent_package='',top_path=None):
 
     # Relevant files for building MA27 extension.
     ma27_src = ['fd05ad.f', 'id05ad.f', 'ma27ad.f']
-    libma27_src = ['ma27_lib.c','ma27fact.f','nlpy_alloc.c']
-    pyma27_src = ['_pyma27.c']
+    libma27_src = ['ma27fact.f']
+    pyma27_src = ['ma27_lib.c','nlpy_alloc.c','_pyma27.c']
 
     # Relevant files for building MA57 extension.
-    ma57_src = ['fd05ad.f', 'ma57ad.f', 'mc47ad.f', 'mc71ad.f', 'fd15ad.f',
+    ma57_src = ['fd05ad.f', 'ma57ad.f', 'mc41ad.f', 'mc47ad.f', 'mc49ad.f',
+                'mc71ad.f', 'fd15ad.f',
                 'mc21ad.f', 'mc59ad.f', 'mc34ad.f', 'mc64ad.f']
-    libma57_src = ['ma57_lib.c','nlpy_alloc.c']
-    pyma57_src = ['_pyma57.c']
+    pyma57_src = ['ma57_lib.c','nlpy_alloc.c','_pyma57.c']
 
     # Build PyMA27
-    ma27_sources  = [os.path.join('src',name) for name in libma27_src]
-    ma27_sources += [os.path.join(hsl_dir,name) for name in ma27_src]
+    ma27_sources  = [os.path.join(hsl_dir,name) for name in ma27_src]
+    ma27_sources += [os.path.join('src',name) for name in libma27_src]
 
     config.add_library(
-        name='ma27',
+        name='nlpy_ma27',
         sources=ma27_sources,
         include_dirs=[hsl_dir,'src'],
         extra_info=blas_info,
@@ -50,17 +50,17 @@ def configuration(parent_package='',top_path=None):
         name='_pyma27',
         sources=[os.path.join('src',name) for name in pyma27_src],
         depends=[],
-        libraries=['ma27'],
+        libraries=['nlpy_ma27'],
         include_dirs=['src'],
         extra_info=blas_info,
         )
 
     # Build PyMA57
-    ma57_sources  = [os.path.join('src',name) for name in libma57_src]
-    ma57_sources += [os.path.join(hsl_dir,name) for name in ma57_src]
+    ma57_sources = [os.path.join(hsl_dir,name) for name in ma57_src]
+    pyma57_sources = [os.path.join('src',name) for name in pyma57_src],
 
     config.add_library(
-        name='ma57',
+        name='nlpy_ma57',
         sources=ma57_sources,
         libraries=[metis_lib],
         library_dirs=[metis_dir],
@@ -70,8 +70,8 @@ def configuration(parent_package='',top_path=None):
 
     config.add_extension(
         name='_pyma57',
-        sources=[os.path.join('src',name) for name in pyma57_src],
-        libraries=[metis_lib,'ma57'],
+        sources=pyma57_sources,
+        libraries=[metis_lib,'nlpy_ma57'],
         library_dirs=[metis_dir],
         include_dirs=['src'],
         extra_info=blas_info,
