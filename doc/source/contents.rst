@@ -15,7 +15,10 @@ NLPy documentation
    :maxdepth: 2
 
    Introduction <introduction>
-   Using AMPL models <amplpy>
+   Modeling in NLPy <modeling>
+   Direct Solution of Systems of Linear Equations <linalg>
+   Iterative Solution of Systems of Linear Equations <krylov>
+   Optimization Tools <optim>
 
 
 Some pages of this documentation display equations via the `jsMath

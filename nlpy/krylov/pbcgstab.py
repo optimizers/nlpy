@@ -6,9 +6,7 @@ as described in
   *Projected Krylov Methods for Unsymmetric Augmented Systems*,
   Cahiers du GERAD G-2008-46, GERAD, Montreal, Canada, 2008.
 
-D. Orban, Montreal, September 2008.
-
-$Id: pbcgstab.py 92 2008-10-01 23:31:59Z d-orban $
+.. moduleauthor:: D. Orban <dominique.orban@gerad.ca>
 """
 
 __docformat__ = 'restructuredtext'

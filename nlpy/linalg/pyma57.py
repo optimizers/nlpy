@@ -5,8 +5,7 @@ Ma57: Direct multifrontal solution of symmetric systems
 import numpy
 from pysparse.pysparseMatrix import PysparseMatrix
 from sils import Sils
-
-import _pyma57
+from nlpy.linalg import _pyma57
 
 class PyMa57Context( Sils ):
 

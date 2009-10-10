@@ -10,8 +10,7 @@ or the least-squares problem
 using Minres.  This is a line-by-line translation from Matlab code
 available at http://www.stanford.edu/group/SOL/software/minres.htm.
 
-Dominique Orban, GERAD and Ecole Polytechnique de Montreal
-dominique.orban@gerad.ca
+.. moduleauthor:: D. Orban <dominique.orban@gerad.ca>
 """
 
 from numpy import zeros, dot, empty
@@ -20,7 +19,7 @@ from math import sqrt
 
 class Minres:
     """
-    K = Minres(A) ; K.solve(b)
+    `K = Minres(A) ; K.solve(b)`
 
     This class implements the Minres iterative solver of Paige and Saunders.
     Minres solves the system of linear equations Ax = b
@@ -29,7 +28,9 @@ class Minres:
     and b is a given vector.
    
     A may be given explicitly as a matrix or be a function such that
-        A(x, y)
+
+        `A(x, y)`
+
     stores in y the product Ax for any given vector x.
     If A is an instance of some matrix class, it should have a 'matvec' method
     such that A.matvec(x, y) has the behaviour described above.
@@ -45,7 +46,9 @@ class Minres:
 
     If precon is given, it must define a positive-definite preconditioner
     M = C C'. The precon operator must be such that
-        x = precon(y)
+
+        `x = precon(y)`
+
     returns the solution x to the linear system M x = y, for any given y.
  
     If shift != 0, minres really solves (A - shift*I)x = b
@@ -53,8 +56,10 @@ class Minres:
 
     The return values (as returned by the Matlab version of Minres) are stored
     in the members
-        x, istop, itn, rnorm, Arnorm, Anorm, Acond, ynorm
-    of the class, after completion of solve().
+
+        `x`, `istop`, `itn`, `rnorm`, `Arnorm`, `Anorm`, `Acond`, `ynorm`
+
+    of the class, after completion of :meth:`solve`.
 
     Python version: Dominique Orban, Ecole Polytechnique de Montreal, 2008,
     translated and adapted from the Matlab version of Minres, written by

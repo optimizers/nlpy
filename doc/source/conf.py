@@ -18,6 +18,9 @@ import sys, os
 # absolute, like shown here.
 #sys.path.append(os.path.abspath('.'))
 sys.path.append(os.path.abspath('../../nlpy/model'))
+sys.path.append(os.path.abspath('../../nlpy/linalg'))
+sys.path.append(os.path.abspath('../../nlpy/krylov'))
+sys.path.append(os.path.abspath('../../nlpy/optimize/ls'))
 sys.path.append(os.path.abspath('../../examples'))
 sys.path.append('sphinxext')
 

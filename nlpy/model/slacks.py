@@ -3,7 +3,7 @@ A framework for converting a general nonlinear program into a farm with
 (possibly nonlinear) equality constraints and bounds only, by adding slack
 variables.
 
-D. Orban, Montreal, 2008.
+.. moduleauthor:: D. Orban <dominique.orban@gerad.ca>
 """
 
 __docformat__ = 'restructuredtext'
@@ -222,7 +222,7 @@ class SlackFramework( AmplModel ):
     def _jac(self, x, lp=False):
         """
         Helper method to assemble the Jacobian matrix of the constraints of the
-        transformed problems. See the documentation of :method:jac for more
+        transformed problems. See the documentation of :meth:`jac` for more
         information.
 
         The positional argument `lp` should be set to `True` only if the problem
@@ -334,6 +334,6 @@ class SlackFramework( AmplModel ):
     def A(self):
         """
         Return the constraint matrix if the problem is a linear program. See the
-        documentation of :method:jac for more information.
+        documentation of :meth:`jac` for more information.
         """
         return self._jac(0, lp=True)

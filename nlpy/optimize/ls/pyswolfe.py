@@ -3,7 +3,7 @@ Linesearch methods guaranteeing satisfaction of the strong Wolfe conditions.
 """
 
 import numpy
-import _pycsrch
+from nlpy.optimize.ls import _pycsrch
 
 class StrongWolfeLineSearch:
     """

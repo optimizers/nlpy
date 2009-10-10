@@ -77,7 +77,7 @@ class AmplModel:
     `stub` is the name of the model. For instance: `AmplModel('elec')`.
     If only the `.mod` file is available, set the positional parameter
     `neednl` to `True` so AMPL generates the `nl` file, as in
-    `AmplModel('elec', neednl=True)`.
+    `AmplModel('elec.mod', data='elec.dat', neednl=True)`.
     """
     # Constructor
     def __init__(self, model, **kwargs):
@@ -204,6 +204,10 @@ class AmplModel:
         self.Jprod = 0    #                matrix-vector products with Jacobian
 
     def ResetCounters(self):
+        """
+        Reset the `feval`, `geval`, `Heval`, `Hprod`, `ceval`, `Jeval` and
+        `Jprod` counters of the current instance to zero.
+        """
         self.feval = 0
         self.geval = 0
         self.Heval = 0
@@ -262,47 +266,50 @@ class AmplModel:
         The multipliers `y` associated to general constraints must be ordered
         as follows:
 
-        ci(x) = ciE  (i in equalC): y[:nequalC]
+        :math:`c_i(x) = c_i^E`  (`i` in `equalC`): `y[:nequalC]`
 
-        ci(x) >= ciL (i in lowerC): y[nequalC:nequalC+nlowerC]
+        :math:`c_i(x) \geq c_i^L` (`i` in `lowerC`): `y[nequalC:nequalC+nlowerC]`
 
-        ci(x) <= ciU (i in upperC): y[nequalC+nlowerC:nequalC+nlowerC+nupperC]
+        :math:`c_i(x) \leq c_i^U` (`i` in `upperC`): `y[nequalC+nlowerC:nequalC+nlowerC+nupperC]`
 
-        ci(x) >= ciL (i in rangeC): y[nlowerC+nupperC:m]
+        :math:`c_i(x) \geq c_i^L` (`i` in `rangeC`): `y[nlowerC+nupperC:m]`
 
-        ci(x) <= ciU (i in rangeC): y[m:]
+        :math:`c_i(x) \leq c_i^U` (`i` in `rangeC`): `y[m:]`
 
-        For inequality constraints, the sign of each y[i] should be as if it
-        corresponded to a nonnegativity constraint, i.e., ciU - ci(x) >= 0
-        instead of ci(x) <= ciU.
+        For inequality constraints, the sign of each `y[i]` should be as if it
+        corresponded to a nonnegativity constraint, i.e.,
+        :math:`c_i^U - c_i(x) \geq 0` instead of :math:`c_i(x) \leq c_i^U`.
 
-        For equality constraints, the sign of each y[i] should be so the
-        Lagrangian may be written L(x,y,z) = f(x) - <y, cE(x)> - ...
+        For equality constraints, the sign of each `y[i]` should be so the
+        Lagrangian may be written
 
-        Similarly, the multipliers z associated to bound constraints must be
+        :math:`L(x,y,z) = f(x) - <y, c_E(x)> - ...`
+
+        Similarly, the multipliers `z` associated to bound constraints must be
         ordered as follows:
 
-        xi  = Li (i in fixedB) : z[:nfixedB]
+        :math:`x_i  = L_i` (`i` in `fixedB`) : `z[:nfixedB]`
 
-        xi >= Li (i in lowerB) : z[nfixedB:nfixedB+nlowerB]
+        :math:`x_i \geq L_i` (`i` in `lowerB`) : `z[nfixedB:nfixedB+nlowerB]`
 
-        xi <= Ui (i in upperB) : z[nfixedB+nlowerB:nfixedB+nlowerB+nupperB]
+        :math:`x_i \leq U_i` (`i` in `upperB`) : `z[nfixedB+nlowerB:nfixedB+nlowerB+nupperB]`
 
-        xi >= Li (i in rangeB) : z[nfixedB+nlowerB+nupperB:nfixedB+nlowerB+nupperB+nrangeB]
+        :math:`x_i \geq L_i` (`i` in `rangeB`) : `z[nfixedB+nlowerB+nupperB:nfixedB+nlowerB+nupperB+nrangeB]`
 
-        xi <= Ui (i in rangeB) : z[nfixedB+nlowerB+nupper+nrangeB:]
+        :math:`x_i \leq U_i` (`i` in `rangeB`) : `z[nfixedB+nlowerB+nupper+nrangeB:]`
 
-        The sign of each z[i] should be as if it corresponded to a
-        nonnegativity constraint (except for fixed variables).
+        The sign of each `z[i]` should be as if it corresponded to a
+        nonnegativity constraint (except for fixed variables), i.e., those
+        `z[i]` should be nonnegative.
  
-        It is possible to check the Fritz-John conditions via the keyword FJ.
-        If FJ is present, it should be assigned the multiplier value that
+        It is possible to check the Fritz-John conditions via the keyword `FJ`.
+        If `FJ` is present, it should be assigned the multiplier value that
         will be applied to the gradient of the objective function.
 
-        Example: OptimalityResiduals(x, y, z, FJ=1.0e-5)
+        Example: `OptimalityResiduals(x, y, z, FJ=1.0e-5)`
 
-        If FJ has value 0.0, the gradient of the objective will not be included
-        in the residuals (it will not be computed).
+        If `FJ` has value `0.0`, the gradient of the objective will not be
+        included in the residuals (it will not be computed).
         """
 
         error_return = (None, None, None, None, None)

@@ -4,7 +4,7 @@ guaranteeing satisfaction of the strong Wolfe conditions.
 """
 
 import numpy
-import _pymcsrch
+from nlpy.optimize.ls import _pymcsrch
 
 class StrongWolfeLineSearch:
     """

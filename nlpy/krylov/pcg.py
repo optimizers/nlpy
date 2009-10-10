@@ -4,9 +4,9 @@ truncated preconditioned conjugate gradient algorithm as described in
 
   T. Steihaug,
   *The conjugate gradient method and trust regions in large scale optimization*,
-  SIAM Journal on Numerical Analysis **20**(3), pp. 626-637, 1983.
+  SIAM Journal on Numerical Analysis **20** (3), pp. 626-637, 1983.
 
-D. Orban, Montreal.
+.. moduleauthor:: D. Orban <dominique.orban@gerad.ca>
 """
 
 import numpy as np
@@ -98,7 +98,9 @@ class TruncatedCG:
         """
         Given vectors `s` and `p` and a trust-region radius `radius` > 0,
         return the positive scalar `sigma` such that
-          || s + sigma * p || = radius
+
+          `|| s + sigma * p || = radius`
+
         in Euclidian norm. If known, supply optional argument `ss` whose value
         should be the squared Euclidian norm of `s`.
         """

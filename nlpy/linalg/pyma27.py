@@ -6,7 +6,7 @@ import numpy
 from pysparse.pysparseMatrix import PysparseMatrix
 from pysparse import spmatrix
 from sils import Sils
-import _pyma27
+from nlpy.linalg import _pyma27
 
 class PyMa27Context( Sils ):
 

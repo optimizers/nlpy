@@ -1,3 +1,3 @@
 # Matrix scaling module.
 
-from mc29module import mc29ad
+from nlpy.linalg.scaling.mc29module import mc29ad

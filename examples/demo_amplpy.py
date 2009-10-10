@@ -3,7 +3,7 @@
 # Test for amplpy module
 #
 
-from nlpy.model import AmplModel #amplpy
+from nlpy.model import AmplModel
 import numpy
 import getopt, sys
 
