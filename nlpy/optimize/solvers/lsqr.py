@@ -21,33 +21,48 @@ def normof2(x,y): return sqrt(x**2 + y**2)
 def normof4(x1,x2,x3,x4): return sqrt(x1**2 + x2**2 + x3**2 + x4**2)
 
 class LSQRFramework:
+    r"""
+    LSQR solves  :math:`Ax = b`  or  :math:`\min \|b - Ax\|_2`  if `damp = 0`,
+    or
+
+    .. math::
+
+       \minimize{x \in \R^n}
+       \left\|
+       \begin{bmatrix}
+       b \\
+       0
+       \end{bmatrix}
+       -
+       \begin{bmatrix}
+       A \\
+       \text{damp}
+       \end{bmatrix}
+       x
+       \right\|_2,
+
+    otherwise.
+
+    `A`  is an (m x n) matrix defined by  `y = aprod(mode, m, n, x)`,
+    where `aprod` refers to a function that performs matrix-vector products.
+    If `mode` = 1,   `aprod`  must return  `y = Ax`   without altering `x`.
+    If `mode` = 2,   `aprod`  must return  `y = A'x`  without altering `x`.
+
+    LSQR uses an iterative (conjugate-gradient-like) method.
+
+    For further information, see 
+
+    1. C. C. Paige and M. A. Saunders (1982a).
+       LSQR: An algorithm for sparse linear equations and sparse least
+       squares, ACM TOMS 8(1), 43-71.
+    2. C. C. Paige and M. A. Saunders (1982b).
+       Algorithm 583. LSQR: Sparse linear equations and least squares
+       problems, ACM TOMS 8(2), 195-209.
+    3. M. A. Saunders (1995).  Solution of sparse rectangular systems using
+       LSQR and CRAIG, BIT 35, 588-604.
+    """
 
     def __init__(self, m, n, aprod):
-        """
-        LSQR solves  Ax = b  or  min ||b - Ax||_2  if damp = 0, or
-
-          min || [ b ]  -  [   A    ] x ||   otherwise.
-              || [ 0 ]     [ damp I ]   ||2
-
-        A  is an (m x n) matrix defined by  y = aprod(mode, m, n, x),
-        where aprod refers to a function that performs matrix-vector products.
-        If mode = 1,   aprod  must return  y = Ax   without altering x.
-        If mode = 2,   aprod  must return  y = A'x  without altering x.
-
-        ----------------------------------------------------------------------
-        LSQR uses an iterative (conjugate-gradient-like) method.
-
-        For further information, see 
-
-        1. C. C. Paige and M. A. Saunders (1982a).
-           LSQR: An algorithm for sparse linear equations and sparse least
-           squares, ACM TOMS 8(1), 43-71.
-        2. C. C. Paige and M. A. Saunders (1982b).
-           Algorithm 583. LSQR: Sparse linear equations and least squares
-           problems, ACM TOMS 8(2), 195-209.
-        3. M. A. Saunders (1995).  Solution of sparse rectangular systems using
-           LSQR and CRAIG, BIT 35, 588-604.
-        """
 
         # Initialize.
 
@@ -80,45 +95,45 @@ class LSQRFramework:
 
         :parameters:
 
-        :rhs:    right-hand side vector.
-        :itnlim: is an explicit limit on iterations (for safety).
-        :damp:   damping/regularization parameter.
+           :rhs:    right-hand side vector.
+           :itnlim: is an explicit limit on iterations (for safety).
+           :damp:   damping/regularization parameter.
 
         :keywords:
 
-        :atol:
-        :btol:  are stopping tolerances.  If both are 1.0e-9 (say),
-                the final residual norm should be accurate to about 9 digits.
-                (The final x will usually have fewer correct digits,
-                depending on cond(A) and the size of damp.)
-        :conlim: is also a stopping tolerance.  lsqr terminates if an estimate
-                 of cond(A) exceeds conlim.  For compatible systems Ax = b,
-                 conlim could be as large as 1.0e+12 (say).  For least-squares
-                 problems, conlim should be less than 1.0e+8.
-                 Maximum precision can be obtained by setting
-                 atol = btol = conlim = zero, but the number of iterations
-                 may then be excessive.
-        :show:   if set to True, gives an iteration log.
-                 If set to False, suppresses output.
+           :atol:
+           :btol:  are stopping tolerances.  If both are 1.0e-9 (say),
+                   the final residual norm should be accurate to about 9 digits.
+                   (The final x will usually have fewer correct digits,
+                   depending on `cond(A)` and the size of `damp`.)
+           :conlim: is also a stopping tolerance.  lsqr terminates if an
+                    estimate of `cond(A)` exceeds `conlim`.  For compatible
+                    systems `Ax = b`, `conlim` could be as large as 1.0e+12
+                    (say).  For least-squares problems, `conlim` should be less
+                    than 1.0e+8. Maximum precision can be obtained by setting
+                    `atol` = `btol` = `conlim` = zero, but the number of
+                    iterations may then be excessive.
+           :show:   if set to `True`, gives an iteration log.
+                    If set to `False`, suppresses output.
 
         :return:
 
-        :x:     is the final solution.
-        :istop: gives the reason for termination.
-        :istop: = 1 means x is an approximate solution to Ax = b.
-                = 2 means x approximately solves the least-squares problem.
-        :r1norm: = norm(r), where r = b - Ax.
-        :r2norm: = sqrt(norm(r)^2  +  damp^2 * norm(x)^2)
-                 = r1norm if damp = 0.
-        :anorm: = estimate of Frobenius norm of Abar = [  A   ].
-                                                       [damp*I]
-        :acond: = estimate of cond(Abar).
-        :arnorm: = estimate of norm(A'*r - damp^2*x).
-        :xnorm: = norm(x).
-        :var:   (if present) estimates all diagonals of (A'A)^{-1} (if damp=0)
-                or more generally (A'A + damp^2*I)^{-1}.
-                This is well defined if A has full column rank or damp > 0.
-                (Not sure what var means if rank(A) < n and damp = 0.)
+           :x:     is the final solution.
+           :istop: gives the reason for termination.
+           :istop: = 1 means x is an approximate solution to Ax = b.
+                   = 2 means x approximately solves the least-squares problem.
+           :r1norm: = norm(r), where r = b - Ax.
+           :r2norm: = sqrt(norm(r)^2  +  damp^2 * norm(x)^2)
+                    = r1norm if damp = 0.
+           :anorm: = estimate of Frobenius norm of Abar = [  A   ].
+                                                          [damp*I]
+           :acond: = estimate of cond(Abar).
+           :arnorm: = estimate of norm(A'*r - damp^2*x).
+           :xnorm: = norm(x).
+           :var:   (if present) estimates all diagonals of (A'A)^{-1}
+                   (if damp=0) or more generally (A'A + damp^2*I)^{-1}.
+                   This is well defined if A has full column rank or damp > 0.
+                   (Not sure what var means if rank(A) < n and damp = 0.)
         """
 
         if itnlim == 0: itnlim = 3*self.n

@@ -21,6 +21,8 @@ sys.path.append(os.path.abspath('../../nlpy/model'))
 sys.path.append(os.path.abspath('../../nlpy/linalg'))
 sys.path.append(os.path.abspath('../../nlpy/krylov'))
 sys.path.append(os.path.abspath('../../nlpy/optimize/ls'))
+sys.path.append(os.path.abspath('../../nlpy/optimize/tr'))
+sys.path.append(os.path.abspath('../../nlpy/optimize/solvers'))
 sys.path.append(os.path.abspath('../../examples'))
 sys.path.append('sphinxext')
 
@@ -34,12 +36,21 @@ import inheritance_diagram
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.jsmath']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest']
+#extensions += ['sphinx.ext.pngmath']
+extensions += ['sphinx.ext.jsmath']
 extensions += ['sphinx.ext.todo']
 extensions += ['ipython_console_highlighting']
 extensions += ['inheritance_diagram']
 #jsmath_path = 'jsMath/easy/load.js'  # Under _static/ by default
 jsmath_path = '/Users/dpo/local/src/jsMath/easy/load.js'
+
+latex_elements = {
+    'preamble' : '\\usepackage{nlpy}'
+}
+latex_additional_files = ['nlpy.sty'] 
+
+#jsmath_latex_preamble = r'\usepackage{amsfonts,amsmath} \newcommand{\half}{\tfrac{1}{2}} \newcommand{\minim}{\mathop{\text{minimize}}} \newcommand{\minimize}[1]{\displaystyle\minim_{#1}} \newcommand{\maxim}{\mathop{\text{maximize}}} \newcommand{\maximize}[1]{\displaystyle\maxim_{#1}} \newcommand{\st}{\mathop{\text{subject to}}}'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['.templates']
@@ -48,14 +59,14 @@ templates_path = ['.templates']
 source_suffix = '.rst'
 
 # The encoding of source files.
-#source_encoding = 'utf-8'
+source_encoding = 'utf-8'
 
 # The master toctree document.
 master_doc = 'contents'
 
 # General information about the project.
 project = u'NLPy'
-copyright = u'2008, Dominique Orban'
+copyright = u'2009, Dominique Orban'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -177,10 +188,10 @@ htmlhelp_basename = 'NLPydoc'
 # ------------------------
 
 # The paper size ('letter' or 'a4').
-#latex_paper_size = 'letter'
+latex_paper_size = 'letter'
 
 # The font size ('10pt', '11pt' or '12pt').
-#latex_font_size = '10pt'
+latex_font_size = '10pt'
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, document class [howto/manual]).
@@ -191,17 +202,17 @@ latex_documents = [
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
-#latex_logo = None
+latex_logo = None
 
 # For "manual" documents, if this is true, then toplevel headings are parts,
 # not chapters.
-#latex_use_parts = False
+latex_use_parts = True
 
 # Additional stuff for the LaTeX preamble.
-latex_preamble = '\usepackage{amsfonts,amsmath}'
+latex_preamble = ''
 
 # Documents to append as an appendix to all manuals.
-#latex_appendices = []
+latex_appendices = []
 
 # If false, no module index is generated.
-#latex_use_modindex = True
+latex_use_modindex = True

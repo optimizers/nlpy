@@ -1,6 +1,5 @@
 # A General module that implements various linesearch schemes
 # D. Orban, Montreal, Jan. 2005.
-# $Id: linesearch.py 88 2008-09-29 04:43:15Z d-orban $
 
 class LineSearch:
     """
@@ -48,21 +47,19 @@ class LineSearch:
 
 class ArmijoLineSearch(LineSearch):
     """
-    An Armijo linesearch with backtracking.
-    This class implements the simple Armijo test
-    
-        f(x + t * d) <= f(x) + t * beta * f'(x;d)
-    
-    where 0 < beta < 1/2 and f'(x;d) is the directional
-    derivative of f in the direction d. Note that
-    f'(x;d) < 0. 
+    An Armijo linesearch with backtracking. This class implements the simple
+    Armijo test
 
-    Acceptable keywords include:
+    f(x + t * d) <= f(x) + t * beta * f'(x;d)
 
-        beta        Value of beta. Default: 0.001
-        tfactor     Amount by which to reduce the steplength
+    where 0 < beta < 1/2 and f'(x;d) is the directional derivative of f in the
+    direction d. Note that f'(x;d) < 0 must be true.
+
+    :keywords:
+
+        :beta:      Value of beta. Default: 0.001
+        :tfactor:   Amount by which to reduce the steplength
                     during the backtracking. Default: 0.5.
-
     """
     
     def __init__(self, **kwargs):
@@ -94,7 +91,8 @@ class ArmijoLineSearch(LineSearch):
 
         func can point to a defined function or be a lambda function.
         For example, in the univariate case:
-            test(lambda x: x**2, 2.0, -1, 4.0)
+
+            `test(lambda x: x**2, 2.0, -1, 4.0)`
         """
         if f is None:
             f = func(x)

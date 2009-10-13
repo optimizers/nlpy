@@ -15,54 +15,55 @@ __docformat__='restructuredtext'
 
 
 class PyGltrContext:
+    """
+    Create a new instance of a PyGltrContext object, representing a
+    context to solve the quadratic problem
+
+        min <g, d> + 1/2 <d, Hd>
+        s.t ||d|| <= radius
+
+    where either the Hessian matrix H or a means to compute
+    matrix-vector products with H, are to be specified later.
+
+    :parameters:
+
+      :g:          gradient vector (of length `n`)
+
+
+    :keywords:
+
+      :radius:     trust-region radius (default: 1.0)
+      :reltol:     relative stopping tolerance (default: sqrt(eps))
+      :abstol:     absolute stopping tolerance (default: 0.0)
+      :prec:       function solving preconditioning systems.
+                   If M is a preconditioner, `prec(v)` returns a solution
+                   to the linear system of equations Mx = v
+                   (default: `None`)
+      :itmax:      maximum number of iterations (default: `n`)
+      :litmax:     maximum number of Lanczos iterations on the boundary
+                   (default: `n`)
+      :ST:         Use Steihaug-Toint strategy (default: `False`)
+      :boundary:   Indicates whether the solution is thought to lie on
+                   the boundary of the trust region (default: `False`)
+      :equality:   Require that the solution lie on the boundary
+                   (default: `False`)
+      :fraction:   Fraction of optimality that is acceptable. A value
+                   smaller than `1.0` results in a correspondingly
+                   sub-optimal solution. (default: `1.0`)
+
+    See the GLTR spec sheet for more information on these parameters.
+
+    Convergence of the iteration takes place as soon as
+
+     Norm(Hd + l Md + g) <= max(Norm(g) * reltol, abstol)
+
+    where M       is a preconditioner
+          l       is an estimate of the Lagrange multipliers
+          Norm()  is the M^{-1}-norm
+    """
 
     def __init__(self, g, **kwargs):
-        """
-        Create a new instance of a PyGltrContext object, representing a
-        context to solve the quadratic problem
 
-            min <g, d> + 1/2 <d, Hd>
-            s.t ||d|| <= radius
-
-        where either the Hessian matrix H or a means to compute
-        matrix-vector products with H, are to be specified later.
-
-        :parameters:
-
-          :g:          gradient vector (of length `n`)
-
-
-        :keywords:
-
-          :radius:     trust-region radius (default: 1.0)
-          :reltol:     relative stopping tolerance (default: sqrt(eps))
-          :abstol:     absolute stopping tolerance (default: 0.0)
-          :prec:       function solving preconditioning systems.
-                       If M is a preconditioner, `prec(v)` returns a solution
-                       to the linear system of equations Mx = v
-                       (default: `None`)
-          :itmax:      maximum number of iterations (default: `n`)
-          :litmax:     maximum number of Lanczos iterations on the boundary
-                       (default: `n`)
-          :ST:         Use Steihaug-Toint strategy (default: `False`)
-          :boundary:   Indicates whether the solution is thought to lie on
-                       the boundary of the trust region (default: `False`)
-          :equality:   Require that the solution lie on the boundary
-                       (default: `False`)
-          :fraction:   Fraction of optimality that is acceptable. A value
-                       smaller than `1.0` results in a correspondingly
-                       sub-optimal solution. (default: `1.0`)
-         
-        See the GLTR spec sheet for more information on these parameters.
-
-        Convergence of the iteration takes place as soon as
-
-         Norm(Hd + l Md + g) <= max(Norm(g) * reltol, abstol)
-
-        where M       is a preconditioner
-              l       is an estimate of the Lagrange multipliers
-              Norm()  is the M^{-1}-norm
-        """
         self.n = g.shape[0]
 
         # Process optional parameters

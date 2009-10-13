@@ -16,42 +16,36 @@ from math import sqrt
 
 class TrunkFramework:
     """
-    Class TrunkFramework is an abstract framework for a trust-region-based
-    algorithm for nonlinear unconstrained programming. Instantiate using
+    An abstract framework for a trust-region-based algorithm for nonlinear
+    unconstrained programming. Instantiate using
 
-        TRNK = TrunkFramework(nlp, TR, TrSolver)
+        `TRNK = TrunkFramework(nlp, TR, TrSolver)`
 
-    where nlp is a NLP object representing the problem---for instance, nlp
-    may arise from an AMPL model---TR is a TrustRegionFramework object and
-    TrSolver is a TrustRegionSolver object.
-    The nlp object should have the following methods
-    
-        obj     to evaluate the objective function value
-        grad    to evaluate the objective function gradient
-        hprod   to compute matrix-vector products with the Hessian matrix
-                of the objective at the most recent iterate.
-        
-    nlp should also possess a member named 'n' giving the number of variables.
+    :parameters:
 
-    The TrustRegionSolver should have the Solve method and possess members named
-    niter, step and stepNorm.
+        :nlp:   a :class:`NLPModel` object representing the problem. For
+                instance, nlp may arise from an AMPL model
+        :TR:    a :class:`TrustRegionFramework` object
+        :TrSolver:   a :class:`TrustRegionSolver` object.
 
-    Keyword arguments are:
-        x0           starting point                     (default nlp.x0)
-        reltol     relative stopping tolerance        (default 1.0e-12)
-        abstol     absolute stopping tolerance        (default 1.0e-6)
-        maxiter      maximum number of outer iterations (default max(100,2n))
-        inexact      use inexact Newton stopping tol    (default False)
-        ny           apply Nocedal/Yuan linesearch      (default False)
-        silent       verbosity level                    (default False)
 
-    Once a TrunkFramework object has been instantiated and the problem is
-    set up, solve problem by issuing a call to TRNK.solve(). The algorithm
+    :keywords:
+
+        :x0:           starting point                     (default nlp.x0)
+        :reltol:       relative stopping tolerance        (default 1.0e-12)
+        :abstol:       absolute stopping tolerance        (default 1.0e-6)
+        :maxiter:      maximum number of outer iterations (default max(1000,2n))
+        :inexact:      use inexact Newton stopping tol    (default False)
+        :ny:           apply Nocedal/Yuan linesearch      (default False)
+        :silent:       verbosity level                    (default False)
+
+    Once a `TrunkFramework` object has been instantiated and the problem is
+    set up, solve problem by issuing a call to `TRNK.solve()`. The algorithm
     stops as soon as the Euclidian norm of the gradient falls below
 
-        max(abstol, reltol * g0)
+        ``max(abstol, reltol * g0)``
 
-    where g0 is the Euclidian norm of the gradient at the initial point.
+    where ``g0`` is the Euclidian norm of the gradient at the initial point.
     """
 
     def __init__(self, nlp, TR, TrSolver, **kwargs):
@@ -75,7 +69,7 @@ class TrunkFramework:
 
         self.reltol  = kwargs.get('reltol',  1.0e-12)
         self.abstol  = kwargs.get('abstol',  1.0e-6)
-        self.maxiter = kwargs.get('maxiter', max(100, 2*self.nlp.n))
+        self.maxiter = kwargs.get('maxiter', max(1000, 2*self.nlp.n))
         self.silent  = kwargs.get('silent',  False)
         self.ny      = kwargs.get('ny',      False)
         self.inexact = kwargs.get('inexact', False)

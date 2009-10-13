@@ -10,26 +10,28 @@ from math import sqrt
 __docformat__ = 'restructuredtext'
 
 class TrustRegionFramework:
+    """
+    Initializes an object allowing management of a trust region.
 
-    # Constructor
+    :keywords:
+    
+        :Delta:         Initial trust-region radius (default: 1.0)
+        :eta1:          Step acceptance threshold   (default: 0.01)
+        :eta2:          Radius increase threshold   (default: 0.99)
+        :gamma1:        Radius decrease factor      (default: 1/3)
+        :gamma2:        Radius increase factor      (default: 2.5)
+
+    Subclass and override :meth:`UpdateRadius` to implement custom trust-region
+    management rules.
+
+    See, e.g.,
+
+    A. R. Conn, N. I. M. Gould and Ph. L. Toint, Trust-Region Methods,
+    MP01 MPS-SIAM Series on Optimization, 2000.
+    """
+
     def __init__(self, **kwargs):
-        """
-        Initializes an object allowing management of a trust region.
-        Valid optional keywords include
-        
-          Delta         Initial trust-region radius (default: 1.0)
-          eta1          Step acceptance threshold   (default: 0.01)
-          eta2          Radius increase threshold   (default: 0.99)
-          gamma1        Radius decrease factor      (default: 1/3)
-          gamma2        Radius increase factor      (default: 2.5)
 
-        Subclass and override UpdateRadius() to implement custom trust-region
-        management rules.
-
-        See, e.g.,
-         A. R. Conn, N. I. M. Gould and Ph. L. Toint, Trust-Region Methods,
-         MP01 MPS-SIAM Series on Optimization, 2000.
-        """
         self.Delta0 = kwargs.get('Delta', 1.0) # Initial trust-region radius
         self.Delta  = self.Delta0 # Current trust-region radius
         self.DeltaMax = 1.0e+10 # Largest trust-region radius
@@ -79,35 +81,69 @@ class TrustRegionFramework:
             self.Delta = min(max(self.Delta, self.gamma2 * stepNorm),
                               self.DeltaMax)
 
-    # Reset radius to original value
     def ResetRadius(self):
+        """
+        Reset radius to original value
+        """
         self.Delta = self.Delta0
 
 
 
 class TrustRegionSolver:
+    """
+    A generic template class for implementing solvers for the trust-region
+    subproblem
+
+    minimize    q(d)
+    subject to  ||d|| <= radius,
+
+    where q(d) is a quadratic function of the n-vector d, i.e., q has the
+    general form
+
+    .. math::
+
+       q(d) = g^T d + \half d^T H d,
+
+    where `g` is a n-vector typically interpreted as the gradient of some
+    merit function and `H` is a real symmetric n-by-n matrix. Note that `H`
+    need not be positive semi-definite.
+
+    The trust-region constraint `||d|| <= radius` can be defined in any
+    norm although most derived classes currently implement the Euclidian
+    norm only. Note however that any elliptical norm may be used via a
+    preconditioner.
+
+    For more information on trust-region methods, see
+
+    A. R. Conn, N. I. M. Gould and Ph. L. Toint, Trust-Region Methods,
+    MP01 MPS-SIAM Series on Optimization, 2000.
+    """
 
     def __init__(self, g, **kwargs):
+
         self.g = g
 
     def Solve(self):
-        # Must override
+        """
+        Solve the trust-region subproblem. This method must be overridden.
+        """
         return None
 
 
 class TrustRegionCG(TrustRegionSolver):
+    """
+    Instantiate a trust-region subproblem solver based on the truncated
+    conjugate gradient method of Steihaug and Toint. See the :mod:`pcg` module
+    for more information.
+
+    The main difference between this class and the :class:`TrustRegionPCG`
+    class is that :class:`TrustRegionPCG` only accepts explicit
+    preconditioners (i.e. in matrix form). This class accepts an implicit
+    preconditioner, i.e., any callable object.
+    """
 
     def __init__(self, g, **kwargs):
-        """
-        Instantiate a trust-region subproblem solver based on the truncated
-        conjugate gradient method of Steihaug and Toint. See module `pcg` for
-        more information.
 
-        The main difference between this class and the :class:`TrustRegionPCG`
-        class is that :class:`TrustRegionPCG` only accepts explicit
-        preconditioners (i.e. in matrix form). This class accepts an implicit
-        preconditioner, i.e., any callable object.
-        """
         TrustRegionSolver.__init__(self, g, **kwargs)
         self.cgSolver = TruncatedCG(g, **kwargs)
         self.niter = 0
@@ -142,13 +178,21 @@ class TrustRegionCG(TrustRegionSolver):
 
 
 class TrustRegionPCG(TrustRegionSolver):
+    """
+    Instantiate a trust-region subproblem solver based on the projected
+    truncated conjugate gradient of Gould, Hribar and Nocedal.
+    See the :mod:`ppcg` module for more information.
+
+    .. todo::
+
+       This class should accept linear equality constraints of the
+       form :math:`Ax = 0`. Until this is implemented, you can use
+       a :class:`ProjectedCG` instance directly. See the :ref:`krylov-page`
+       section for more information.
+    """
 
     def __init__(self, g, **kwargs):
-        """
-        Instantiate a trust-region subproblem solver based on the projected 
-        truncated conjugate gradient of Gould, Hribar and Nocedal. See module
-        `ppcg` for more information.
-        """
+
         TrustRegionSolver.__init__(self, g, **kwargs)
         self.cgSolver = ProjectedCG(g, **kwargs)
         self.niter = 0
@@ -188,13 +232,14 @@ try:
     from nlpy.krylov import pygltr
 
     class TrustRegionGLTR(TrustRegionSolver):
+        """
+        Instantiate a trust-region subproblem solver based on the Generalized
+        Lanczos iterative method of Gould, Lucidi, Roma and Toint.
+        See :mod:`pygltr` for more information.
+        """
 
         def __init__(self, g, **kwargs):
-            """
-            Instantiate a trust-region subproblem solver based on the Generalized
-            Lanczos iterative method of Gould, Lucidi, Roma and Toint.
-            See module pygltr for more information.
-            """
+
             TrustRegionSolver.__init__(self, g, **kwargs)
             self.gltrSolver = pygltr.PyGltrContext(g, **kwargs)
             self.niter = 0
