@@ -15,69 +15,73 @@ from pysparse.pysparseMatrix import PysparseMatrix as sp
 from pysparse import spmatrix
 
 class SlackFramework( AmplModel ):
+    r"""
+    General framework for converting a nonlinear optimization problem to a
+    form using slack variables.
+
+    The initial problem has the form
+
+    .. math::
+
+       \min        & f(x) & \\
+       \text{s.t.} & c_i(x) = a_i,                 & i = 1, \ldots, m, \\
+                   & g_j^L \leq g_j(x) \leq g_j^U, & j = 1, \ldots, p, \\
+                   & x_k^L \leq x_k \leq x_k^U,    & k = 1, \ldots, n,
+
+    where some or all lower bounds :math:`g_j^L` and :math:`x_k^L` may be equal
+    to :math:`- \infty`, and some or all upper bounds :math:`g_j^U`
+    and :math:`x_k^U` may be equal to :math:`+ \infty`.
+
+    The transformed problem is
+
+    minimize    f(x)
+    subject to  ci(x) - ai = 0,        i = 1, ..., m,
+                gj(x) - gjL - sjL = 0, j = 1, ..., p, for which gjL > -Inf,
+                sjL >= 0,              j = 1, ..., p, for which gjL > -Inf,
+                gjU - gj(x) - sjU = 0, j = 1, ..., p, for which gjU < +Inf,
+                sjU >= 0,              j = 1, ..., p, for which gjU < +Inf,
+                xk - xkL - tkL = 0,    k = 1, ..., n, for which xkL > -Inf,
+                tkL >= 0,              k = 1, ..., n, for which xkL > -Inf,
+                xkU - xk - tkU = 0,    k = 1, ..., n, for which xkU < +Inf,
+                tkU >= 0,              k = 1, ..., n, for which xkU < +Inf.
+
+    In the latter problem, the only inequality constraints are bounds on
+    the slack variables. The other constraints are (typically) nonlinear
+    equalities.
+
+    The order of variables in the transformed problem is as follows:
+
+    [  x  |  sL  |  sU  |  tL  |  tU  ]
+
+    where:
+
+    - sL = [ sLL | sLR ], sLL being the slack variables corresponding to
+      general constraints with a lower bound only, and sLR being the slack
+      variables corresponding to the 'lower' side of range constraints.
+
+    - sU = [ sUU | sUR ], sUU being the slack variables corresponding to
+      general constraints with an upper bound only, and sUR being the slack
+      variables corresponding to the 'upper' side of range constraints.
+
+    - tL = [ tLL | tLR ], tLL being the slack variables corresponding to
+      variables with a lower bound only, and tLR being the slack variables
+      corresponding to the 'lower' side of two-sided bounds.
+
+    - tU = [ tUU | tUR ], tUU being the slack variables corresponding to
+      variables with an upper bound only, and tLR being the slack variables
+      corresponding to the 'upper' side of two-sided bounds.
+
+    This framework initializes the slack variables sL, sU, tL, and tU to
+    zero by default.
+
+    Note that the slack framework does not update all members of AmplModel,
+    such as the index set of constraints with an upper bound, etc., but
+    rather performs the evaluations of the constraints for the updated
+    model implicitly.
+    """
 
     def __init__(self, model, **kwargs):
-        """
-        General framework for converting a nonlinear optimization problem to a
-        form using slack variables.
 
-        The initial problem has the form
-
-        minimize    f(x)
-        subject to  ci(x) = ai,          i = 1, ..., m,
-                    gjL <= gj(x) <= gjU, j = 1, ..., p,
-                    xkL <= xk <= xkU,    k = 1, ..., n,
-
-        where some or all lower bounds gjL and xkL may be equal to -Infinity,
-        and some or all upper bounds gjU and xkU may be equal to +Infinity.
-
-        The transformed problem is
-
-        minimize    f(x)
-        subject to  ci(x) - ai = 0,        i = 1, ..., m,
-                    gj(x) - gjL - sjL = 0, j = 1, ..., p, for which gjL > -Inf,
-                    sjL >= 0,              j = 1, ..., p, for which gjL > -Inf,
-                    gjU - gj(x) - sjU = 0, j = 1, ..., p, for which gjU < +Inf,
-                    sjU >= 0,              j = 1, ..., p, for which gjU < +Inf,
-                    xk - xkL - tkL = 0,    k = 1, ..., n, for which xkL > -Inf,
-                    tkL >= 0,              k = 1, ..., n, for which xkL > -Inf,
-                    xkU - xk - tkU = 0,    k = 1, ..., n, for which xkU < +Inf,
-                    tkU >= 0,              k = 1, ..., n, for which xkU < +Inf.
-
-        In the latter problem, the only inequality constraints are bounds on
-        the slack variables. The other constraints are (typically) nonlinear
-        equalities.
-
-        The order of variables in the transformed problem is as follows:
-
-        [  x  |  sL  |  sU  |  tL  |  tU  ]
-
-        where:
-
-        - sL = [ sLL | sLR ], sLL being the slack variables corresponding to
-          general constraints with a lower bound only, and sLR being the slack
-          variables corresponding to the 'lower' side of range constraints.
-
-        - sU = [ sUU | sUR ], sUU being the slack variables corresponding to
-          general constraints with an upper bound only, and sUR being the slack
-          variables corresponding to the 'upper' side of range constraints.
-
-        - tL = [ tLL | tLR ], tLL being the slack variables corresponding to
-          variables with a lower bound only, and tLR being the slack variables
-          corresponding to the 'lower' side of two-sided bounds.
-
-        - tU = [ tUU | tUR ], tUU being the slack variables corresponding to
-          variables with an upper bound only, and tLR being the slack variables
-          corresponding to the 'upper' side of two-sided bounds.
-
-        This framework initializes the slack variables sL, sU, tL, and tU to
-        zero by default.
-
-        Note that the slack framework does not update all members of AmplModel,
-        such as the index set of constraints with an upper bound, etc., but
-        rather performs the evaluations of the constraints for the updated
-        model implicitly.
-        """
         AmplModel.__init__(self, model, **kwargs)
 
         # Save number of variables and constraints prior to transformation
@@ -315,19 +319,25 @@ class SlackFramework( AmplModel ):
 
         The overall Jacobian of the new constraints thus has the form
 
-           x     s   sU    t   tU
-        +-----+----+----+----+----+
-        |  J  | -I |    |    |    |   <-- general constraints (natural order)
-        +-----+----+----+----+----+
-        | -JR |    | -I |    |    |   <-- 'upper' side of range constraints
-        +-----+----+----+----+----+
-        |  I  |    |    | -I |    |   <-- bounds, ordered as explained above
-        +-----+----+----+----+----+
-        | -I  |    |    |    | -I |   <-- 'upper' side of two-sided bounds
-        +-----+----+----+----+----+
+        .. math::
 
-        where the signs corresponding to 'upper' constraints and upper bounds
-        should be flipped in the (1,1) and (3,1) blocks.
+           \begin{bmatrix}
+              J   & -I &    &    &    \\
+             -J_R &    & -I &    &    \\
+              I   &    &    & -I &    \\
+             -I   &    &    &    & -I
+           \end{bmatrix}
+
+        where the columns correspond, in order, to the variables `x`, `s`, `sU`,
+        `t`, and `tU`, and the rows correspond, in order, to
+
+        1. general constraints (in natural order)
+        2. 'upper' side of range constraints
+        3. bounds, ordered as explained above
+        4. 'upper' side of two-sided bounds,
+
+        and where the signs corresponding to 'upper' constraints and upper
+        bounds are flipped in the (1,1) and (3,1) blocks.
         """
         return self._jac(x, lp=False)
 

@@ -10,28 +10,37 @@ class NLPModel:
     functions, and their derivatives. Instances of the general class do not
     do anything interesting; they must be subclassed and specialized.
 
-    Initialization arguments include
-     n       the number of variables (default: 0)
-     m       the number of general (non bound) constraints (default: 0)
-     name    the name of the model (default: 'Generic')
+    :parameters:
 
-    They can also include keyword arguments from the following list
-     x0      the initial point (default: all 0)
-     pi0     the vector of initial multipliers (default: all 0)
-     Lvar    the vector of lower bounds on the variables (default: all -Infinity)
-     Uvar    the vector of upper bounds on the variables (default: all +Infinity)
-     Lcon    the vector of lower bounds on the constraints (default: all -Infinity)
-     Ucon    the vector of upper bounds on the constraints (default: all +Infinity)
+        :n:       number of variables (default: 0)
+        :m:       number of general (non bound) constraints (default: 0)
+        :name:    model name (default: 'Generic')
 
-    Constraints are classified into 3 classes:
-     linear, nonlinear and network.
-    Indices of linear    constraints are found in member lin (default: empty)
-    Indices of nonlinear constraints are found in member nln (default: all)
-    Indices of network   constraints are found in member net (default: empty)
+    :keywords:
+
+        :x0:      initial point (default: all 0)
+        :pi0:     vector of initial multipliers (default: all 0)
+        :Lvar:    vector of lower bounds on the variables
+                  (default: all -Infinity)
+        :Uvar:    vector of upper bounds on the variables
+                  (default: all +Infinity)
+        :Lcon:    vector of lower bounds on the constraints
+                  (default: all -Infinity)
+        :Ucon:    vector of upper bounds on the constraints
+                  (default: all +Infinity)
+
+    Constraints are classified into 3 classes: linear, nonlinear and network.
+
+    Indices of linear constraints are found in member :attr:`lin`
+    (default: empty).
+
+    Indices of nonlinear constraints are found in member :attr:`nln`
+    (default: all).
+
+    Indices of network constraints are found in member :attr:`net`
+    (default: empty).
 
     If necessary, additional arguments may be passed in kwargs.
-
-    $Id: nlp.py 88 2008-09-29 04:43:15Z d-orban $
     """
     
     def __init__( self, n = 0, m = 0, name = 'Generic', **kwargs ):

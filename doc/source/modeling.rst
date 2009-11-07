@@ -5,7 +5,7 @@
 Modeling in NLPy
 ================
 
-.. _amplpy-section
+.. _amplpy-section:
 
 ------------------------------------------
 Using Models in the AMPL Modeling Language

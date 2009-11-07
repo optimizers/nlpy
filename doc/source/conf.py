@@ -45,12 +45,12 @@ extensions += ['inheritance_diagram']
 #jsmath_path = 'jsMath/easy/load.js'  # Under _static/ by default
 jsmath_path = '/Users/dpo/local/src/jsMath/easy/load.js'
 
+jsmath_latex_preamble = '\\usepackage{nlpy}'
+
 latex_elements = {
     'preamble' : '\\usepackage{nlpy}'
 }
 latex_additional_files = ['nlpy.sty'] 
-
-#jsmath_latex_preamble = r'\usepackage{amsfonts,amsmath} \newcommand{\half}{\tfrac{1}{2}} \newcommand{\minim}{\mathop{\text{minimize}}} \newcommand{\minimize}[1]{\displaystyle\minim_{#1}} \newcommand{\maxim}{\mathop{\text{maximize}}} \newcommand{\maximize}[1]{\displaystyle\maxim_{#1}} \newcommand{\st}{\mathop{\text{subject to}}}'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['.templates']

@@ -183,18 +183,38 @@ class TrustRegionPCG(TrustRegionSolver):
     truncated conjugate gradient of Gould, Hribar and Nocedal.
     See the :mod:`ppcg` module for more information.
 
-    .. todo::
+    The trust-region subproblem has the form
 
-       This class should accept linear equality constraints of the
-       form :math:`Ax = 0`. Until this is implemented, you can use
-       a :class:`ProjectedCG` instance directly. See the :ref:`krylov-page`
-       section for more information.
+    minimize    q(d)
+    subject to  Ad = 0,
+                ||d|| <= radius,
+
+    where q(d) is a quadratic function of the n-vector d, i.e., q has the
+    general form
+
+    .. math::
+
+       q(d) = g^T d + \half d^T H d,
+
+    where `g` is a n-vector typically interpreted as the gradient of some
+    merit function and `H` is a real symmetric n-by-n matrix. Note that `H`
+    need not be positive semi-definite.
+
+    The trust-region constraint `||d|| <= radius` can be defined in any
+    norm although most derived classes currently implement the Euclidian
+    norm only. Note however that any elliptical norm may be used via a
+    preconditioner.
+
+    For more information on trust-region methods, see
+
+    A. R. Conn, N. I. M. Gould and Ph. L. Toint, Trust-Region Methods,
+    MP01 MPS-SIAM Series on Optimization, 2000.
     """
 
-    def __init__(self, g, **kwargs):
+    def __init__(self, g, A, **kwargs):
 
         TrustRegionSolver.__init__(self, g, **kwargs)
-        self.cgSolver = ProjectedCG(g, **kwargs)
+        self.cgSolver = ProjectedCG(g, A=A, **kwargs)
         self.niter = 0
         self.stepNorm = 0.0
         self.step = None

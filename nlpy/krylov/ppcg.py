@@ -5,11 +5,11 @@ as described in
   N.I.M. Gould, M.E. Hribar and J. Nocedal,
   *On the Solution of Equality Constrained Quadratic Programming
   Problems Arising in Optimization*,
-  SIAM Journal on Scientific Computing **23**(4), pp. 1376-1395, 2001.
+  SIAM Journal on Scientific Computing **23** (4), pp. 1376-1395, 2001.
 
 with the addition of an optional trust-region constraint.
 
-D. Orban, Montreal, May 2006 and July 2007.
+.. moduleauthor:: D. Orban <dominique.orban@gerad.ca>
 """
 
 __docformat__ = 'restructuredtext'
@@ -202,7 +202,9 @@ class ProjectedCG( ProjectedKrylov ):
         """
         Given vectors s and p and a trust-region radius Delta > 0, this function
         returns the positive scalar sigma such that
+
             || s + sigma * p || = Delta
+
         in Euclidian norm. If known, supply optional argument ss whose value
         should be the squared Euclidian norm of argument s.
         """
