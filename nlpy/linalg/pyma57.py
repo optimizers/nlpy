@@ -9,7 +9,7 @@ from nlpy.linalg import _pyma57
 
 class PyMa57Context( Sils ):
 
-    def __init__( self, A, **kwargs ):
+    def __init__( self, A, factorize=True, **kwargs ):
         """
         Create a PyMa57Context object representing a context to solve
         the square symmetric linear system of equations
@@ -48,7 +48,7 @@ class PyMa57Context( Sils ):
             import pyma57
             import norms
             P = pyma57.PyMa57Context( A )
-            P.solve( rhs, get_resid = True )
+            P.solve( rhs, get_resid=True )
             print norms.norm2( P.residual )
 
         Pyma57 relies on the sparse direct multifrontal code MA57
@@ -96,11 +96,34 @@ class PyMa57Context( Sils ):
         #self.B = spmatrix.ll_mat_sym( self.n, 0 )
 
         # Analyze and factorize matrix
-        self.context = _pyma57.factor( thisA, self.sqd )
+        self.context = _pyma57.analyze( thisA, self.sqd )
+        self.factorized = False
+        if factorize: self.factorize(thisA)
+        return
+
+    def factorize(self, A):
+        """
+        Perform numerical factorization. Before this can be done, symbolic
+        factorization (the "analyze" phase) must have been performed.
+
+        The values of the elements of the matrix may have been altered since
+        the analyze phase but the sparsity pattern must not have changed. Use
+        the optional argument newA to specify the updated matrix if applicable.
+        """
+
+        if isinstance(A, PysparseMatrix):
+            thisA = A.matrix
+        else:
+            thisA = A
+
+        self.context.factorize(thisA)
+        self.factorized = True
+
         (self.nzFact, self.nRealFact, self.nIntFact, self.front,
          self.n2x2pivots, self.neig, self.rank) = self.context.stats()
 
         self.isFullRank = (self.rank == self.n)
+        return
 
     def solve( self, b, get_resid = True ):
         """

@@ -49,8 +49,9 @@ typedef struct Pyma57Object {
 
 DL_EXPORT( void ) init_pyma57( void );
 static PyObject     *Pyma57_ma57(       Pyma57Object *self,  PyObject *args );
+static PyObject     *Pyma57_factorize(  Pyma57Object *self,  PyObject *args );
 static PyObject     *Pyma57_refine(     Pyma57Object *self,  PyObject *args );
-static PyObject     *Pyma57_factor(     PyObject     *self,  PyObject *args );
+static PyObject     *Pyma57_analyze(    PyObject     *self,  PyObject *args );
 static void          Pyma57_dealloc(    Pyma57Object *self                  );
 static PyObject     *Pyma57_getattr(    Pyma57Object *self,  char *name     );
 static PyObject     *Pyma57_Stats(      Pyma57Object *self,  PyObject *args );
@@ -74,7 +75,7 @@ static Pyma57Object *NewPyma57Object( LLMatObject *llmat, PyObject *sqd ) {
 
   Pyma57Object *self;
   int           n  = llmat->dim[0],
-                nz = llmat->nnz;;
+                nz = llmat->nnz;
   int           i, k, elem;
   int           error;
 
@@ -92,10 +93,6 @@ static Pyma57Object *NewPyma57Object( LLMatObject *llmat, PyObject *sqd ) {
     //self->data->icntl[6] = 3; // No pivoting, error if |pivot| < cntl[1]
   }
 
-  /* Make temporary copy of matrix. */
-  /* Is there a way to avoid this?  */
-  self->a = (double *)NLPy_Calloc( nz, sizeof(double) );
-
   /* Get matrix in coordinate format. Adjust indices to be 1-based. */
   elem = 0;
   for( i = 0; i < n; i++ ) {
@@ -103,7 +100,7 @@ static Pyma57Object *NewPyma57Object( LLMatObject *llmat, PyObject *sqd ) {
     while( k != -1 ) {
       self->data->irn[ elem ] = i + 1;
       self->data->jcn[ elem ] = llmat->col[k] + 1;
-      self->a[ elem ] = llmat->val[k];
+      //self->a[ elem ] = llmat->val[k];
       k = llmat->link[k];
       elem++;
     }
@@ -114,6 +111,40 @@ static Pyma57Object *NewPyma57Object( LLMatObject *llmat, PyObject *sqd ) {
   if( error ) {
     fprintf( stderr, " Error return code from Analyze: %-d\n", error );
     return NULL;
+  }
+  return self;
+}
+
+/* ========================================================================== */
+
+static char Pyma57_factorize_Doc[] = "Factorize matrix";
+
+static PyObject *Pyma57_factorize( Pyma57Object *self, PyObject *args ) {
+
+  PyObject    *mat;
+  LLMatObject *llmat;
+  int          n, nz;               
+  int          i, k, elem;
+  int          error;
+
+  /* See if input matrix has changed since analyze phase */
+  if( !PyArg_ParseTuple( args, "O:factorize", &mat ) ) return NULL;
+
+  llmat = (LLMatObject *)mat;
+  n  = llmat->dim[0];
+  nz = llmat->nnz;
+
+  /* Make temporary copy of matrix. Is there a way to avoid this?  */
+  self->a = (double *)NLPy_Calloc( nz, sizeof(double) );
+
+  elem = 0;
+  for( i = 0; i < n; i++ ) {
+    k = llmat->root[i];
+    while( k != -1 ) {
+      self->a[ elem ] = llmat->val[k];
+      k = llmat->link[k];
+      elem++;
+    }
   }
 
   /* Factorize */
@@ -126,7 +157,9 @@ static Pyma57Object *NewPyma57Object( LLMatObject *llmat, PyObject *sqd ) {
   /* Find out if matrix was rank deficient */
   self->data->rank = self->data->info[24];
   self->data->rankdef = (self->data->rank < self->data->n) ? 1 : 0;
-  return self;
+
+  Py_INCREF( Py_None );
+  return Py_None;
 }
 
 /* ========================================================================== */
@@ -357,24 +390,26 @@ static PyObject *Pyma57_refine( Pyma57Object *self, PyObject *args ) {
 
 static PyMethodDef Pyma57_special_methods[] = {
   { "ma57",      (PyCFunction)Pyma57_ma57,
-    METH_VARARGS, Pyma57_ma57_Doc       },
+    METH_VARARGS, Pyma57_ma57_Doc                 },
+  { "factorize", (PyCFunction)Pyma57_factorize,
+    METH_VARARGS, Pyma57_factorize_Doc            },
   { "fetchperm", (PyCFunction)Pyma57_fetch_perm,
-    METH_VARARGS, Pyma57_fetch_perm_Doc },
+    METH_VARARGS, Pyma57_fetch_perm_Doc           },
   //{ "fetchlb",   (PyCFunction)Pyma57_fetch_lb,
   //  METH_VARARGS, Pyma57_fetch_lb_Doc   },
   { "stats",     (PyCFunction)Pyma57_Stats,
-    METH_VARARGS, Pyma57_Stats_Doc      },
+    METH_VARARGS, Pyma57_Stats_Doc                },
   { "refine",    (PyCFunction)Pyma57_refine,
-    METH_VARARGS, Pyma57_refine_Doc     },
-  { NULL,        NULL,
-    0,            NULL                  }
+    METH_VARARGS, Pyma57_refine_Doc               },
+  { NULL,         NULL,
+    0,            NULL                            }
 };
 
 /* ========================================================================== */
 
-static char Pyma57_factor_Doc[] = "Factorize input matrix";
+static char Pyma57_analyze_Doc[] = "Analyze input matrix";
 
-static PyObject *Pyma57_factor( PyObject *self, PyObject *args ) {
+static PyObject *Pyma57_analyze( PyObject *self, PyObject *args ) {
 
   /* Input must be the lower triangle of a symmetric matrix */
 
@@ -435,8 +470,8 @@ static PyTypeObject Pyma57Type = {
 /* ========================================================================== */
 
 static PyMethodDef Pyma57Methods[] = {
-  { "factor",  Pyma57_factor,  METH_VARARGS, Pyma57_factor_Doc  },
-  { NULL,     NULL,            0,            NULL               }
+  { "analyze",  Pyma57_analyze,  METH_VARARGS, Pyma57_analyze_Doc  },
+  { NULL,       NULL,            0,            NULL               }
 };
 
 /* ========================================================================== */
