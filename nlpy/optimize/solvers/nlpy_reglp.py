@@ -2,6 +2,7 @@
 
 from nlpy.model import SlackFramework
 from nlpy.optimize.solvers.lp import RegLPInteriorPointSolver
+from nlpy.tools.timing import cputime
 import numpy
 import os
 import sys
@@ -15,9 +16,10 @@ if len(sys.argv) < 2:
 numpy.set_printoptions(precision=3, linewidth=80, threshold=10, edgeitems=3)
 
 # Define formats for output table.
-hdrfmt = '%-15s  %5s  %15s  %7s  %7s  %7s  %6s'
-hdr = hdrfmt % ('Name', 'Iter', 'Objective', 'pResid', 'dResid', 'Gap', 'Time')
-fmt = '%-15s  %5d  %15.8e  %7.1e  %7.1e  %7.1e  %6.2f'
+hdrfmt = '%-15s  %5s  %15s  %7s  %7s  %7s  %6s  %6s'
+hdr = hdrfmt % ('Name', 'Iter', 'Objective', 'pResid', 'dResid',
+                'Gap', 'Setup', 'Solve')
+fmt = '%-15s  %5d  %15.8e  %7.1e  %7.1e  %7.1e  %6.2f  %6.2f'
 
 oneproblem = True
 if len(sys.argv[1:]) > 1:
@@ -26,7 +28,9 @@ if len(sys.argv[1:]) > 1:
 
 for probname in sys.argv[1:]:
 
+    t_setup = cputime()
     lp = SlackFramework(probname)
+    t_setup = cputime() - t_setup
 
     islp = True
     if not lp.islp():
@@ -46,7 +50,7 @@ for probname in sys.argv[1:]:
     if not oneproblem:
         sys.stdout.write(fmt % (probname, reglp.iter, reglp.obj_value,
                                 reglp.pResid, reglp.dResid, reglp.rgap,
-                                reglp.solve_time))
+                                t_setup, reglp.solve_time))
         if reglp.status != 'Optimal solution found':
             sys.stdout.write(' F')  # Problem was not solved to optimality.
         sys.stdout.write('\n')
@@ -65,4 +69,5 @@ if islp:
         sys.stdout.write(' #Iterations: %-d\n' % reglp.iter)
         sys.stdout.write(' RelResidual: %7.1e\n' % reglp.kktResid)
         sys.stdout.write(' Final cost : %21.15e\n' % reglp.obj_value)
+        sys.stdout.write(' Setup time : %6.2fs\n' % t_setup)
         sys.stdout.write(' Solve time : %6.2fs\n' % reglp.solve_time)

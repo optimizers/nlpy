@@ -7,8 +7,6 @@
 #
 # D. Orban, Montreal 2004. Revised September 2009.
 
-import pdb
-
 from nlpy.model import SlackFramework
 try:                            # To solve augmented systems
     from nlpy.linalg.pyma57 import PyMa57Context as LBLContext
@@ -79,12 +77,8 @@ class RegLPInteriorPointSolver:
         # Record number of slack variables in LP
         self.nSlacks  = lp.n - lp.original_n
 
-        # Residuals
-        #self.dFeas = np.zeros(n)
-        #self.pFeas = np.zeros(m)
-        #self.comp = np.zeros(self.nSlacks)
+        # Constant vectors
         zero = np.zeros(n)
-
         self.b = -lp.cons(zero)     # Right-hand side
         self.c0 = lp.obj(zero)      # Constant term in objective
         self.c =  lp.grad(zero[:lp.original_n]) #lp.cost()  # Cost vector
@@ -98,7 +92,7 @@ class RegLPInteriorPointSolver:
             sys.stdout.write('Time for scaling: %6.2fs\n' % t)
 
         self.normb  = norm_infty(self.b)
-        self.normc  = norm_infty(self.c) #sv.norm_infty(self.c)
+        self.normc  = norm_infty(self.c)
         self.normbc = 1 + max(self.normb, self.normc)
 
         # Initialize augmented matrix
@@ -106,10 +100,9 @@ class RegLPInteriorPointSolver:
                                 sizeHint=n+m+self.A.nnz,
                                 symmetric=True)
 
-        # If not scaling augmented systems at each iteration, the (2,1) block
-        # will always remain A. We store it now once and for all.
-        if not self.stabilize:
-            self.H[n:,:n] = self.A
+        # We perform the analyze phase on the augmented system only once.
+        # self.LBL will be initialized in set_initial_guess().
+        self.LBL = None
 
         self.regpr = kwargs.get('regpr', 1.0) ; self.regpr_min = 1.0e-8
         self.regdu = kwargs.get('regdu', 1.0) ; self.regdu_min = 1.0e-8
@@ -150,8 +143,9 @@ class RegLPInteriorPointSolver:
         w('Adjusted number of variables: %d\n' % lp.n)
         w('Adjusted number of constraints excluding bounds: %d\n' % lp.m)
         w('Number of nonzeros in constraint matrix: %d\n' % self.A.nnz)
-        #w('Number of coefficients in objective: %d\n' % self.c.nnz())
         w('Constant term in objective: %8.2e\n' % self.c0)
+        w('Initial primal regularization: %8.2e\n' % self.regpr)
+        w('Initial dual   regularization: %8.2e\n' % self.regdu)
         w('\n')
         return
 
@@ -250,7 +244,6 @@ class RegLPInteriorPointSolver:
         # Unscale right-hand side and cost vectors.
         self.b *= row_scale
         self.c[:on] *= col_scale[:on]
-        #for k in self.c.keys(): self.c[k] *= self.col_scale[k]
 
         # Recover unscaled multipliers y and z.
         self.y *= self.row_scale
@@ -296,10 +289,10 @@ class RegLPInteriorPointSolver:
         # Transfer pointers for convenience.
         m, n = self.A.shape ; on = lp.original_n
         A = self.A ; b = self.b ; c = self.c ; H = self.H
-        #dFeas = self.dFeas ; pFeas = self.pFeas ; comp = self.comp
         regpr = self.regpr ; regdu = self.regdu
 
         # Obtain initial point from Mehrotra's heuristic.
+        # set_initial_guess() initializes self.LBL which is reused below.
         (x,y,z) = self.set_initial_guess(self.lp, **kwargs)
 
         # Slack variables are the trailing variables in x.
@@ -330,7 +323,6 @@ class RegLPInteriorPointSolver:
             comp = s*z                                      # comp   = S z
             dFeas = y*A ; dFeas[:on] -= self.c              # dFeas1 = A1'y - c
             dFeas[on:] += z                                 # dFeas2 = A2'y + z
-            #for k in c.keys(): dFeas[k] -= c[k]
 
             # At the first iteration, initialize perturbation vectors
             # (q=primal, r=dual).
@@ -345,7 +337,7 @@ class RegLPInteriorPointSolver:
             dResid = norm_infty(dFeas - regpr * q)/(1+self.normb)
 
             # Compute relative duality gap.
-            cx = np.dot(c,x[:on]) #sv.dot(c, x)
+            cx = np.dot(c,x[:on])
             by = np.dot(b,y)
             rgap  = cx - by
             rgap += regdu * (rNorm**2 + np.dot(r,y))
@@ -406,12 +398,12 @@ class RegLPInteriorPointSolver:
                     H.put(-z/s - regpr, range(on,n))
                     H.put(regdu,        range(n,n+m))
 
-                LBL = LBLContext(H, sqd=True)
+                self.LBL.factorize(H)
                 factorized = True
 
                 # If the augmented matrix does not have full rank, bump up the
                 # regularization parameters.
-                if not LBL.isFullRank:
+                if not self.LBL.isFullRank:
                     if self.verbose:
                         sys.stderr.write('Primal-Dual Matrix Rank Deficient\n')
                     regpr *= 100 ; regdu *= 100
@@ -419,7 +411,7 @@ class RegLPInteriorPointSolver:
                     factorized = False
 
             # Abandon if regularization is unsuccessful.
-            if not LBL.isFullRank and nb_bump == 5:
+            if not self.LBL.isFullRank and nb_bump == 5:
                 status = 'Unable to regularize sufficiently.'
                 finished = True
                 continue
@@ -439,9 +431,7 @@ class RegLPInteriorPointSolver:
                     rhs[:n] /= col_scale
                     rhs[n:] /= sqrt(regdu)
 
-                #pdb.set_trace()
-
-                (step, nres, neig) = self.solveSystem(LBL, rhs)
+                (step, nres, neig) = self.solveSystem(rhs)
                 
                 # Unscale step if 'stabilize' is on.
                 if self.stabilize:
@@ -487,7 +477,7 @@ class RegLPInteriorPointSolver:
                     rhs[n:] /= sqrt(regdu)
 
             # Solve augmented system.
-            (step, nres, neig) = self.solveSystem(LBL, rhs)
+            (step, nres, neig) = self.solveSystem(rhs)
 
             # Unscale step if 'stabilize' is on.
             if self.stabilize:
@@ -617,20 +607,21 @@ class RegLPInteriorPointSolver:
         self.H.put(1.0e-4, range(on))
         self.H.put(1.0, range(on,n))
         self.H.put(-1.0e-4, range(n,n+m))
-        LBL = LBLContext(self.H, sqd=True)
+        self.H[n:,:n] = self.A
+        self.LBL = LBLContext(self.H, sqd=True)  # Perform analyze and factorize
 
         # Assemble first right-hand side and solve.
         rhs = np.zeros(n+m)
         rhs[n:] = self.b
-        (step, nres, neig) = self.solveSystem(LBL, rhs)
+        (step, nres, neig) = self.solveSystem(rhs)
         x = step[:n].copy()
         s = x[on:]  # Slack variables. Must be positive.
 
         # Assemble second right-hand side and solve.
         rhs[:on] = self.c
         rhs[on:] = 0.0
-        #for k in self.c.keys(): rhs[k] = self.c[k]
-        (step, nres, neig) = self.solveSystem(LBL, rhs)
+
+        (step, nres, neig) = self.solveSystem(rhs)
         y = step[n:].copy()
         z = step[on:n].copy()
 
@@ -682,12 +673,12 @@ class RegLPInteriorPointSolver:
             kmin = -1
         return (stepmax, kmin)
 
-    def solveSystem(self, LBL, rhs, itref_threshold=1.0e-5, nitrefmax=5):
-        LBL.solve(rhs)            
-        nr = norm2(LBL.residual)
-        #LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
-        #nr = norm2(LBL.residual)
-        return (LBL.x, nr, LBL.neig)
+    def solveSystem(self, rhs, itref_threshold=1.0e-5, nitrefmax=5):
+        self.LBL.solve(rhs)            
+        nr = norm2(self.LBL.residual)
+        #self.LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
+        #nr = norm2(self.LBL.residual)
+        return (self.LBL.x, nr, self.LBL.neig)
 
 
 class RegLPInteriorPointSolver29(RegLPInteriorPointSolver):
