@@ -327,10 +327,10 @@ class RegLPInteriorPointSolver:
             # At the first iteration, initialize perturbation vectors
             # (q=primal, r=dual).
             if iter == 0:
-                #q =  dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
-                #r = -pFeas/regdu ; rNorm = norm2(r) ; del_r = regdu * rNorm
-                q = np.zeros(n) ; qNorm = 0 ; rho_q = 0
-                r = np.zeros(m) ; rNorm = 0 ; del_r = 0
+                q =  dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
+                r = -pFeas/regdu ; rNorm = norm2(r) ; del_r = regdu * rNorm
+                #q = np.zeros(n) ; qNorm = 0 ; rho_q = 0
+                #r = np.zeros(m) ; rNorm = 0 ; del_r = 0
 
             pResid = norm_infty(pFeas + regdu * r)/(1+self.normc)
             cResid = norm_infty(comp)/self.normbc

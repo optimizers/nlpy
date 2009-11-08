@@ -2,6 +2,7 @@
 
 from nlpy.model import SlackFramework
 from nlpy.optimize.solvers.cqp import RegQPInteriorPointSolver
+from nlpy.tools.timing import cputime
 import numpy
 import os
 import sys
@@ -16,9 +17,10 @@ if len(sys.argv) < 2:
 numpy.set_printoptions(precision=3, linewidth=80, threshold=10, edgeitems=3)
 
 # Define formats for output table.
-hdrfmt = '%-15s  %5s  %15s  %7s  %7s  %7s  %6s'
-hdr = hdrfmt % ('Name', 'Iter', 'Objective', 'pResid', 'dResid', 'Gap', 'Time')
-fmt = '%-15s  %5d  %15.8e  %7.1e  %7.1e  %7.1e  %6.2f'
+hdrfmt = '%-15s  %5s  %15s  %7s  %7s  %7s  %6s  %6s'
+hdr = hdrfmt % ('Name', 'Iter', 'Objective', 'pResid', 'dResid',
+                'Gap', 'Setup', 'Solve')
+fmt = '%-15s  %5d  %15.8e  %7.1e  %7.1e  %7.1e  %6.2f  %6.2f'
 
 oneproblem = True
 if len(sys.argv[1:]) > 1:
@@ -27,7 +29,9 @@ if len(sys.argv[1:]) > 1:
 
 for probname in sys.argv[1:]:
 
+    t_setup = cputime()
     qp = SlackFramework(probname)
+    t_setup = cputime() - t_setup
 
     # isqp() should be implemented in the near future.
     #if not qp.isqp():
@@ -46,7 +50,7 @@ for probname in sys.argv[1:]:
     if not oneproblem:
         sys.stdout.write(fmt % (probname, regqp.iter, regqp.obj_value,
                                 regqp.pResid, regqp.dResid, regqp.rgap,
-                                regqp.solve_time))
+                                t_setup, regqp.solve_time))
         if regqp.status != 'Optimal solution found':
             sys.stdout.write(' F')  # Problem was not solved to optimality.
         sys.stdout.write('\n')
@@ -64,4 +68,5 @@ else:
     sys.stdout.write(' #Iterations: %-d\n' % regqp.iter)
     sys.stdout.write(' RelResidual: %7.1e\n' % regqp.kktResid)
     sys.stdout.write(' Final cost : %21.15e\n' % regqp.obj_value)
+    sys.stdout.write(' Setup time : %6.2fs\n' % t_setup)
     sys.stdout.write(' Solve time : %6.2fs\n' % regqp.solve_time)

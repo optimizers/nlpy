@@ -115,6 +115,10 @@ class RegQPInteriorPointSolver:
         # It will be more efficient to store the diagonal of Q.
         self.diagQ = self.Q.take(range(qp.original_n))
 
+        # We perform the analyze phase on the augmented system only once.
+        # self.LBL will be initialized in solve().
+        self.LBL = None
+
         # Set regularization parameters.
         self.regpr = kwargs.get('regpr', 1.0) ; self.regpr_min = 1.0e-8
         self.regdu = kwargs.get('regdu', 1.0) ; self.regdu_min = 1.0e-8
@@ -154,6 +158,8 @@ class RegQPInteriorPointSolver:
         w('Number of nonzeros in Hessian matrix Q: %d\n' % self.Q.nnz)
         w('Number of nonzeros in constraint matrix: %d\n' % self.A.nnz)
         w('Constant term in objective: %8.2e\n' % self.c0)
+        w('Initial primal regularization: %8.2e\n' % self.regpr)
+        w('Initial dual   regularization: %8.2e\n' % self.regdu)
         w('\n')
         return
 
@@ -320,7 +326,11 @@ class RegQPInteriorPointSolver:
         (x,y,z) = self.set_initial_guess(self.qp, **kwargs)
 
         # The (1,1) block will always be Q (save for its diagonal).
-        self.H[:on,:on] = -self.Q
+        H[:on,:on] = -self.Q
+
+        # Need to perform symbolic factorization again since Q was not
+        # present in set_initial_guess()
+        self.LBL = LBLContext(H, sqd=True, factorize=False)
 
         # Slack variables are the trailing variables in x.
         s = x[on:] ; ns = self.nSlacks
@@ -424,12 +434,13 @@ class RegQPInteriorPointSolver:
                 H.put(-diagQ - regpr,    range(on))
                 H.put(-z/s   - regpr,  range(on,n))
                 H.put(regdu,          range(n,n+m))
-                LBL = LBLContext(H, sqd=True)
+                #LBL = LBLContext(H, sqd=True)
+                self.LBL.factorize(H)
                 factorized = True
 
                 # If the augmented matrix does not have full rank, bump up the
                 # regularization parameters.
-                if not LBL.isFullRank:
+                if not self.LBL.isFullRank:
                     if self.verbose:
                         sys.stderr.write('Primal-Dual Matrix Rank Deficient\n')
                     regpr *= 100 ; regdu *= 100
@@ -437,7 +448,7 @@ class RegQPInteriorPointSolver:
                     factorized = False
 
             # Abandon if regularization is unsuccessful.
-            if not LBL.isFullRank and nb_bump == 5:
+            if not self.LBL.isFullRank and nb_bump == 5:
                 status = 'Unable to regularize sufficiently.'
                 finished = True
                 continue
@@ -457,7 +468,7 @@ class RegQPInteriorPointSolver:
 
                 #pdb.set_trace()
 
-                (step, nres, neig) = self.solveSystem(LBL, rhs)
+                (step, nres, neig) = self.solveSystem(rhs)
                 
                 # Recover dx and dz.
                 dx = step[:n]
@@ -490,7 +501,7 @@ class RegQPInteriorPointSolver:
                 rhs[n:]    = -pFeas
 
             # Solve augmented system.
-            (step, nres, neig) = self.solveSystem(LBL, rhs)
+            (step, nres, neig) = self.solveSystem(rhs)
 
             # Recover step.
             dx = step[:n]
@@ -616,12 +627,12 @@ class RegQPInteriorPointSolver:
         self.H.put(1.0e-4, range(on))
         self.H.put(1.0, range(on,n))
         self.H.put(-1.0e-4, range(n,n+m))
-        LBL = LBLContext(self.H, sqd=True)
+        self.LBL = LBLContext(self.H, sqd=True) # Perform analyze and factorize
 
         # Assemble first right-hand side and solve.
         rhs = np.zeros(n+m)
         rhs[n:] = self.b
-        (step, nres, neig) = self.solveSystem(LBL, rhs)
+        (step, nres, neig) = self.solveSystem(rhs)
         x = step[:n].copy()
         s = x[on:]  # Slack variables. Must be positive.
 
@@ -629,7 +640,7 @@ class RegQPInteriorPointSolver:
         rhs[:on] = self.c
         rhs[on:] = 0.0
 
-        (step, nres, neig) = self.solveSystem(LBL, rhs)
+        (step, nres, neig) = self.solveSystem(rhs)
         y = step[n:].copy()
         z = step[on:n].copy()
 
@@ -684,12 +695,12 @@ class RegQPInteriorPointSolver:
             kmin = -1
         return (stepmax, kmin)
 
-    def solveSystem(self, LBL, rhs, itref_threshold=1.0e-5, nitrefmax=5):
-        LBL.solve(rhs)            
-        nr = norm2(LBL.residual)
-        #LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
-        #nr = norm2(LBL.residual)
-        return (LBL.x, nr, LBL.neig)
+    def solveSystem(self, rhs, itref_threshold=1.0e-5, nitrefmax=5):
+        self.LBL.solve(rhs)            
+        nr = norm2(self.LBL.residual)
+        #self.LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
+        #nr = norm2(self.LBL.residual)
+        return (self.LBL.x, nr, self.LBL.neig)
 
 
 class RegQPInteriorPointSolver29(RegQPInteriorPointSolver):
