@@ -9,10 +9,10 @@ extern "C" {   /* To prevent C++ compilers from mangling symbols */
 
   /* -------------------------------------------------- */
 
-  static double
-  cblas_dnrm_infty( const int N, const double *X, const int incX ) {
-    return fabs( X[ cblas_idamax( N, X, incX ) ] );
-  }
+  //  static double
+  //cblas_dnrm_infty( const int N, const double *X, const int incX ) {
+  //  return fabs( X[ cblas_idamax( N, X, incX ) ] );
+  //}
 
   /* ================================================================= */
 
@@ -183,7 +183,7 @@ extern "C" {   /* To prevent C++ compilers from mangling symbols */
 #define __FUNCT__ "Ma57_Solve"
   int Ma57_Solve( Ma57_Data *ma57, double x[] ) {
 
-    int one = 1, finished = 0, error;
+    int finished = 0, error;
 
     LOGMSG( " MA57 :: Solving..." );
 
