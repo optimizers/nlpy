@@ -75,26 +75,25 @@ class RegQPInteriorPointSolver:
         if not isinstance(self.A, PysparseMatrix):
             self.A = PysparseMatrix(matrix=self.A)
 
-        m, n = self.A.shape
+        m, n = self.A.shape ; on = qp.original_n
         # Record number of slack variables in QP
-        self.nSlacks  = qp.n - qp.original_n
+        self.nSlacks  = qp.n - on
 
         # Collect basic info about the problem.
         zero = np.zeros(n)
 
         self.b  = -qp.cons(zero)                  # Right-hand side
         self.c0 =  qp.obj(zero)                   # Constant term in objective
-        self.c  =  qp.grad(zero[:qp.original_n])  # Cost vector
-        self.Q  =  PysparseMatrix(matrix=qp.hess(zero[:qp.original_n], 
+        self.c  =  qp.grad(zero[:on])             # Cost vector
+        self.Q  =  PysparseMatrix(matrix=qp.hess(zero[:on], 
                                                  np.zeros(qp.original_m)))
 
         # Apply in-place problem scaling if requested.
         self.prob_scaled = False
         if scale:
-            t = cputime()
+            self.t_scale = cputime()
             self.scale()
-            t = cputime() - t
-            sys.stdout.write('Time for scaling: %6.2fs\n' % t)
+            self.t_scale = cputime() - self.t_scale
         else:
             # self.scale() sets self.normQ to the Frobenius norm of Q
             # as a by-product. If we're not scaling, set normQ manually.
@@ -109,10 +108,13 @@ class RegQPInteriorPointSolver:
                                 sizeHint=n+m+self.A.nnz+self.Q.nnz,
                                 symmetric=True)
 
+        # The (1,1) block will always be Q (save for its diagonal).
+        self.H[:on,:on] = -self.Q
+
         # The (2,1) block will always be A. We store it now once and for all.
         self.H[n:,:n] = self.A
 
-        # It will be more efficient to store the diagonal of Q.
+        # It will be more efficient to keep the diagonal of Q around.
         self.diagQ = self.Q.take(range(qp.original_n))
 
         # We perform the analyze phase on the augmented system only once.
@@ -160,6 +162,7 @@ class RegQPInteriorPointSolver:
         w('Constant term in objective: %8.2e\n' % self.c0)
         w('Initial primal regularization: %8.2e\n' % self.regpr)
         w('Initial dual   regularization: %8.2e\n' % self.regdu)
+        w('Time for scaling: %6.2fs\n' % self.t_scale)
         w('\n')
         return
 
@@ -324,13 +327,6 @@ class RegQPInteriorPointSolver:
 
         # Obtain initial point from Mehrotra's heuristic.
         (x,y,z) = self.set_initial_guess(self.qp, **kwargs)
-
-        # The (1,1) block will always be Q (save for its diagonal).
-        H[:on,:on] = -self.Q
-
-        # Need to perform symbolic factorization again since Q was not
-        # present in set_initial_guess()
-        self.LBL = LBLContext(H, sqd=True, factorize=False)
 
         # Slack variables are the trailing variables in x.
         s = x[on:] ; ns = self.nSlacks
@@ -624,9 +620,9 @@ class RegQPInteriorPointSolver:
         n = qp.n ; m = qp.m ; ns = self.nSlacks ; on = qp.original_n
 
         # Set up augmented system matrix and factorize it.
-        self.H.put(1.0e-4, range(on))
-        self.H.put(1.0, range(on,n))
-        self.H.put(-1.0e-4, range(n,n+m))
+        self.H.put(-self.diagQ - 1.0e-4, range(on))
+        self.H.put(-1.0, range(on,n))
+        self.H.put( 1.0e-4, range(n,n+m))
         self.LBL = LBLContext(self.H, sqd=True) # Perform analyze and factorize
 
         # Assemble first right-hand side and solve.

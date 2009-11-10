@@ -86,10 +86,9 @@ class RegLPInteriorPointSolver:
         # Apply in-place problem scaling if requested.
         self.prob_scaled = False
         if scale:
-            t = cputime()
+            self.t_scale = cputime()
             self.scale()
-            t = cputime() - t
-            sys.stdout.write('Time for scaling: %6.2fs\n' % t)
+            self.t_scale = cputime() - self.t_scale
 
         self.normb  = norm_infty(self.b)
         self.normc  = norm_infty(self.c)
@@ -146,6 +145,7 @@ class RegLPInteriorPointSolver:
         w('Constant term in objective: %8.2e\n' % self.c0)
         w('Initial primal regularization: %8.2e\n' % self.regpr)
         w('Initial dual   regularization: %8.2e\n' % self.regdu)
+        w('Time for scaling: %6.2fs\n' % self.t_scale)
         w('\n')
         return
 
