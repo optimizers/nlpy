@@ -14,6 +14,11 @@ def configuration(parent_package='',top_path=None):
     metis_dir = nlpy_config.get('HSL', 'metis_dir')
     metis_lib = nlpy_config.get('HSL', 'metis_lib')
     galahad_dir = nlpy_config.get('GALAHAD', 'galahad_dir')
+    try:
+        pysparse_include = nlpy_config.get('PYSPARSE', 'pysparse_include')
+    except:
+        pysparse_include = []
+
 
     print 'hsl_dir = ', hsl_dir
 
@@ -51,7 +56,7 @@ def configuration(parent_package='',top_path=None):
         sources=[os.path.join('src',name) for name in pyma27_src],
         depends=[],
         libraries=['nlpy_ma27'],
-        include_dirs=['src'],
+        include_dirs=['src'] + [pysparse_include],
         extra_info=blas_info,
         )
 
@@ -73,7 +78,7 @@ def configuration(parent_package='',top_path=None):
         sources=pyma57_sources,
         libraries=[metis_lib,'nlpy_ma57'],
         library_dirs=[metis_dir],
-        include_dirs=['src'],
+        include_dirs=['src'] + [pysparse_include],
         extra_info=blas_info,
         )
 

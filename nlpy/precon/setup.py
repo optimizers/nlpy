@@ -11,6 +11,10 @@ def configuration(parent_package='',top_path=None):
     nlpy_config = ConfigParser.SafeConfigParser()
     nlpy_config.read(os.path.join(top_path, 'site.cfg'))
     icfs_dir = nlpy_config.get('ICFS', 'icfs_dir')
+    try:
+        pysparse_include = nlpy_config.get('PYSPARSE', 'pysparse_include')
+    except:
+        pysparse_include = []
 
     config = Configuration('precon', parent_package, top_path)
 
@@ -39,7 +43,7 @@ def configuration(parent_package='',top_path=None):
         depends=[],
         libraries=['nlpy_icfs'],
         library_dirs=[],
-        include_dirs=['src'],
+        include_dirs=['src'] + [pysparse_include],
         extra_info=blas_info,
         )
 
