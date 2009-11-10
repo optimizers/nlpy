@@ -14,9 +14,6 @@
 
 #include "Python.h"                /* Main Python header file */
 #include "arrayflavor.h"
-// #include "pysparse/spmatrix.h"
-// #include "pysparse/spmatrix_api.h"
-// #include "pysparse/ll_mat.h"
 
 /* ========================================================================== */
 

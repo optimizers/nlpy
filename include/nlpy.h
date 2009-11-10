@@ -1,6 +1,5 @@
 /*
  * Common definitions for NLPy interfaces
- * $Id:$
  */
 
 #include "stdio.h"
