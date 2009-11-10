@@ -116,7 +116,7 @@ static PyObject *AmplPy_Init( PyObject *self, PyObject *args ) {
     argc = 2;
     if( !(argv = (char **)calloc( 2, sizeof( char* ) )) )      return NULL;
     if( !(argv[0] = malloc( 7*sizeof( char ) )) )              return NULL;
-    if( !(argv[1] = malloc( strlen( stub )*sizeof( char ) )) ) return NULL;
+    if( !(argv[1] = malloc( (strlen(stub)+1)*sizeof( char ) )) ) return NULL;
     strcpy( argv[0], "amplpy" );
     strcpy( argv[1], stub );
 
@@ -1081,8 +1081,8 @@ static PyObject *AmplPy_Eval_H( PyObject *self, PyObject *args ) {
         picol  = (long *)a_icol->data;
 
         k = 0;
-        for ( i=0; i<n_var+1; i++ ) {
-            for ( j=sputinfo->hcolstarts[i]; j<sputinfo->hcolstarts[i+1]; j++ ) {
+        for( i=0; i<n_var; i++ ) {
+            for( j=sputinfo->hcolstarts[i]; j<sputinfo->hcolstarts[i+1]; j++ ) {
                 pirow[k] = sputinfo->hrownos[j];
                 picol[k] = i;
                 k++;
@@ -1102,21 +1102,22 @@ static PyObject *AmplPy_Eval_H( PyObject *self, PyObject *args ) {
         sphes( H, -1, OW, (real *)a_lambda->data );
 
         /* Allocate sparse symmetric Hessian data structure */
-        if( !PassedH ) spHess = SpMatrix_NewLLMatObject( dim, SYMMETRIC, nnzh );
-
-        /* Transfer H into the PySparse LL-matrix. */
-        k = 0;
-        for ( i=0; i<n_var+1; i++ ) {
-            for ( j=sputinfo->hcolstarts[i]; j<sputinfo->hcolstarts[i+1]; j++ ) {
-                jrow = sputinfo->hrownos[j];
-                jcol = i;
-                /* Ampl returns the upper triangle of H. PySparse wants the
-                 * lower triangle. Accommodate by reversing indices.
-                 */
-                SpMatrix_LLMatSetItem( (LLMatObject *)spHess, jcol, jrow, H[k] );
-                k++;
-            }
+        if( !PassedH ) {
+          spHess = SpMatrix_NewLLMatObject( dim, SYMMETRIC, nnzh );
+          if( !spHess ) return NULL;
         }
+
+        /* Transfer H into the PySparse LL-matrix.
+         * Ampl returns the upper triangle of H. PySparse wants the
+         * lower triangle. Accommodate by reversing indices.
+         */
+        for( i=0; i<n_var; i++ )
+          for( j=sputinfo->hcolstarts[i]; j<sputinfo->hcolstarts[i+1]; j++ )
+            SpMatrix_LLMatSetItem((LLMatObject *)spHess,
+                                  i,
+                                  sputinfo->hrownos[j],
+                                  H[j]);
+
         if( H ) free( H );
         if( !PassedH )
             return spHess;  /* Return sparse Hessian. */
