@@ -57,7 +57,7 @@ static PyObject     *Pyma57_getattr(    Pyma57Object *self,  char *name     );
 static PyObject     *Pyma57_Stats(      Pyma57Object *self,  PyObject *args );
 static PyObject     *Pyma57_fetch_perm( Pyma57Object *self                  );
 //static PyObject     *Pyma57_fetch_lb(   Pyma57Object *self,  PyObject *args );
-static Pyma57Object *NewPyma57Object(   LLMatObject  *llmat, PyObject *sqd  );
+static PyObject *NewPyma57Object(   LLMatObject  *llmat, PyObject *sqd  );
 extern PyObject *newCSRMatObject(int dim[], int nnz);
 void coord2csr( int n, int nz, int *irow, int *jcol, double *val,
                 int *iptr, int *jind, double *xval );
@@ -71,7 +71,7 @@ void coord2csr( int n, int nz, int *irow, int *jcol, double *val,
 /* ========================================================================== */
 
 
-static Pyma57Object *NewPyma57Object( LLMatObject *llmat, PyObject *sqd ) {
+static PyObject *NewPyma57Object( LLMatObject *llmat, PyObject *sqd ) {
 
   Pyma57Object *self;
   int           n  = llmat->dim[0],
@@ -80,8 +80,10 @@ static Pyma57Object *NewPyma57Object( LLMatObject *llmat, PyObject *sqd ) {
   int           error;
 
   /* Create new instance of object */
-  if( !(self = PyObject_New( Pyma57Object, &Pyma57Type ) ) )
-    return NULL; //PyErr_NoMemory( );
+  if( !(self = PyObject_New( Pyma57Object, &Pyma57Type ) ) ) {
+    fprintf(stderr, "Cannot allocate memory for Pyma57Type object.\n");
+    return PyErr_NoMemory( ); // NULL;
+  }
 
   self->data = Ma57_Initialize( nz, n, NULL );
 
@@ -112,7 +114,7 @@ static Pyma57Object *NewPyma57Object( LLMatObject *llmat, PyObject *sqd ) {
     fprintf( stderr, " Error return code from Analyze: %-d\n", error );
     return NULL;
   }
-  return self;
+  return (PyObject *)self;
 }
 
 /* ========================================================================== */
@@ -136,6 +138,7 @@ static PyObject *Pyma57_factorize( Pyma57Object *self, PyObject *args ) {
 
   /* Make temporary copy of matrix. Is there a way to avoid this?  */
   self->a = (double *)NLPy_Calloc( nz, sizeof(double) );
+  if( self->a == NULL ) return PyErr_NoMemory();
 
   elem = 0;
   for( i = 0; i < n; i++ ) {
@@ -413,19 +416,19 @@ static PyObject *Pyma57_analyze( PyObject *self, PyObject *args ) {
 
   /* Input must be the lower triangle of a symmetric matrix */
 
-  Pyma57Object  *rv;                    /* Return value */
-  PyObject      *mat;                   /* Input matrix */
-  PyObject      *sqd;                   /* SQD matrix flag */
+  PyObject  *rv;                    /* Return value */
+  PyObject  *mat;                   /* Input matrix */
+  PyObject  *sqd;                   /* SQD matrix flag */
 
   /* Read input matrix and limited memory factor */
   if( !PyArg_ParseTuple( args, "OO:factor", &mat, &sqd ) )
     return NULL;
 
-  /* Spawn new Pyma57 Object, containing matrix factors */
+  /* Spawn new Pyma57 Object, containing matrix symbolic factors */
   rv = NewPyma57Object( (LLMatObject *)mat, sqd );
   if( rv == NULL ) return NULL;
 
-  return (PyObject *)rv;
+  return rv;
 }
 
 /* ========================================================================== */
@@ -470,7 +473,7 @@ static PyTypeObject Pyma57Type = {
 /* ========================================================================== */
 
 static PyMethodDef Pyma57Methods[] = {
-  { "analyze",  Pyma57_analyze,  METH_VARARGS, Pyma57_analyze_Doc  },
+  { "analyze",  Pyma57_analyze,  METH_VARARGS, Pyma57_analyze_Doc },
   { NULL,       NULL,            0,            NULL               }
 };
 
