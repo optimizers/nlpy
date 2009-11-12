@@ -143,6 +143,8 @@ class RegLPInteriorPointSolver:
         w('Adjusted number of constraints excluding bounds: %d\n' % lp.m)
         w('Number of nonzeros in constraint matrix: %d\n' % self.A.nnz)
         w('Constant term in objective: %8.2e\n' % self.c0)
+        w('Cost vector norm: %8.2e\n' % self.normc)
+        w('Right-hand side norm: %8.2e\n' % self.normb)
         w('Initial primal regularization: %8.2e\n' % self.regpr)
         w('Initial dual   regularization: %8.2e\n' % self.regdu)
         w('Time for scaling: %6.2fs\n' % self.t_scale)
@@ -308,7 +310,7 @@ class RegLPInteriorPointSolver:
         finished = False
         iter = 0
 
-        setup_time = cputime()
+        solve_time = cputime()
 
         # Main loop.
         while not finished:
@@ -332,19 +334,22 @@ class RegLPInteriorPointSolver:
                 #q = np.zeros(n) ; qNorm = 0 ; rho_q = 0
                 #r = np.zeros(m) ; rNorm = 0 ; del_r = 0
 
-            pResid = norm_infty(pFeas + regdu * r)/(1+self.normc)
-            cResid = norm_infty(comp)/self.normbc
-            dResid = norm_infty(dFeas - regpr * q)/(1+self.normb)
+            # Compute residual norms and scaled residual norms.
+            #pResid = norm_infty(pFeas + regdu * r)/(1+self.normc)
+            #dResid = norm_infty(dFeas - regpr * q)/(1+self.normb)
+            pResid = norm_infty(pFeas) ; spResid = pResid/(1+self.normc)
+            cResid = norm_infty(comp)  ; scResid = cResid/self.normbc
+            dResid = norm_infty(dFeas) ; sdResid = dResid/(1+self.normb)
 
             # Compute relative duality gap.
             cx = np.dot(c,x[:on])
             by = np.dot(b,y)
             rgap  = cx - by
-            rgap += regdu * (rNorm**2 + np.dot(r,y))
+            #rgap += regdu * (rNorm**2 + np.dot(r,y))
             rgap  = abs(rgap) / (1 + abs(cx))
 
             # Compute overall residual for stopping condition.
-            kktResid = max(max(pResid, dResid)/self.normbc, rgap)
+            kktResid = max(spResid, sdResid, rgap)
             #kktResid = max(pResid, cResid, dResid)
 
             # Display objective and residual data.
@@ -545,7 +550,7 @@ class RegLPInteriorPointSolver:
 
             iter += 1
 
-        solve_time = cputime() - setup_time
+        solve_time = cputime() - solve_time
 
         if self.verbose:
             sys.stdout.write('\n')
