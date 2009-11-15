@@ -90,8 +90,8 @@ class RegLPInteriorPointSolver:
             self.scale()
             self.t_scale = cputime() - self.t_scale
 
-        self.normb  = norm_infty(self.b)
-        self.normc  = norm_infty(self.c)
+        self.normb  = norm2(self.b)
+        self.normc  = norm2(self.c)
         self.normbc = 1 + max(self.normb, self.normc)
 
         # Initialize augmented matrix
@@ -292,6 +292,7 @@ class RegLPInteriorPointSolver:
         m, n = self.A.shape ; on = lp.original_n
         A = self.A ; b = self.b ; c = self.c ; H = self.H
         regpr = self.regpr ; regdu = self.regdu
+        regpr_min = self.regpr_min ; regdu_min = self.regdu_min
 
         # Obtain initial point from Mehrotra's heuristic.
         # set_initial_guess() initializes self.LBL which is reused below.
@@ -310,6 +311,9 @@ class RegLPInteriorPointSolver:
         finished = False
         iter = 0
 
+        # Acceptance thresholds for primal and dual reg parameters.
+        t1 = t2 = 0.99
+
         solve_time = cputime()
 
         # Main loop.
@@ -322,7 +326,7 @@ class RegLPInteriorPointSolver:
 
             # Compute residuals.
             pFeas = A*x - b
-            comp = s*z                                      # comp   = S z
+            comp = s*z ; sz = sum(comp)                     # comp   = S z
             dFeas = y*A ; dFeas[:on] -= self.c              # dFeas1 = A1'y - c
             dFeas[on:] += z                                 # dFeas2 = A2'y + z
 
@@ -337,9 +341,9 @@ class RegLPInteriorPointSolver:
             # Compute residual norms and scaled residual norms.
             #pResid = norm_infty(pFeas + regdu * r)/(1+self.normc)
             #dResid = norm_infty(dFeas - regpr * q)/(1+self.normb)
-            pResid = norm_infty(pFeas) ; spResid = pResid/(1+self.normc)
-            cResid = norm_infty(comp)  ; scResid = cResid/self.normbc
-            dResid = norm_infty(dFeas) ; sdResid = dResid/(1+self.normb)
+            pResid = norm2(pFeas) ; spResid = pResid/(1+self.normc)
+            cResid = norm2(comp)  ; scResid = cResid/self.normbc
+            dResid = norm2(dFeas) ; sdResid = dResid/(1+self.normb)
 
             # Compute relative duality gap.
             cx = np.dot(c,x[:on])
@@ -372,126 +376,170 @@ class RegLPInteriorPointSolver:
             minz = np.min(z)
             maxs = np.max(s)
 
-            # Solve the linear system
-            #
-            # [ -pI          0          A1' ] [∆x] = [ c - A1' y              ]
-            # [  0   -(S^{-1} Z + pI)   A2' ] [∆s]   [   - A2' y - µ S^{-1} e ]
-            # [  A1          A2         dI  ] [∆y]   [ b - A1 x - A2 s        ]
-            #
-            # where s are the slack variables, p is the primal regularization
-            # parameter, d is the dual regularization parameter, and
-            # A = [ A1  A2 ]  where the columns of A1 correspond to the original
-            # problem variables and those of A2 correspond to slack variables.
-            #
-            # We recover ∆z = -z - S^{-1} (Z ∆s + µ e).
+            # Repeatedly assemble system and compute step until primal and
+            # dual regularization parameters have appropriate values.
 
-            # Compute augmented matrix and factorize it.
-            factorized = False
-            nb_bump = 0
-            while not factorized and nb_bump < 5:
+            # Reset primal and dual regularization parameters to best guess
+            if iter > 0:
+                regpr = sigma * sz/ns #max(regpr_min, 0.5*sigma*dResid/normds))
+                regdu = sigma * sz/ns #max(regdu_min, 0.5*sigma*pResid/normdy))
 
-                if self.stabilize:
-                    col_scale[:on] = sqrt(regpr)
-                    col_scale[on:] = np.sqrt(z/s + regpr)
-                    H.put(-sqrt(regdu), range(n))
-                    H.put( sqrt(regdu), range(n,n+m))
-                    AA = self.A.copy()
-                    AA.col_scale(1/col_scale)
-                    H[n:,:n] = AA
+            step_acceptable = False
+
+            while not step_acceptable:
+
+                # Solve the linear system
+                # 
+                # [-pI          0          A1'] [∆x]   [c - A1' y             ]
+                # [ 0   -(S^{-1} Z + pI)   A2'] [∆s] = [  - A2' y - µ S^{-1} e]
+                # [ A1          A2         dI ] [∆y]   [b - A1 x - A2 s       ]
+                #
+                # where s are the slack variables, p is the primal
+                # regularization parameter, d is the dual regularization
+                # parameter, and  A = [ A1  A2 ]  where the columns of A1
+                # correspond to the original problem variables and those of A2
+                # correspond to slack variables.
+                #
+                # We recover ∆z = -z - S^{-1} (Z ∆s + µ e).
+                # Compute augmented matrix and factorize it.
+                factorized = False
+                nb_bump = 0
+                while not factorized and nb_bump < 5:
+
+                    if self.stabilize:
+                        col_scale[:on] = sqrt(regpr)
+                        col_scale[on:] = np.sqrt(z/s + regpr)
+                        H.put(-sqrt(regdu), range(n))
+                        H.put( sqrt(regdu), range(n,n+m))
+                        AA = self.A.copy()
+                        AA.col_scale(1/col_scale)
+                        H[n:,:n] = AA
+                    else:
+                        H.put(-regpr,       range(on))
+                        H.put(-z/s - regpr, range(on,n))
+                        H.put(regdu,        range(n,n+m))
+
+                    self.LBL.factorize(H)
+                    factorized = True
+
+                    # If the augmented matrix does not have full rank, bump up
+                    # regularization parameters.
+                    if not self.LBL.isFullRank:
+                        if self.verbose:
+                            sys.stderr.write('Primal-Dual Matrix ')
+                            sys.stderr.write('Rank Deficient\n')
+                        regpr *= 10 ; regdu *= 10
+                        nb_bump += 1
+                        print 'Bumping up rho and delta...'
+                        factorized = False
+
+                # Abandon if regularization is unsuccessful.
+                if not self.LBL.isFullRank and nb_bump == 5:
+                    status = 'Unable to regularize sufficiently.'
+                    finished = True
+                    continue  # Does this get us out of the outer while?
+
+                # Compute duality measure.
+                mu = sz/ns
+
+                if PredictorCorrector:
+                    # Use Mehrotra predictor-corrector method.
+                    # Compute affine-scaling step, i.e. with centering = 0.
+                    rhs[:n]    = -dFeas
+                    rhs[on:n] += z
+                    rhs[n:]    = -pFeas
+
+                    # if 'stabilize' is on, must scale right-hand side.
+                    if self.stabilize:
+                        rhs[:n] /= col_scale
+                        rhs[n:] /= sqrt(regdu)
+
+                    (step, nres, neig) = self.solveSystem(rhs)
+
+                    # Unscale step if 'stabilize' is on.
+                    if self.stabilize:
+                        step[:n] *= sqrt(regdu) / col_scale
+
+                    # Recover dx and dz.
+                    dx = step[:n]
+                    ds = dx[on:]
+                    dz = -z * (1 + ds/s)
+
+                    # Compute largest allowed primal and dual stepsizes.
+                    (alpha_p, ip) = self.maxStepLength(s, ds)
+                    (alpha_d, ip) = self.maxStepLength(z, dz)
+
+                    # Estimate duality gap after affine-scaling step.
+                    muAff = np.dot(s + alpha_p * ds, z + alpha_d * dz)/ns
+                    sigma = (muAff/mu)**3
+
+                    # Incorporate predictor information for corrector step.
+                    comp += ds*dz
                 else:
-                    H.put(-regpr,       range(on))
-                    H.put(-z/s - regpr, range(on,n))
-                    H.put(regdu,        range(n,n+m))
+                    # Use long-step method: Compute centering parameter.
+                    sigma = min(0.1, 100*mu)
 
-                self.LBL.factorize(H)
-                factorized = True
+                # Assemble right-hand side with centering information.
+                comp -= sigma * mu
 
-                # If the augmented matrix does not have full rank, bump up the
-                # regularization parameters.
-                if not self.LBL.isFullRank:
-                    if self.verbose:
-                        sys.stderr.write('Primal-Dual Matrix Rank Deficient\n')
-                    regpr *= 100 ; regdu *= 100
-                    nb_bump += 1
-                    factorized = False
+                if PredictorCorrector:
+                    # Only update rhs[on:n]; the rest of rhs did not change.
+                    if self.stabilize:
+                        rhs[on:n] += (comp/s - z)/col_scale[on:n]
+                    else:
+                        rhs[on:n] += comp/s - z
+                else:
+                    rhs[:n]    = -dFeas
+                    rhs[on:n] += comp/s
+                    rhs[n:]    = -pFeas
 
-            # Abandon if regularization is unsuccessful.
-            if not self.LBL.isFullRank and nb_bump == 5:
-                status = 'Unable to regularize sufficiently.'
-                finished = True
-                continue
+                    # If 'stabilize' is on, must scale right-hand side.
+                    # In the predictor-corrector method, this has already been
+                    # done.
+                    if self.stabilize:
+                        rhs[:n] /= col_scale
+                        rhs[n:] /= sqrt(regdu)
 
-            # Compute duality measure.
-            mu = sum(comp)/ns
-
-            if PredictorCorrector:
-                # Use Mehrotra predictor-corrector method.
-                # Compute affine-scaling step, i.e. with centering = 0.
-                rhs[:n]    = -dFeas
-                rhs[on:n] += z
-                rhs[n:]    = -pFeas
-
-                # if 'stabilize' is on, must scale right-hand side.
-                if self.stabilize:
-                    rhs[:n] /= col_scale
-                    rhs[n:] /= sqrt(regdu)
-
+                # Solve augmented system.
                 (step, nres, neig) = self.solveSystem(rhs)
-                
+
                 # Unscale step if 'stabilize' is on.
                 if self.stabilize:
                     step[:n] *= sqrt(regdu) / col_scale
 
-                # Recover dx and dz.
+                # Recover step in x and y.
                 dx = step[:n]
                 ds = dx[on:]
-                dz = -z * (1 + ds/s)
+                dy = step[n:]
 
-                # Compute largest allowed primal and dual stepsizes.
-                (alpha_p, ip) = self.maxStepLength(s, ds)
-                (alpha_d, ip) = self.maxStepLength(z, dz)
+                # We must ensure that p and d are small enough that
+                # 1) |p ∆s| <= t1 sigma sz / gammaD  (0 < t1 < 1),
+                # 2) |d ∆y| <= t1 sigma sz / gammaP  (0 < t2 < 1).
+                # In the predictor-corrector method, we choose
+                # 1/gammaP = |Ax-b|/sz    = pResid/sz and
+                # 1/gammaD = |c-A'y-z|/sz = dResid/sz.
+                normds = norm2(ds) ; normdy = norm2(dy)
+                regpr_small_enough = (regpr * normds <= t1 * sigma * dResid)
+                regdu_small_enough = (regdu * normdy <= t2 * sigma * pResid)
 
-                # Estimate duality gap after affine-scaling step.
-                muAff = np.dot(s + alpha_p * ds, z + alpha_d * dz)/ns
-                sigma = (muAff/mu)**3
-
-                # Incorporate predictor information for corrector step.
-                comp += ds*dz
-            else:
-                # Use long-step method: Compute centering parameter.
-                sigma = min(0.1, 100*mu)
-
-            # Assemble right-hand side with centering information.
-            comp -= sigma * mu
-
-            if PredictorCorrector:
-                # Only update rhs[on:n]; the rest of the vector did not change.
-                if self.stabilize:
-                    rhs[on:n] += (comp/s - z)/col_scale[on:n]
+                if regpr_small_enough and regdu_small_enough:
+                    step_acceptable = True
                 else:
-                    rhs[on:n] += comp/s - z
-            else:
-                rhs[:n]    = -dFeas
-                rhs[on:n] += comp/s
-                rhs[n:]    = -pFeas
+#                     if not regpr_small_enough:
+#                         print 'Must decrease rho and re-factorize...'
+#                         regpr = min(regpr/2, 0.5 * t1 * sigma * pResid/normds)
+#                         regpr = max(regpr, regpr_min)
+#                     if not regdu_small_enough:
+#                         print 'Must decrease delta and re-factorize...'
+#                         regdu = min(regdu/2, 0.5 * t2 * sigma * dResid/normdy)
+#                         regdu = max(regdu, regdu_min)
+#                     if regpr == regpr_min or regdu == regdu_min:
+#                         step_acceptable = True
+                    step_acceptable = True
 
-                # If 'stabilize' is on, must scale right-hand side.
-                # In the predictor-corrector method, this has already been done.
-                if self.stabilize:
-                    rhs[:n] /= col_scale
-                    rhs[n:] /= sqrt(regdu)
+            # End while not step_acceptable
 
-            # Solve augmented system.
-            (step, nres, neig) = self.solveSystem(rhs)
-
-            # Unscale step if 'stabilize' is on.
-            if self.stabilize:
-                step[:n] *= sqrt(regdu) / col_scale
-
-            # Recover step.
-            dx = step[:n]
-            ds = dx[on:]
-            dy = step[n:]
+            # Recover step in z.
             dz = -(comp + z*ds)/s
 
             # Compute largest allowed primal and dual stepsizes.
@@ -545,8 +593,8 @@ class RegLPInteriorPointSolver:
             rho_q = regpr * qNorm/self.normc ; del_r = regdu * rNorm/self.normb
 
             # Update regularization parameters.
-            regpr = max(min(regpr/2, regpr**(1.1)), self.regpr_min)
-            regdu = max(min(regdu/2, regdu**(1.1)), self.regdu_min)
+            #regpr = max(min(regpr/2, regpr**(1.1)), self.regpr_min)
+            #regdu = max(min(regdu/2, regdu**(1.1)), self.regdu_min)
 
             iter += 1
 
