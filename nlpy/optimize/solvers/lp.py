@@ -381,8 +381,8 @@ class RegLPInteriorPointSolver:
 
             # Reset primal and dual regularization parameters to best guess
             if iter > 0:
-                regpr = sigma * sz/ns #max(regpr_min, 0.5*sigma*dResid/normds))
-                regdu = sigma * sz/ns #max(regdu_min, 0.5*sigma*pResid/normdy))
+                regpr = max(regpr_min, 0.5*sigma*dResid/normds)
+                regdu = max(regdu_min, 0.5*sigma*pResid/normdy)
 
             step_acceptable = False
 

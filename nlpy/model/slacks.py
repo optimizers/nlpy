@@ -15,22 +15,19 @@ from pysparse.pysparseMatrix import PysparseMatrix as sp
 from pysparse import spmatrix
 
 class SlackFramework( AmplModel ):
-    r"""
+    """
     General framework for converting a nonlinear optimization problem to a
     form using slack variables.
 
     The initial problem has the form
 
-    .. math::
+    minimize    f(x)
+    subject to  ci(x) = ai,           i = 1, ..., m,
+                gjL <= gj(x) <= gjU,  j = 1, ..., p,
+                xkL <= xk <= xkU,     k = 1, ..., n,
 
-       \min        & f(x) & \\
-       \text{s.t.} & c_i(x) = a_i,                 & i = 1, \ldots, m, \\
-                   & g_j^L \leq g_j(x) \leq g_j^U, & j = 1, \ldots, p, \\
-                   & x_k^L \leq x_k \leq x_k^U,    & k = 1, \ldots, n,
-
-    where some or all lower bounds :math:`g_j^L` and :math:`x_k^L` may be equal
-    to :math:`- \infty`, and some or all upper bounds :math:`g_j^U`
-    and :math:`x_k^U` may be equal to :math:`+ \infty`.
+    where some or all lower bounds gjL and xkL may be equal to -infinity, and
+    some or all upper bounds gjU and xkU may be equal to +infinity.
 
     The transformed problem is
 

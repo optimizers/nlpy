@@ -334,7 +334,7 @@ class PerformanceProfile:
             self.profiles.append(self.mmplotcmd(srats,
                                                 self.ydata,
                                                 curcolor + lstyle,
-                                                linewidth=1,
+                                                linewidth=2,
                                                 drawstyle='steps-pre'))
             if self.bw: lscount += 1
             if (lscount % self.nlstyles) == 0 and not self.bw:

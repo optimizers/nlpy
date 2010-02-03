@@ -9,8 +9,7 @@ NLPy is a `Python <http://www.python.org>`_ package for numerical `optimization
 a toolbox for solving `linear
 <http://en.wikipedia.org/wiki/Linear_programming>`_ and `nonlinear programming
 <http://en.wikipedia.org/wiki/Nonlinear_programming>`_ problems that is both
-easy to use and extensible.  It is applicable to problems that are smooth, have
-no derivatives, or have integer data.
+easy to use and extensible.
 
 NLPy combines the capabilities of the mature `AMPL <http://www.ampl.com>`_
 modeling language with the high-quality numerical resources and object-oriented
@@ -26,12 +25,18 @@ exist) can be accessed transparently through an object-oriented framework.
 NLPy is extensible and new algorithms can be built by assembling the supplied
 building blocks, or by creating new building blocks.  Existing building blocks
 include procedures for solving symmetric (possibly indefinite) linear systems
-via symmetric factorizations or preconditioned iterative solvers, and much more.
+via symmetric factorizations or preconditioned iterative solvers, iterative
+methods for linear least-squares problems, minimization methods for constrained
+and unconstrained optimization, and much more.
 
 Overview
 ========
 
-NLPy is a collection of tools and interfaces for implementing and prototyping optimization algorithms. It is a set of Python modules and classes that support sparse matrices, nonlinear optimization methods, and the efficient solution of large sparse linear systems, especially those occuring in the course of optimization algorithms (e.g., symmetric indefinite systems).
+NLPy is a collection of tools and interfaces for implementing and prototyping
+optimization algorithms. It is a set of Python modules and classes that support
+sparse matrices, nonlinear optimization methods, and the efficient solution of
+large sparse linear systems, especially those occuring in the course of
+optimization algorithms (e.g., symmetric indefinite systems).
 
 The purpose of NLPy is to offer an environment in which implementing, testing,
 prototyping, experimenting with, and modifying and creating innovative
