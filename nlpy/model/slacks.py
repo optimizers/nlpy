@@ -319,14 +319,10 @@ class SlackFramework( AmplModel ):
 
         The overall Jacobian of the new constraints thus has the form
 
-        .. math::
-
-           \begin{bmatrix}
-              J   & -I &    &    &    \\
-             -J_R &    & -I &    &    \\
-              I   &    &    & -I &    \\
-             -I   &    &    &    & -I
-           \end{bmatrix}
+        [ J    -I           ]
+        [-JR      -I        ]
+        [ I           -I    ]
+        [-I               -I]
 
         where the columns correspond, in order, to the variables `x`, `s`, `sU`,
         `t`, and `tU`, and the rows correspond, in order, to

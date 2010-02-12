@@ -676,7 +676,7 @@ class AmplModel:
         return J #[self.permC,:]
 
     def jacPos(self, x):
-        r"""
+        """
         Convenience function to evaluate the Jacobian matrix of the constraints
         reformulated as
 
@@ -698,13 +698,8 @@ class AmplModel:
 
         The overall Jacobian of the new constraints thus has the form
 
-        .. math::
-
-           \bar{J} =
-           \begin{bmatrix}
-           J \\
-           -JR
-           \end{bmatrix}
+        [ J ]
+        [-JR]
 
         This is a `m + nrangeC` by `n` matrix, where `J` is the Jacobian of the
         general constraints in the order above in which the sign of the 'less

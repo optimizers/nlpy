@@ -102,7 +102,7 @@ class TrustRegionSolver:
 
     .. math::
 
-       q(d) = g^T d + \half d^T H d,
+       q(d) = g^T d + 1/2 d^T H d,
 
     where `g` is a n-vector typically interpreted as the gradient of some
     merit function and `H` is a real symmetric n-by-n matrix. Note that `H`
@@ -194,7 +194,7 @@ class TrustRegionPCG(TrustRegionSolver):
 
     .. math::
 
-       q(d) = g^T d + \half d^T H d,
+       q(d) = g^T d + 1/2 d^T H d,
 
     where `g` is a n-vector typically interpreted as the gradient of some
     merit function and `H` is a real symmetric n-by-n matrix. Note that `H`

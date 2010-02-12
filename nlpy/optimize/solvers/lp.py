@@ -289,7 +289,7 @@ class RegLPInteriorPointSolver:
         # Transfer pointers for convenience.
         m, n = self.A.shape ; on = lp.original_n
         A = self.A ; b = self.b ; c = self.c ; H = self.H
-        regpr = self.regpr ; regdu = self.regdu
+        regpr = self.regpr_min ; regdu = self.regdu_min
 
         # Obtain initial point from Mehrotra's heuristic.
         # set_initial_guess() initializes self.LBL which is reused below.
@@ -323,6 +323,12 @@ class RegLPInteriorPointSolver:
             comp = s*z                                      # comp   = S z
             dFeas = y*A ; dFeas[:on] -= self.c              # dFeas1 = A1'y - c
             dFeas[on:] += z                                 # dFeas2 = A2'y + z
+
+            # Adjust regularization parameters
+            mu = sum(comp)/ns
+            if mu < 1:
+                regpr = sqrt(mu)
+                regdu = sqrt(mu)
 
             # At the first iteration, initialize perturbation vectors
             # (q=primal, r=dual).

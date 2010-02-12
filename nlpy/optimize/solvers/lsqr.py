@@ -22,26 +22,9 @@ def normof4(x1,x2,x3,x4): return sqrt(x1**2 + x2**2 + x3**2 + x4**2)
 
 class LSQRFramework:
     r"""
-    LSQR solves  :math:`Ax = b`  or  :math:`\min \|b - Ax\|_2`  if `damp = 0`,
-    or
-
-    .. math::
-
-       \minimize{x \in \R^n}
-       \left\|
-       \begin{bmatrix}
-       b \\
-       0
-       \end{bmatrix}
-       -
-       \begin{bmatrix}
-       A \\
-       \text{damp}
-       \end{bmatrix}
-       x
-       \right\|_2,
-
-    otherwise.
+    LSQR solves  `Ax = b`  or  `minimize |b - Ax|` in Euclidian norm  if
+    `damp = 0`, or `minimize |b - Ax| + damp * |x|` in Euclidian norm if
+    `damp > 0`.
 
     `A`  is an (m x n) matrix defined by  `y = aprod(mode, m, n, x)`,
     where `aprod` refers to a function that performs matrix-vector products.

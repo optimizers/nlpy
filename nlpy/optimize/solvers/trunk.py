@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-                    T R U N K
+ TRUNK
  Trust-Region Method for Unconstrained Programming.
 
  A first unconstrained optimization solver in Python
@@ -19,7 +19,7 @@ class TrunkFramework:
     An abstract framework for a trust-region-based algorithm for nonlinear
     unconstrained programming. Instantiate using
 
-        `TRNK = TrunkFramework(nlp, TR, TrSolver)`
+    `TRNK = TrunkFramework(nlp, TR, TrSolver)`
 
     :parameters:
 
