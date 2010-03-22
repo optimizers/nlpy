@@ -9,6 +9,7 @@ D. Orban <dominique.orban@gerad.ca>
 
 DOCLINES = __doc__.split("\n")
 
+import setuptools   # To enable 'python setup.py develop'
 import os
 import sys
 
