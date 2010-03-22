@@ -330,6 +330,19 @@ class RegLPInteriorPointSolver:
             dFeas = y*A ; dFeas[:on] -= self.c              # dFeas1 = A1'y - c
             dFeas[on:] += z                                 # dFeas2 = A2'y + z
 
+            # Adjust regularization parameters based on duality measure.
+            mu = sz/ns
+            if mu < 1:
+                regpr = max(min(regpr/10, sqrt(mu)), regpr_min)
+                regdu = max(min(regpr/10, sqrt(mu)), regdu_min)
+            else:
+                if iter > 0:
+                    regpr = max(min(regpr/10, regpr**(1.1)), regpr_min)
+                    regdu = max(min(regdu/10, regdu**(1.1)), regdu_min)
+                else:
+                    regpr = self.regpr
+                    regdu = self.regdu
+
             # At the first iteration, initialize perturbation vectors
             # (q=primal, r=dual).
             if iter == 0:
@@ -380,9 +393,9 @@ class RegLPInteriorPointSolver:
             # dual regularization parameters have appropriate values.
 
             # Reset primal and dual regularization parameters to best guess
-            if iter > 0:
-                regpr = max(regpr_min, 0.5*sigma*dResid/normds)
-                regdu = max(regdu_min, 0.5*sigma*pResid/normdy)
+            #if iter > 0:
+            #    regpr = max(regpr_min, 0.5*sigma*dResid/normds)
+            #    regdu = max(regdu_min, 0.5*sigma*pResid/normdy)
 
             step_acceptable = False
 
@@ -519,12 +532,12 @@ class RegLPInteriorPointSolver:
                 # 1/gammaP = |Ax-b|/sz    = pResid/sz and
                 # 1/gammaD = |c-A'y-z|/sz = dResid/sz.
                 normds = norm2(ds) ; normdy = norm2(dy)
-                regpr_small_enough = (regpr * normds <= t1 * sigma * dResid)
-                regdu_small_enough = (regdu * normdy <= t2 * sigma * pResid)
+                #regpr_small_enough = (regpr * normds <= t1 * sigma * dResid)
+                #regdu_small_enough = (regdu * normdy <= t2 * sigma * pResid)
 
-                if regpr_small_enough and regdu_small_enough:
-                    step_acceptable = True
-                else:
+#                if regpr_small_enough and regdu_small_enough:
+#                    step_acceptable = True
+#                else:
 #                     if not regpr_small_enough:
 #                         print 'Must decrease rho and re-factorize...'
 #                         regpr = min(regpr/2, 0.5 * t1 * sigma * pResid/normds)
@@ -535,7 +548,7 @@ class RegLPInteriorPointSolver:
 #                         regdu = max(regdu, regdu_min)
 #                     if regpr == regpr_min or regdu == regdu_min:
 #                         step_acceptable = True
-                    step_acceptable = True
+                step_acceptable = True
 
             # End while not step_acceptable
 
@@ -583,10 +596,14 @@ class RegLPInteriorPointSolver:
                                                  nres, regpr, regdu, rho_q,
                                                  del_r, mins, minz, maxs))
 
-            # Update iterates and perturbation vectors.
-            x += alpha_p * dx    # This also updates slack variables.
+            # Update primal variables and slacks.
+            x += alpha_p * dx
+
+            # Update dual variables.
             y += alpha_d * dy
             z += alpha_d * dz
+
+            # Update perturbation vectors.
             q *= (1-alpha_p) ; q += alpha_p * dx
             r *= (1-alpha_d) ; r += alpha_d * dy
             qNorm = norm2(q) ; rNorm = norm2(r)
