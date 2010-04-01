@@ -42,7 +42,7 @@ void  NLPy_Free_Object( void **object );
 #endif
 
 /* Shortcut to make NLPy_Free_Object a bit more intuitive */
-#define NLPy_Free(obj) NLPy_Free_Object( (void*)(&(obj)) )
+#define NLPy_Free(obj) NLPy_Free_Object( (void**)(&(obj)) )
 
 /* Error messages */
 
