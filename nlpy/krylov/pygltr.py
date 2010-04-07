@@ -6,7 +6,7 @@
 Solution of a trust-region subproblem using the preconditioned Lanczos method.
 """
 
-from pysparse import spmatrix
+from pysparse.sparse import spmatrix
 from nlpy.krylov import _pygltr
 import numpy
 import sys

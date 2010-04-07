@@ -12,9 +12,9 @@
 
 #include "arrayflavor.h"
 
-#include "pysparse/spmatrix.h"
-#include "pysparse/spmatrix_api.h"
-#include "pysparse/ll_mat.h"
+#include "spmatrix.h"
+#include "spmatrix_api.h"
+#include "ll_mat.h"
 
 #include <math.h>
 #include "asl_pfgh.h"              /* Ampl library headers    */

@@ -19,7 +19,7 @@ References:
 D. Orban, Montreal
 """
 
-from pysparse          import spmatrix
+from pysparse.sparse   import spmatrix
 from nlpy.tools        import List
 from nlpy.tools.timing import cputime
 from nlpy.tools.norms  import norm2, norm_infty

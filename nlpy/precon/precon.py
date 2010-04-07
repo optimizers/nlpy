@@ -14,8 +14,12 @@ D. Orban                             Montreal, March 2007
 """
 
 import numpy as np
-from pysparse import spmatrix
-from nlpy.linalg import pyma27
+from pysparse.sparse import spmatrix
+try:     # To solve symmetric linear systems
+        from nlpy.linalg.pyma57 import PyMa57Context as LBLContext
+except:
+        from nlpy.linalg.pyma27 import PyMa27Context as LBLContext
+
 
 class GenericPreconditioner:
     
@@ -86,13 +90,13 @@ class BandedPreconditioner(GenericPreconditioner):
                     M[j+i+1,j] = A[j+i+1,j]
 
         # Factorize preconditioner
-        self.context = pyma27.PyMa27Context(M)
+        self.lbl = LBLContext(M)
 
         # Only need factors of M --- can discard M itself
         del M
 
     def precon(self, x):
-        self.context.solve(x)
-        return self.context.x.copy()
+        self.lbl.solve(x)
+        return self.lbl.x.copy()
 
 # For a LBFGS preconditioner, see class LbfgsUpdate

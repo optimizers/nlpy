@@ -3,8 +3,8 @@ Ma27: Direct multifrontal solution of symmetric systems
 """
 
 import numpy
-from pysparse.pysparseMatrix import PysparseMatrix
-from pysparse import spmatrix
+from pysparse.sparse.pysparseMatrix import PysparseMatrix
+from pysparse.sparse import spmatrix
 from sils import Sils
 from nlpy.linalg import _pyma27
 
@@ -139,7 +139,7 @@ class PyMa27Context( Sils ):
 if __name__ == '__main__':
 
     import sys
-    from pysparse import spmatrix
+    from pysparse.sparse import spmatrix
     import numpy
     import norms
 

@@ -17,8 +17,8 @@ from nlpy.tools.norms import norm2, norm_infty
 from nlpy.tools import sparse_vector_class as sv
 from nlpy.tools.timing import cputime
 
-from pysparse import spmatrix
-from pysparse.pysparseMatrix import PysparseMatrix
+from pysparse.sparse import spmatrix
+from pysparse.sparse.pysparseMatrix import PysparseMatrix
 import numpy as np
 from math import sqrt
 import sys

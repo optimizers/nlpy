@@ -11,8 +11,8 @@ __docformat__ = 'restructuredtext'
 import numpy
 from nlpy.model import AmplModel
 from nlpy.tools import List
-from pysparse.pysparseMatrix import PysparseMatrix as sp
-from pysparse import spmatrix
+from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
+from pysparse.sparse import spmatrix
 
 class SlackFramework( AmplModel ):
     """
