@@ -34,8 +34,11 @@ parser.add_option("-s", "--no-stabilize", action="store_true",
         dest="no_stabilize", default=False, help="Turn off stabilization")
 parser.add_option("-S", "--no-scale", action="store_true",
         dest="no_scale", default=False, help="Turn off problem scaling")
-parser.add_option("-l", "--long-step", action="store_false", default=False,
+parser.add_option("-l", "--long-step", action="store_true", default=False,
         dest="longstep", help="Use long-step method")
+parser.add_option("-f", "--assume-feasible", action="store_true",
+        default=False, dest="assume_feasible",
+        help="Deactivate infeasibility check")
 parser.add_option("-V", "--verbose", action="store_true", default=False,
         dest="verbose", help="Set verbose mode")
 
@@ -79,7 +82,9 @@ for probname in args:
                                      stabilize=not options.no_stabilize,
                                      verbose=options.verbose,
                                      **opts_init)
+
     reglp.solve(PredictorCorrector=not options.longstep,
+                check_infeasible=not options.assume_feasible,
                 **opts_solve)
 
     # Display summary line.

@@ -290,6 +290,7 @@ class RegLPInteriorPointSolver:
         itermax = kwargs.get('itermax', 10*lp.n)
         tolerance = kwargs.get('tolerance', 1.0e-6)
         PredictorCorrector = kwargs.get('PredictorCorrector', True)
+        check_infeasible = kwargs.get('check_infeasible', True)
 
         # Transfer pointers for convenience.
         m, n = self.A.shape ; on = lp.original_n
@@ -368,27 +369,25 @@ class RegLPInteriorPointSolver:
                 regpr = max(regpr, regpr_min)
 
                 # Check for infeasible problem.
-                if mu < 1.0e-6 * mu0 and rho_q > 1000 * mu: # tolerance:
-                    pr_infeas_count += 1
-                    if pr_infeas_count > 1 and pr_last_iter == iter-1:
+                if check_infeasible:
+                    if mu < 1.0e-6 * mu0 and rho_q > 1000 * mu: # tolerance:
+                        pr_infeas_count += 1
+                        if pr_infeas_count > 1 and pr_last_iter == iter-1:
+                            if pr_infeas_count > 3:
+                                status = 'Problem is (locally) dual infeasible'
+                                short_status = 'dInf'
+                                finished = True
+                                continue
                         pr_last_iter = iter
-                        if pr_infeas_count > 3:
-                            status = 'Problem is dual infeasible'
-                            short_status = 'dInf'
-                            finished = True
-                            continue
-                    pr_last_iter = iter
 
-                if mu < 1.0e-6 * mu0 and del_r > 1000 * mu: # tolerance:
-                    du_infeas_count += 1
-                    if du_infeas_count > 1 and du_last_iter == iter-1:
-                        du_last_iter = iter
-                        if du_infeas_count > 3:
-                            status = 'Problem is primal infeasible'
-                            short_status = 'pInf'
-                            finished = True
-                            continue
-                    else:
+                    if mu < 1.0e-6 * mu0 and del_r > 1000 * mu: # tolerance:
+                        du_infeas_count += 1
+                        if du_infeas_count > 1 and du_last_iter == iter-1:
+                            if du_infeas_count > 3:
+                                status='Problem is (locally) primal infeasible'
+                                short_status = 'pInf'
+                                finished = True
+                                continue
                         du_last_iter = iter
 
 
