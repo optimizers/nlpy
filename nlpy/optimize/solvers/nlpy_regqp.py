@@ -17,10 +17,10 @@ if len(sys.argv) < 2:
 numpy.set_printoptions(precision=3, linewidth=80, threshold=10, edgeitems=3)
 
 # Define formats for output table.
-hdrfmt = '%-15s  %5s  %15s  %7s  %7s  %7s  %6s  %6s'
+hdrfmt = '%-15s  %5s  %15s  %7s  %7s  %7s  %6s  %6s  %4s'
 hdr = hdrfmt % ('Name', 'Iter', 'Objective', 'pResid', 'dResid',
-                'Gap', 'Setup', 'Solve')
-fmt = '%-15s  %5d  %15.8e  %7.1e  %7.1e  %7.1e  %6.2f  %6.2f'
+                'Gap', 'Setup', 'Solve', 'Stat')
+fmt = '%-15s  %5d  %15.8e  %7.1e  %7.1e  %7.1e  %6.2f  %6.2f  %4s'
 
 oneproblem = True
 if len(sys.argv[1:]) > 1:
@@ -50,9 +50,9 @@ for probname in sys.argv[1:]:
     if not oneproblem:
         sys.stdout.write(fmt % (probname, regqp.iter, regqp.obj_value,
                                 regqp.pResid, regqp.dResid, regqp.rgap,
-                                t_setup, regqp.solve_time))
-        if regqp.status != 'Optimal solution found':
-            sys.stdout.write(' F')  # Problem was not solved to optimality.
+                                t_setup, regqp.solve_time, regqp.short_status))
+        if regqp.short_status == 'degn':
+            sys.stdout.write(' F')  # Could not regularize sufficiently.
         sys.stdout.write('\n')
 
     qp.close()

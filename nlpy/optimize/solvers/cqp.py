@@ -28,7 +28,7 @@ import sys
 
 class RegQPInteriorPointSolver:
 
-    def __init__(self, qp, scale=True, **kwargs):
+    def __init__(self, qp, **kwargs):
         """
         Solve a convex quadratic program of the form
 
@@ -69,6 +69,7 @@ class RegQPInteriorPointSolver:
             raise ValueError, msg
 
         self.verbose = kwargs.get('verbose', True)
+        scale = kwargs.get('scale', True)
 
         self.qp = qp
         self.A = qp.A()               # Constraint matrix
@@ -85,7 +86,7 @@ class RegQPInteriorPointSolver:
         self.b  = -qp.cons(zero)                  # Right-hand side
         self.c0 =  qp.obj(zero)                   # Constant term in objective
         self.c  =  qp.grad(zero[:on])             # Cost vector
-        self.Q  =  PysparseMatrix(matrix=qp.hess(zero[:on], 
+        self.Q  =  PysparseMatrix(matrix=qp.hess(zero[:on],
                                                  np.zeros(qp.original_m)))
 
         # Apply in-place problem scaling if requested.
@@ -162,7 +163,8 @@ class RegQPInteriorPointSolver:
         w('Constant term in objective: %8.2e\n' % self.c0)
         w('Initial primal regularization: %8.2e\n' % self.regpr)
         w('Initial dual   regularization: %8.2e\n' % self.regdu)
-        w('Time for scaling: %6.2fs\n' % self.t_scale)
+        if self.prob_scaled:
+            w('Time for scaling: %6.2fs\n' % self.t_scale)
         w('\n')
         return
 
@@ -312,10 +314,11 @@ class RegQPInteriorPointSolver:
          kktResid.......final relative residual
          solve_time.....time to solve the QP
          status.........string describing the exit status.
+         short_status...short version of status, used for printing.
         """
         qp = self.qp
         itermax = kwargs.get('itermax', max(100,10*qp.n))
-        tolerance = kwargs.get('tolerance', 1.0e-5)
+        tolerance = kwargs.get('tolerance', 1.0e-6)
         PredictorCorrector = kwargs.get('PredictorCorrector', True)
 
         # Transfer pointers for convenience.
@@ -324,6 +327,7 @@ class RegQPInteriorPointSolver:
         H = self.H
 
         regpr = self.regpr ; regdu = self.regdu
+        regpr_min = self.regpr_min ; regdu_min = self.regdu_min
 
         # Obtain initial point from Mehrotra's heuristic.
         (x,y,z) = self.set_initial_guess(self.qp, **kwargs)
@@ -353,7 +357,7 @@ class RegQPInteriorPointSolver:
 
             # Compute residuals.
             pFeas = A*x - b
-            comp = s*z                                  # comp   = S z
+            comp = s*z ; sz = sum(comp)                 # comp   = S z
             Qx = Q*x[:on]
             dFeas = y*A ; dFeas[:on] -= self.c + Qx     # dFeas1 = A1'y - c - Qx
             dFeas[on:] += z                             # dFeas2 = A2'y + z
@@ -365,24 +369,32 @@ class RegQPInteriorPointSolver:
                 r = -pFeas/regdu ; rNorm = norm2(r) ; del_r = regdu * rNorm
                 #q = np.zeros(n) ; qNorm = 0 ; rho_q = 0
                 #r = np.zeros(m) ; rNorm = 0 ; del_r = 0
+            else:
+                regdu = min(regdu/10, sz/normdy/10, (sz/normdy)**(1.1))
+                regdu = max(regdu, regdu_min)
+                regpr = min(regpr/10, sz/normdx/10, (sz/normdx)**(1.1))
+                regpr = max(regpr, regpr_min)
 
-            pResid = norm_infty(pFeas + regdu * r)/(1+self.normc+self.normQ)
+            # Compute residual norms and scaled residual norms.
+            #pResid = norm_infty(pFeas + regdu * r)/(1+self.normc+self.normQ)
+            #dResid = norm_infty(dFeas - regpr * q)/(1+self.normb+self.normQ)
+            pResid = norm2(pFeas) ; spResid = pResid/(1+self.normc+self.normQ)
+            dResid = norm2(dFeas) ; sdResid = dResid/(1+self.normb+self.normQ)
             if ns > 0:
                 cResid = norm_infty(comp)/(self.normbc+self.normQ)
             else:
                 cResid = 0.0
-            dResid = norm_infty(dFeas - regpr * q)/(1+self.normb+self.normQ)
 
             # Compute relative duality gap.
             cx = np.dot(c,x[:on])
             xQx = np.dot(x[:on],Qx)
             by = np.dot(b,y)
             rgap  = cx + xQx - by
-            rgap += regdu * (rNorm**2 + np.dot(r,y))
+            #rgap += regdu * (rNorm**2 + np.dot(r,y))
             rgap  = abs(rgap) / (1 + abs(cx) + self.normQ)
 
             # Compute overall residual for stopping condition.
-            kktResid = max(max(pResid, dResid)/self.normbc, rgap)
+            kktResid = max(spResid, sdResid, rgap)
             #kktResid = max(pResid, cResid, dResid)
 
             # Display objective and residual data.
@@ -393,11 +405,13 @@ class RegQPInteriorPointSolver:
 
             if kktResid <= tolerance:
                 status = 'Optimal solution found'
+                short_status = 'opt'
                 finished = True
                 continue
 
             if iter >= itermax:
                 status = 'Maximum number of iterations reached'
+                short_status = 'iter'
                 finished = True
                 continue
 
@@ -430,7 +444,6 @@ class RegQPInteriorPointSolver:
                 H.put(-diagQ - regpr,    range(on))
                 H.put(-z/s   - regpr,  range(on,n))
                 H.put(regdu,          range(n,n+m))
-                #LBL = LBLContext(H, sqd=True)
                 self.LBL.factorize(H)
                 factorized = True
 
@@ -438,7 +451,8 @@ class RegQPInteriorPointSolver:
                 # regularization parameters.
                 if not self.LBL.isFullRank:
                     if self.verbose:
-                        sys.stderr.write('Primal-Dual Matrix Rank Deficient\n')
+                        sys.stderr.write('Primal-Dual Matrix Rank Deficient')
+                        sys.stderr.write('... bumping up reg parameters\n')
                     regpr *= 100 ; regdu *= 100
                     nb_bump += 1
                     factorized = False
@@ -446,12 +460,13 @@ class RegQPInteriorPointSolver:
             # Abandon if regularization is unsuccessful.
             if not self.LBL.isFullRank and nb_bump == 5:
                 status = 'Unable to regularize sufficiently.'
+                short_status = 'degn'
                 finished = True
                 continue
 
             # Compute duality measure.
             if ns > 0:
-                mu = sum(comp)/ns
+                mu = sz/ns
             else:
                 mu = 0.0
 
@@ -505,6 +520,8 @@ class RegQPInteriorPointSolver:
             dy = step[n:]
             dz = -(comp + z*ds)/s
 
+            normds = norm2(ds) ; normdy = norm2(dy) ; normdx = norm2(dx)
+
             # Compute largest allowed primal and dual stepsizes.
             (alpha_p, ip) = self.maxStepLength(s, ds)
             (alpha_d, id) = self.maxStepLength(z, dz)
@@ -553,11 +570,12 @@ class RegQPInteriorPointSolver:
             q *= (1-alpha_p) ; q += alpha_p * dx
             r *= (1-alpha_d) ; r += alpha_d * dy
             qNorm = norm2(q) ; rNorm = norm2(r)
-            rho_q = regpr * qNorm/self.normc ; del_r = regdu * rNorm/self.normb
+            rho_q = regpr * qNorm/(1+self.normc)
+            del_r = regdu * rNorm/(1+self.normb)
 
             # Update regularization parameters.
-            regpr = max(min(regpr/2, regpr**(1.1)), self.regpr_min)
-            regdu = max(min(regdu/2, regdu**(1.1)), self.regdu_min)
+            #regpr = max(min(regpr/2, regpr**(1.1)), self.regpr_min)
+            #regdu = max(min(regdu/2, regdu**(1.1)), self.regdu_min)
 
             iter += 1
 
@@ -577,12 +595,13 @@ class RegQPInteriorPointSolver:
         self.kktResid = kktResid
         self.solve_time = solve_time
         self.status = status
+        self.short_status = short_status
 
         # Unscale problem if applicable.
         if self.prob_scaled: self.unscale()
 
         # Recompute final objective value.
-        self.obj_value = cx + 0.5 * xQx
+        self.obj_value = self.c0 + cx + 0.5 * xQx
 
         return
 
@@ -692,10 +711,10 @@ class RegQPInteriorPointSolver:
         return (stepmax, kmin)
 
     def solveSystem(self, rhs, itref_threshold=1.0e-5, nitrefmax=5):
-        self.LBL.solve(rhs)            
-        nr = norm2(self.LBL.residual)
-        #self.LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
+        self.LBL.solve(rhs)
         #nr = norm2(self.LBL.residual)
+        self.LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
+        nr = norm2(self.LBL.residual)
         return (self.LBL.x, nr, self.LBL.neig)
 
 
