@@ -26,7 +26,7 @@ import sys
 
 class RegLPInteriorPointSolver:
 
-    def __init__(self, lp, scale=True, **kwargs):
+    def __init__(self, lp, **kwargs):
         """
         Solve a linear program of the form
 
@@ -65,6 +65,7 @@ class RegLPInteriorPointSolver:
             msg = 'Input problem must be an instance of SlackFramework'
             raise ValueError, msg
 
+        scale = kwargs.get('scale', True)
         self.verbose = kwargs.get('verbose', True)
         self.stabilize = kwargs.get('stabilize', False)
 
@@ -147,7 +148,8 @@ class RegLPInteriorPointSolver:
         w('Right-hand side norm: %8.2e\n' % self.normb)
         w('Initial primal regularization: %8.2e\n' % self.regpr)
         w('Initial dual   regularization: %8.2e\n' % self.regdu)
-        w('Time for scaling: %6.2fs\n' % self.t_scale)
+        if self.prob_scaled:
+            w('Time for scaling: %6.2fs\n' % self.t_scale)
         w('\n')
         return
 
@@ -281,11 +283,12 @@ class RegLPInteriorPointSolver:
          iter...........total number of iterations
          kktResid.......final relative residual
          solve_time.....time to solve the LP
-         status.........string describing the exit status.
+         status.........string describing the exit status
+         short_status...short version of status, used for printing.
         """
         lp = self.lp
         itermax = kwargs.get('itermax', 10*lp.n)
-        tolerance = kwargs.get('tolerance', 1.0e-5)
+        tolerance = kwargs.get('tolerance', 1.0e-6)
         PredictorCorrector = kwargs.get('PredictorCorrector', True)
 
         # Transfer pointers for convenience.
@@ -329,27 +332,65 @@ class RegLPInteriorPointSolver:
             comp = s*z ; sz = sum(comp)                     # comp   = S z
             dFeas = y*A ; dFeas[:on] -= self.c              # dFeas1 = A1'y - c
             dFeas[on:] += z                                 # dFeas2 = A2'y + z
-
-            # Adjust regularization parameters based on duality measure.
             mu = sz/ns
-            if mu < 1:
-                regpr = max(min(regpr/10, sqrt(mu)), regpr_min)
-                regdu = max(min(regpr/10, sqrt(mu)), regdu_min)
-            else:
-                if iter > 0:
-                    regpr = max(min(regpr/10, regpr**(1.1)), regpr_min)
-                    regdu = max(min(regdu/10, regdu**(1.1)), regdu_min)
-                else:
-                    regpr = self.regpr
-                    regdu = self.regdu
 
             # At the first iteration, initialize perturbation vectors
             # (q=primal, r=dual).
             if iter == 0:
+                regpr = self.regpr ; regdu = self.regdu
+                #regpr = regdu = mu
                 q =  dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
                 r = -pFeas/regdu ; rNorm = norm2(r) ; del_r = regdu * rNorm
                 #q = np.zeros(n) ; qNorm = 0 ; rho_q = 0
                 #r = np.zeros(m) ; rNorm = 0 ; del_r = 0
+                pr_infeas_count = 0  # Used to detect primal infeasibility.
+                du_infeas_count = 0  # Used to detect dual infeasibility.
+                pr_last_iter = 0
+                du_last_iter = 0
+                mu0 = mu
+            else:
+                # Adjust regularization parameters.
+                #regpr = max(min(regpr/10, regpr**(1.1)), regpr_min)
+                #regdu = max(min(regdu/10, regdu**(1.1)), regdu_min)
+                # 1) rho_k |dx| <= const * s'z
+                # 2) del_k |dy| <= const * s'z
+                #if mu < 1.0e-3 and rNorm > 1000*regdu and bump < 10:
+                #    regdu *= 100
+                #    bump += 1
+                #else:
+                regdu = min(regdu/10, sz/normdy/100, (sz/normdy)**(1.1))
+                regdu = max(regdu, regdu_min)
+                #if mu < 1.0e-3 and qNorm > 1000*regpr and bump < 10:
+                #    regpr *= 100
+                #    bump += 1
+                #else:
+                regpr = min(regpr/10, sz/normdx/100, (sz/normdx)**(1.1))
+                regpr = max(regpr, regpr_min)
+
+                # Check for infeasible problem.
+                if mu < 1.0e-6 * mu0 and rho_q > 1000 * mu: # tolerance:
+                    pr_infeas_count += 1
+                    if pr_infeas_count > 1 and pr_last_iter == iter-1:
+                        pr_last_iter = iter
+                        if pr_infeas_count > 3:
+                            status = 'Problem is dual infeasible'
+                            short_status = 'dInf'
+                            finished = True
+                            continue
+                    pr_last_iter = iter
+
+                if mu < 1.0e-6 * mu0 and del_r > 1000 * mu: # tolerance:
+                    du_infeas_count += 1
+                    if du_infeas_count > 1 and du_last_iter == iter-1:
+                        du_last_iter = iter
+                        if du_infeas_count > 3:
+                            status = 'Problem is primal infeasible'
+                            short_status = 'pInf'
+                            finished = True
+                            continue
+                    else:
+                        du_last_iter = iter
+
 
             # Compute residual norms and scaled residual norms.
             #pResid = norm_infty(pFeas + regdu * r)/(1+self.normc)
@@ -376,11 +417,13 @@ class RegLPInteriorPointSolver:
 
             if kktResid <= tolerance:
                 status = 'Optimal solution found'
+                short_status = 'opt'
                 finished = True
                 continue
 
             if iter >= itermax:
                 status = 'Maximum number of iterations reached'
+                short_status= 'iter'
                 finished = True
                 continue
 
@@ -449,6 +492,7 @@ class RegLPInteriorPointSolver:
                 # Abandon if regularization is unsuccessful.
                 if not self.LBL.isFullRank and nb_bump == 5:
                     status = 'Unable to regularize sufficiently.'
+                    short_status = 'degn'
                     finished = True
                     continue  # Does this get us out of the outer while?
 
@@ -531,7 +575,7 @@ class RegLPInteriorPointSolver:
                 # In the predictor-corrector method, we choose
                 # 1/gammaP = |Ax-b|/sz    = pResid/sz and
                 # 1/gammaD = |c-A'y-z|/sz = dResid/sz.
-                normds = norm2(ds) ; normdy = norm2(dy)
+                normds = norm2(ds) ; normdy = norm2(dy) ; normdx = norm2(dx)
                 #regpr_small_enough = (regpr * normds <= t1 * sigma * dResid)
                 #regdu_small_enough = (regdu * normdy <= t2 * sigma * pResid)
 
@@ -607,7 +651,8 @@ class RegLPInteriorPointSolver:
             q *= (1-alpha_p) ; q += alpha_p * dx
             r *= (1-alpha_d) ; r += alpha_d * dy
             qNorm = norm2(q) ; rNorm = norm2(r)
-            rho_q = regpr * qNorm/self.normc ; del_r = regdu * rNorm/self.normb
+            rho_q = regpr * qNorm/(1+self.normc)
+            del_r = regdu * rNorm/(1+self.normb)
 
             # Update regularization parameters.
             #regpr = max(min(regpr/2, regpr**(1.1)), self.regpr_min)
@@ -631,6 +676,7 @@ class RegLPInteriorPointSolver:
         self.kktResid = kktResid
         self.solve_time = solve_time
         self.status = status
+        self.short_status = short_status
 
         # Unscale problem if applicable.
         if self.prob_scaled: self.unscale()
@@ -743,11 +789,11 @@ class RegLPInteriorPointSolver:
             kmin = -1
         return (stepmax, kmin)
 
-    def solveSystem(self, rhs, itref_threshold=1.0e-5, nitrefmax=5):
-        self.LBL.solve(rhs)            
-        nr = norm2(self.LBL.residual)
-        #self.LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
+    def solveSystem(self, rhs, itref_threshold=1.0e-5, nitrefmax=3):
+        self.LBL.solve(rhs)
         #nr = norm2(self.LBL.residual)
+        self.LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
+        nr = norm2(self.LBL.residual)
         return (self.LBL.x, nr, self.LBL.neig)
 
 
