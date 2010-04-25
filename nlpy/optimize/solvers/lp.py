@@ -482,10 +482,10 @@ class RegLPInteriorPointSolver:
                     if not self.LBL.isFullRank:
                         if self.verbose:
                             sys.stderr.write('Primal-Dual Matrix ')
-                            sys.stderr.write('Rank Deficient\n')
+                            sys.stderr.write('Rank Deficient')
+                            sys.stderr.write('... bumping up reg parameters\n')
                         regpr *= 10 ; regdu *= 10
                         nb_bump += 1
-                        print 'Bumping up rho and delta...'
                         factorized = False
 
                 # Abandon if regularization is unsuccessful.
@@ -563,7 +563,7 @@ class RegLPInteriorPointSolver:
                 if self.stabilize:
                     step[:n] *= sqrt(regdu) / col_scale
 
-                # Recover step in x and y.
+                # Recover step.
                 dx = step[:n]
                 ds = dx[on:]
                 dy = step[n:]
