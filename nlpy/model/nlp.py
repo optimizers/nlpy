@@ -43,7 +43,7 @@ class NLPModel:
     If necessary, additional arguments may be passed in kwargs.
     """
     
-    def __init__( self, n = 0, m = 0, name = 'Generic', **kwargs ):
+    def __init__(self, n=0, m=0, name='Generic', **kwargs):
     
         import numpy
         import math
@@ -62,45 +62,45 @@ class NLPModel:
         if 'x0' in kwargs.keys():
             self.x0 = kwargs['x0']
         else:
-            self.x0 = numpy.zeros( self.n, 'd' )
+            self.x0 = numpy.zeros(self.n, 'd')
 
         # Set initial multipliers
         if 'pi0' in kwargs.keys():
             self.pi0 = kwargs['pi0']
         else:
-            self.pi0 = numpy.zeros( self.m, 'd' )
+            self.pi0 = numpy.zeros(self.m, 'd')
 
         # Set lower bounds on variables    Lvar[i] <= x[i]  i = 1,...,n
         if 'Lvar' in kwargs.keys():
             self.Lvar = kwargs['Lvar']
         else:
-            self.Lvar = self.negInfinity * numpy.ones( self.n, 'd' )
+            self.Lvar = self.negInfinity * numpy.ones(self.n, 'd')
 
         # Set upper bounds on variables    x[i] <= Uvar[i]  i = 1,...,n
         if 'Uvar' in kwargs.keys():
             self.Uvar = kwargs['Uvar']
         else:
-            self.Uvar = self.Infinity * numpy.ones( self.n, 'd' )
+            self.Uvar = self.Infinity * numpy.ones(self.n, 'd')
 
         # Set lower bounds on constraints  Lcon[i] <= c[i]  i = 1,...,m
         if 'Lcon' in kwargs.keys():
             self.Lcon = kwargs['Lcon']
         else:
-            self.Lcon = self.negInfinity * numpy.ones( self.m, 'd' )
+            self.Lcon = self.negInfinity * numpy.ones(self.m, 'd')
 
         # Set upper bounds on constraints  c[i] <= Ucon[i]  i = 1,...,m
         if 'Ucon' in kwargs.keys():
             self.Ucon = kwargs['Ucon']
         else:
-            self.Ucon = self.Infinity * numpy.ones( self.m, 'd' )
+            self.Ucon = self.Infinity * numpy.ones(self.m, 'd')
 
         # Default classification of constraints
-        self.lin = []                          # Linear    constraints
-        self.nln = range( self.m )             # Nonlinear constraints
-        self.net = []                          # Network   constraints
-        self.nlin = len( self.lin )            # Number of linear constraints
-        self.nnln = len( self.nln )            # Number of nonlinear constraints
-        self.nnet = len( self.net )            # Number of network constraints
+        self.lin = []                        # Linear    constraints
+        self.nln = range(self.m)             # Nonlinear constraints
+        self.net = []                        # Network   constraints
+        self.nlin = len(self.lin)            # Number of linear constraints
+        self.nnln = len(self.nln)            # Number of nonlinear constraints
+        self.nnet = len(self.net)            # Number of network constraints
 
         # Maintain lists of indices for each type of constraints:
         self.rangeC = []    # Range constraints:       cL <= c(x) <= cU
@@ -109,24 +109,24 @@ class NLPModel:
         self.equalC = []    # Equality constraints:    cL  = c(x)  = cU
         self.freeC  = []    # "Free" constraints:    -inf <= c(x) <= inf
 
-        for i in range( self.m ):
+        for i in range(self.m):
             if self.Lcon[i] > self.negInfinity and self.Ucon[i] < self.Infinity:
                 if self.Lcon[i] == self.Ucon[i]:
-                    self.equalC.append( i )
+                    self.equalC.append(i)
                 else:
-                    self.rangeC.append( i )
+                    self.rangeC.append(i)
             elif self.Lcon[i] > self.negInfinity:
-                self.lowerC.append( i )
+                self.lowerC.append(i)
             elif self.Ucon[i] < self.Infinity:
-                self.upperC.append( i )
+                self.upperC.append(i)
             else:
-                self.freeC.append( i )
+                self.freeC.append(i)
         
-        self.nlowerC = len( self.lowerC )   # Number of lower bound constraints
-        self.nrangeC = len( self.rangeC )   # Number of range constraints
-        self.nupperC = len( self.upperC )   # Number of upper bound constraints
-        self.nequalC = len( self.equalC )   # Number of equality constraints
-        self.nfreeC  = len( self.freeC  )   # The rest: should be 0
+        self.nlowerC = len(self.lowerC)   # Number of lower bound constraints
+        self.nrangeC = len(self.rangeC)   # Number of range constraints
+        self.nupperC = len(self.upperC)   # Number of upper bound constraints
+        self.nequalC = len(self.equalC)   # Number of equality constraints
+        self.nfreeC  = len(self.freeC )   # The rest: should be 0
 
         # Proceed similarly with bound constraints
         self.rangeB = []
@@ -135,30 +135,30 @@ class NLPModel:
         self.fixedB = []
         self.freeB  = []
 
-        for i in range( self.n ):
+        for i in range(self.n):
             if self.Lvar[i] > self.negInfinity and self.Uvar[i] < self.Infinity:
                 if self.Lvar[i] == self.Uvar[i]:
-                    self.fixedB.append( i )
+                    self.fixedB.append(i)
                 else:
-                    self.rangeB.append( i )
+                    self.rangeB.append(i)
             elif self.Lvar[i] > self.negInfinity:
-                self.lowerB.append( i )
+                self.lowerB.append(i)
             elif self.Uvar[i] < self.Infinity:
-                self.upperB.append( i )
+                self.upperB.append(i)
             else:
-                self.freeB.append( i )
+                self.freeB.append(i)
 
-        self.nlowerB = len( self.lowerB )
-        self.nrangeB = len( self.rangeB )
-        self.nupperB = len( self.upperB )
-        self.nfixedB = len( self.fixedB )
-        self.nfreeB  = len( self.freeB  )
+        self.nlowerB = len(self.lowerB)
+        self.nrangeB = len(self.rangeB)
+        self.nupperB = len(self.upperB)
+        self.nfixedB = len(self.fixedB)
+        self.nfreeB  = len(self.freeB )
         self.nbounds = self.n - self.nfreeB
 
         # Define default stopping tolerances
-        self.stop_d = math.pow( 10.0, -6.0 )    # Dual feasibility
-        self.stop_c = math.pow( 10.0, -6.0 )    # Complementarty
-        self.stop_p = math.pow( 10.0, -6.0 )    # Primal feasibility
+        self.stop_d = math.pow(10.0, -6.0)    # Dual feasibility
+        self.stop_c = math.pow(10.0, -6.0)    # Complementarty
+        self.stop_p = math.pow(10.0, -6.0)    # Primal feasibility
 
         # Initialize some counters
         self.feval = 0    # evaluations of objective  function
@@ -169,7 +169,7 @@ class NLPModel:
         self.Jeval = 0    #                           gradients
         self.Jprod = 0    #                matrix-vector products with Jacobian
 
-    def ResetCounters( self ):
+    def ResetCounters(self):
         self.feval = 0
         self.geval = 0
         self.Heval = 0
@@ -180,51 +180,51 @@ class NLPModel:
         return None
 
     # Evaluate optimality residuals
-    def OptimalityResiduals( self, x, z, **kwargs ):
+    def OptimalityResiduals(self, x, z, **kwargs):
         raise NotImplementedError
 
     # Decide whether optimality is attained
-    def AtOptimality( self, x, z, **kwargs ):
-        (d, c, p) = self.OptimalityResiduals( x, z, **kwargs )
+    def AtOptimality(self, x, z, **kwargs):
+        (d, c, p) = self.OptimalityResiduals(x, z, **kwargs)
         if d <= self.stop_d and c <= self.stop_c and p <= self.stop_p:
             return True
         return False
 
     # Evaluate objective function at x
-    def obj( self, x, **kwargs ):
+    def obj(self, x, **kwargs):
         raise NotImplementedError
 
     # Evaluate objective gradient at x
-    def grad( self, x, **kwargs ):
+    def grad(self, x, **kwargs):
         raise NotImplementedError
         
     # Evaluate vector of constraints at x
-    def cons( self, x, **kwargs ):
+    def cons(self, x, **kwargs):
         raise NotImplementedError
 
     # Evaluate i-th constraint at x
-    def icons( self, i, x, **kwargs ):
+    def icons(self, i, x, **kwargs):
         raise NotImplementedError
 
     # Evalutate i-th constraint gradient at x
     # Gradient is returned as a dense vector
-    def igrad( self, i, x, **kwargs ):
+    def igrad(self, i, x, **kwargs):
         raise NotImplementedError
 
     # Evaluate i-th constraint gradient at x
     # Gradient is returned as a sparse vector
-    def sigrad( self, i, x, **kwargs ):
+    def sigrad(self, i, x, **kwargs):
         raise NotImplementedError
 
     # Evaluate constraints Jacobian at x
-    def jac( self, x, **kwargs ):
+    def jac(self, x, **kwargs):
         raise NotImplementedError
 
     # Evaluate Lagrangian Hessian at (x,z)
-    def hess( self, x, z, **kwargs ):
+    def hess(self, x, z, **kwargs):
         raise NotImplementedError
 
     # Evaluate matrix-vector product between
     # the Hessian of the Lagrangian and a vector
-    def hprod( self, x, z, p, **kwargs ):
+    def hprod(self, x, z, p, **kwargs):
         raise NotImplementedError
