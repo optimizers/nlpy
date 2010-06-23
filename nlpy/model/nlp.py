@@ -181,7 +181,7 @@ class NLPModel:
 
     # Evaluate optimality residuals
     def OptimalityResiduals( self, x, z, **kwargs ):
-        return (None, None, None)
+        raise NotImplementedError
 
     # Decide whether optimality is attained
     def AtOptimality( self, x, z, **kwargs ):
@@ -192,39 +192,39 @@ class NLPModel:
 
     # Evaluate objective function at x
     def obj( self, x, **kwargs ):
-        return None
+        raise NotImplementedError
 
     # Evaluate objective gradient at x
     def grad( self, x, **kwargs ):
-        return None
+        raise NotImplementedError
         
     # Evaluate vector of constraints at x
     def cons( self, x, **kwargs ):
-        return None
+        raise NotImplementedError
 
     # Evaluate i-th constraint at x
     def icons( self, i, x, **kwargs ):
-        return None
+        raise NotImplementedError
 
     # Evalutate i-th constraint gradient at x
     # Gradient is returned as a dense vector
     def igrad( self, i, x, **kwargs ):
-        return None
+        raise NotImplementedError
 
     # Evaluate i-th constraint gradient at x
     # Gradient is returned as a sparse vector
     def sigrad( self, i, x, **kwargs ):
-        return (None, None)
+        raise NotImplementedError
 
     # Evaluate constraints Jacobian at x
     def jac( self, x, **kwargs ):
-        return None
+        raise NotImplementedError
 
     # Evaluate Lagrangian Hessian at (x,z)
     def hess( self, x, z, **kwargs ):
-        return None
+        raise NotImplementedError
 
     # Evaluate matrix-vector product between
     # the Hessian of the Lagrangian and a vector
     def hprod( self, x, z, p, **kwargs ):
-        return None
+        raise NotImplementedError
