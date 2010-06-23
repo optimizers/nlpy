@@ -3,6 +3,7 @@
 from nlpy import __version__
 from nlpy.model import SlackFramework
 from nlpy.optimize.solvers.lp import RegLPInteriorPointSolver
+from nlpy.tools.norms import norm2
 from nlpy.tools.timing import cputime
 from optparse import OptionParser
 import numpy
@@ -105,9 +106,10 @@ if islp:
     if not options.verbose:
         sys.stderr.write('-'*len(hdr) + '\n')
     else:
-        print 'Final x: ', reglp.x[:lp.original_n]
-        print 'Final y: ', reglp.y
-        print 'Final z: ', reglp.z
+        x = reglp.x[:lp.original_n]
+        print 'Final x: ', x, ', |x| = %7.1e' % norm2(x)
+        print 'Final y: ', reglp.y, ', |y| = %7.1e' % norm2(reglp.y)
+        print 'Final z: ', reglp.z, ', |z| = %7.1e' % norm2(reglp.z)
 
         sys.stdout.write('\n' + reglp.status + '\n')
         sys.stdout.write(' #Iterations: %-d\n' % reglp.iter)

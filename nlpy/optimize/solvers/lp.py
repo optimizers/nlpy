@@ -22,6 +22,7 @@ from pysparse.sparse.pysparseMatrix import PysparseMatrix
 import numpy as np
 from math import sqrt
 import sys
+import pdb
 
 
 class RegLPInteriorPointSolver:
@@ -112,7 +113,10 @@ class RegLPInteriorPointSolver:
         if self.regdu < 0.0: self.regdu = 0.0
 
         # Dual regularization is necessary for stabilization.
-        if self.stabilize and self.regdu == 0.0: self.regdu = 1.0
+        if self.regdu == 0.0:
+            sys.stderr.write('Warning: No dual regularization in effect\n')
+            sys.stderr.write('         Stabilization has been turned off\n')
+            self.stabilize = False
 
         # Initialize format strings for display
         fmt_hdr = '%-4s  %9s' + '  %-8s'*6 + '  %-7s  %-4s  %-4s' + '  %-8s'*8
@@ -133,11 +137,14 @@ class RegLPInteriorPointSolver:
         """
         Display vital statistics about the input problem.
         """
+        import os
         lp = self.lp
         w = sys.stdout.write
         w('\n')
-        w('Problem Name: %s\n' % lp.name)
+        w('Problem Path: %s\n' % lp.name)
+        w('Problem Name: %s\n' % os.path.basename(lp.name))
         w('Number of problem variables: %d\n' % lp.original_n)
+        w('Number of free variables: %d\n' % lp.nfreeB)
         w('Number of problem constraints excluding bounds: %d\n' %lp.original_m)
         w('Number of slack variables: %d\n' % (lp.n - lp.original_n))
         w('Adjusted number of variables: %d\n' % lp.n)
@@ -339,9 +346,14 @@ class RegLPInteriorPointSolver:
             # (q=primal, r=dual).
             if iter == 0:
                 regpr = self.regpr ; regdu = self.regdu
-                #regpr = regdu = mu
-                q =  dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
-                r = -pFeas/regdu ; rNorm = norm2(r) ; del_r = regdu * rNorm
+                if regpr > 0:
+                    q = dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
+                else:
+                    q = dFeas ; qNorm = norm2(q) ; rho_q = 0.0
+                if regdu > 0:
+                    r = -pFeas/regdu ; rNorm = norm2(r) ; del_r = regdu * rNorm
+                else:
+                    r = -pFeas ; rNorm = norm2(r) ; del_r = 0.0
                 #q = np.zeros(n) ; qNorm = 0 ; rho_q = 0
                 #r = np.zeros(m) ; rNorm = 0 ; del_r = 0
                 pr_infeas_count = 0  # Used to detect primal infeasibility.
@@ -353,20 +365,14 @@ class RegLPInteriorPointSolver:
                 # Adjust regularization parameters.
                 #regpr = max(min(regpr/10, regpr**(1.1)), regpr_min)
                 #regdu = max(min(regdu/10, regdu**(1.1)), regdu_min)
-                # 1) rho_k |dx| <= const * s'z
-                # 2) del_k |dy| <= const * s'z
-                #if mu < 1.0e-3 and rNorm > 1000*regdu and bump < 10:
-                #    regdu *= 100
-                #    bump += 1
-                #else:
-                regdu = min(regdu/10, sz/normdy/100, (sz/normdy)**(1.1))
-                regdu = max(regdu, regdu_min)
-                #if mu < 1.0e-3 and qNorm > 1000*regpr and bump < 10:
-                #    regpr *= 100
-                #    bump += 1
-                #else:
-                regpr = min(regpr/10, sz/normdx/100, (sz/normdx)**(1.1))
-                regpr = max(regpr, regpr_min)
+                # 1) rho+ |dx| <= const * s'z
+                # 2) del+ |dy| <= const * s'z
+                if regdu > 0:
+                    regdu = min(regdu/10, sz/normdy/100, (sz/normdy)**(1.1))
+                    regdu = max(regdu, regdu_min)
+                if regpr > 0:
+                    regpr = min(regpr/10, sz/normdx/100, (sz/normdx)**(1.1))
+                    regpr = max(regpr, regpr_min)
 
                 # Check for infeasible problem.
                 if check_infeasible:
@@ -389,7 +395,6 @@ class RegLPInteriorPointSolver:
                                 finished = True
                                 continue
                         du_last_iter = iter
-
 
             # Compute residual norms and scaled residual norms.
             #pResid = norm_infty(pFeas + regdu * r)/(1+self.normc)
@@ -470,9 +475,16 @@ class RegLPInteriorPointSolver:
                         AA.col_scale(1/col_scale)
                         H[n:,:n] = AA
                     else:
-                        H.put(-regpr,       range(on))
+                        if regpr > 0: H.put(-regpr,       range(on))
                         H.put(-z/s - regpr, range(on,n))
-                        H.put(regdu,        range(n,n+m))
+                        if regdu > 0: H.put(regdu,        range(n,n+m))
+
+                    #if iter == 5:
+                    #    # Export current matrix to file for futher inspection.
+                    #    import os
+                    #    name = os.path.basename(self.lp.name)
+                    #    fname = '.'.join(name.split('.')[:-1]) + '.mtx'
+                    #    H.exportMmf(fname)
 
                     self.LBL.factorize(H)
                     factorized = True
@@ -483,13 +495,20 @@ class RegLPInteriorPointSolver:
                         if self.verbose:
                             sys.stderr.write('Primal-Dual Matrix ')
                             sys.stderr.write('Rank Deficient')
+                        if regdu == 0.0:
+                            sys.stderr.write('... No regularization in effect')
+                            sys.stderr.write('... bailing out\n')
+                            factorized = False
+                            nb_bump = 5
+                            continue
+                        else:
                             sys.stderr.write('... bumping up reg parameters\n')
                         regpr *= 10 ; regdu *= 10
                         nb_bump += 1
                         factorized = False
 
                 # Abandon if regularization is unsuccessful.
-                if not self.LBL.isFullRank and nb_bump == 5:
+                if not self.LBL.isFullRank and nb_bump >= 5:
                     status = 'Unable to regularize sufficiently.'
                     short_status = 'degn'
                     finished = True
@@ -568,30 +587,8 @@ class RegLPInteriorPointSolver:
                 ds = dx[on:]
                 dy = step[n:]
 
-                # We must ensure that p and d are small enough that
-                # 1) |p ∆s| <= t1 sigma sz / gammaD  (0 < t1 < 1),
-                # 2) |d ∆y| <= t1 sigma sz / gammaP  (0 < t2 < 1).
-                # In the predictor-corrector method, we choose
-                # 1/gammaP = |Ax-b|/sz    = pResid/sz and
-                # 1/gammaD = |c-A'y-z|/sz = dResid/sz.
                 normds = norm2(ds) ; normdy = norm2(dy) ; normdx = norm2(dx)
-                #regpr_small_enough = (regpr * normds <= t1 * sigma * dResid)
-                #regdu_small_enough = (regdu * normdy <= t2 * sigma * pResid)
-
-#                if regpr_small_enough and regdu_small_enough:
-#                    step_acceptable = True
-#                else:
-#                     if not regpr_small_enough:
-#                         print 'Must decrease rho and re-factorize...'
-#                         regpr = min(regpr/2, 0.5 * t1 * sigma * pResid/normds)
-#                         regpr = max(regpr, regpr_min)
-#                     if not regdu_small_enough:
-#                         print 'Must decrease delta and re-factorize...'
-#                         regdu = min(regdu/2, 0.5 * t2 * sigma * dResid/normdy)
-#                         regdu = max(regdu, regdu_min)
-#                     if regpr == regpr_min or regdu == regdu_min:
-#                         step_acceptable = True
-                step_acceptable = True
+                step_acceptable = True  # Must get rid of this
 
             # End while not step_acceptable
 
@@ -653,10 +650,6 @@ class RegLPInteriorPointSolver:
             rho_q = regpr * qNorm/(1+self.normc)
             del_r = regdu * rNorm/(1+self.normb)
 
-            # Update regularization parameters.
-            #regpr = max(min(regpr/2, regpr**(1.1)), self.regpr_min)
-            #regdu = max(min(regdu/2, regdu**(1.1)), self.regdu_min)
-
             iter += 1
 
         solve_time = cputime() - solve_time
@@ -682,7 +675,6 @@ class RegLPInteriorPointSolver:
 
         # Recompute final objective value.
         self.obj_value = np.dot(self.c, x[:on]) + self.c0
-
         return
 
     def set_initial_guess(self, lp, **kwargs):
