@@ -6,7 +6,7 @@ Python interface to the AMPL modeling language
 """
 
 import numpy as np
-from nlpy.nlp import NLPModel
+from nlpy.model.nlp import NLPModel
 from nlpy.model import _amplpy
 from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
 from nlpy.tools import sparse_vector_class as sv
