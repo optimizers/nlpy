@@ -62,6 +62,18 @@ class RegQPInteriorPointSolver:
         that a standard predictor-corrector implementation and the linear system
         solves are often much faster than in a traditional interior-point method
         in augmented form.
+
+        :keywords:
+            :scale: Perform row and column equilibration of the constraint
+                    matrix [A1 A2] prior to solution (default: `True`).
+
+            :regpr: Initial value of primal regularization parameter
+                    (default: `1.0`).
+
+            :regdu: Initial value of dual regularization parameter
+                    (default: `1.0`).
+
+            :verbose: Turn on verbose mode (default `False`).
         """
 
         if not isinstance(qp, SlackFramework):
@@ -149,11 +161,14 @@ class RegQPInteriorPointSolver:
         """
         Display vital statistics about the input problem.
         """
+        import os
         qp = self.qp
         w = sys.stdout.write
         w('\n')
-        w('Problem Name: %s\n' % qp.name)
+        w('Problem Path: %s\n' % qp.name)
+        w('Problem Name: %s\n' % os.path.basename(qp.name))
         w('Number of problem variables: %d\n' % qp.original_n)
+        w('Number of free variables: %d\n' % qp.nfreeB)
         w('Number of problem constraints excluding bounds: %d\n' %qp.original_m)
         w('Number of slack variables: %d\n' % (qp.n - qp.original_n))
         w('Adjusted number of variables: %d\n' % qp.n)
@@ -161,6 +176,8 @@ class RegQPInteriorPointSolver:
         w('Number of nonzeros in Hessian matrix Q: %d\n' % self.Q.nnz)
         w('Number of nonzeros in constraint matrix: %d\n' % self.A.nnz)
         w('Constant term in objective: %8.2e\n' % self.c0)
+        w('Cost vector norm: %8.2e\n' % self.normc)
+        w('Right-hand side norm: %8.2e\n' % self.normb)
         w('Initial primal regularization: %8.2e\n' % self.regpr)
         w('Initial dual   regularization: %8.2e\n' % self.regdu)
         if self.prob_scaled:

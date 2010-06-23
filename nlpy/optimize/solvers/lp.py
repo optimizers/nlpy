@@ -60,6 +60,21 @@ class RegLPInteriorPointSolver:
         that a standard predictor-corrector implementation and the linear system
         solves are often much faster than in a traditional interior-point method
         in augmented form.
+
+        :keywords:
+            :scale: Perform row and column equilibration of the constraint
+                    matrix [A1 A2] prior to solution (default: `True`).
+
+            :stabilize: Scale the linear system to be solved at each iteration
+                        (default: `True`).
+
+            :regpr: Initial value of primal regularization parameter
+                    (default: `1.0`).
+
+            :regdu: Initial value of dual regularization parameter
+                    (default: `1.0`).
+
+            :verbose: Turn on verbose mode (default `False`).
         """
 
         if not isinstance(lp, SlackFramework):
