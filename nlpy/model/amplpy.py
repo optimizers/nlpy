@@ -6,6 +6,7 @@ Python interface to the AMPL modeling language
 """
 
 import numpy as np
+from nlpy.nlp import NLPModel
 from nlpy.model import _amplpy
 from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
 from nlpy.tools import sparse_vector_class as sv
@@ -70,7 +71,7 @@ def writestub(template):
 
 ########################################################################
 
-class AmplModel:
+class AmplModel(NLPModel):
     """
     AmplModel creates an instance of an AMPL model. If the `nl` file is
     already available, simply call `AmplModel(stub)` where the string
