@@ -14,9 +14,9 @@
 
 #include "Python.h"                /* Main Python header file */
 #include "arrayflavor.h"
-#include "pysparse/spmatrix.h"
-#include "pysparse/spmatrix_api.h"
-#include "pysparse/ll_mat.h"
+#include "spmatrix.h"
+#include "spmatrix_api.h"
+#include "ll_mat.h"
 #include <time.h>
 
 /* For spawning new LLMatObjects */

@@ -222,7 +222,7 @@ def H_prod(H, v):
 
 if __name__ == '__main__':
 
-    from pysparse import spmatrix
+    from pysparse.sparse import spmatrix
     import precon
     from nlpy_timing import cputime
     #from demo_pygltr import SpecSheet

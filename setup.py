@@ -13,6 +13,12 @@ DOCLINES = __doc__.split("\n")
 import os
 import sys
 
+try:
+    #import setuptools   # To enable 'python setup.py develop'
+    pass
+except:
+    pass
+
 CLASSIFIERS = """\
 Development Status :: 4 - Beta
 Intended Audience :: Science/Research
@@ -33,6 +39,7 @@ if os.path.exists('MANIFEST'): os.remove('MANIFEST')
 
 def configuration(parent_package='',top_path=None):
     import numpy
+    import pysparse
     from numpy.distutils.misc_util import Configuration
     config = Configuration(None, parent_package, top_path)
     config.set_options(ignore_setup_xxx_py=True,
@@ -40,7 +47,7 @@ def configuration(parent_package='',top_path=None):
                        delegate_options_to_subpackages=True,
                        quiet=True)
 
-    config.add_include_dirs(numpy.get_include())
+    config.add_include_dirs([numpy.get_include(), pysparse.get_include()])
     config.add_include_dirs('include')
     config.add_subpackage('nlpy')
 

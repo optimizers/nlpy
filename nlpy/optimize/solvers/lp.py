@@ -17,16 +17,17 @@ from nlpy.tools.norms import norm2, norm_infty
 from nlpy.tools import sparse_vector_class as sv
 from nlpy.tools.timing import cputime
 
-from pysparse import spmatrix
-from pysparse.pysparseMatrix import PysparseMatrix
+from pysparse.sparse import spmatrix
+from pysparse.sparse.pysparseMatrix import PysparseMatrix
 import numpy as np
 from math import sqrt
 import sys
+import pdb
 
 
 class RegLPInteriorPointSolver:
 
-    def __init__(self, lp, scale=True, **kwargs):
+    def __init__(self, lp, **kwargs):
         """
         Solve a linear program of the form
 
@@ -65,6 +66,7 @@ class RegLPInteriorPointSolver:
             msg = 'Input problem must be an instance of SlackFramework'
             raise ValueError, msg
 
+        scale = kwargs.get('scale', True)
         self.verbose = kwargs.get('verbose', True)
         self.stabilize = kwargs.get('stabilize', False)
 
@@ -90,8 +92,8 @@ class RegLPInteriorPointSolver:
             self.scale()
             self.t_scale = cputime() - self.t_scale
 
-        self.normb  = norm_infty(self.b)
-        self.normc  = norm_infty(self.c)
+        self.normb  = norm2(self.b)
+        self.normc  = norm2(self.c)
         self.normbc = 1 + max(self.normb, self.normc)
 
         # Initialize augmented matrix
@@ -111,7 +113,10 @@ class RegLPInteriorPointSolver:
         if self.regdu < 0.0: self.regdu = 0.0
 
         # Dual regularization is necessary for stabilization.
-        if self.stabilize and self.regdu == 0.0: self.regdu = 1.0
+        if self.regdu == 0.0:
+            sys.stderr.write('Warning: No dual regularization in effect\n')
+            sys.stderr.write('         Stabilization has been turned off\n')
+            self.stabilize = False
 
         # Initialize format strings for display
         fmt_hdr = '%-4s  %9s' + '  %-8s'*6 + '  %-7s  %-4s  %-4s' + '  %-8s'*8
@@ -132,20 +137,26 @@ class RegLPInteriorPointSolver:
         """
         Display vital statistics about the input problem.
         """
+        import os
         lp = self.lp
         w = sys.stdout.write
         w('\n')
-        w('Problem Name: %s\n' % lp.name)
+        w('Problem Path: %s\n' % lp.name)
+        w('Problem Name: %s\n' % os.path.basename(lp.name))
         w('Number of problem variables: %d\n' % lp.original_n)
+        w('Number of free variables: %d\n' % lp.nfreeB)
         w('Number of problem constraints excluding bounds: %d\n' %lp.original_m)
         w('Number of slack variables: %d\n' % (lp.n - lp.original_n))
         w('Adjusted number of variables: %d\n' % lp.n)
         w('Adjusted number of constraints excluding bounds: %d\n' % lp.m)
         w('Number of nonzeros in constraint matrix: %d\n' % self.A.nnz)
         w('Constant term in objective: %8.2e\n' % self.c0)
+        w('Cost vector norm: %8.2e\n' % self.normc)
+        w('Right-hand side norm: %8.2e\n' % self.normb)
         w('Initial primal regularization: %8.2e\n' % self.regpr)
         w('Initial dual   regularization: %8.2e\n' % self.regdu)
-        w('Time for scaling: %6.2fs\n' % self.t_scale)
+        if self.prob_scaled:
+            w('Time for scaling: %6.2fs\n' % self.t_scale)
         w('\n')
         return
 
@@ -279,17 +290,20 @@ class RegLPInteriorPointSolver:
          iter...........total number of iterations
          kktResid.......final relative residual
          solve_time.....time to solve the LP
-         status.........string describing the exit status.
+         status.........string describing the exit status
+         short_status...short version of status, used for printing.
         """
         lp = self.lp
         itermax = kwargs.get('itermax', 10*lp.n)
-        tolerance = kwargs.get('tolerance', 1.0e-5)
+        tolerance = kwargs.get('tolerance', 1.0e-6)
         PredictorCorrector = kwargs.get('PredictorCorrector', True)
+        check_infeasible = kwargs.get('check_infeasible', True)
 
         # Transfer pointers for convenience.
         m, n = self.A.shape ; on = lp.original_n
         A = self.A ; b = self.b ; c = self.c ; H = self.H
-        regpr = self.regpr_min ; regdu = self.regdu_min
+        regpr = self.regpr ; regdu = self.regdu
+        regpr_min = self.regpr_min ; regdu_min = self.regdu_min
 
         # Obtain initial point from Mehrotra's heuristic.
         # set_initial_guess() initializes self.LBL which is reused below.
@@ -308,7 +322,10 @@ class RegLPInteriorPointSolver:
         finished = False
         iter = 0
 
-        setup_time = cputime()
+        # Acceptance thresholds for primal and dual reg parameters.
+        t1 = t2 = 0.99
+
+        solve_time = cputime()
 
         # Main loop.
         while not finished:
@@ -320,9 +337,10 @@ class RegLPInteriorPointSolver:
 
             # Compute residuals.
             pFeas = A*x - b
-            comp = s*z                                      # comp   = S z
+            comp = s*z ; sz = sum(comp)                     # comp   = S z
             dFeas = y*A ; dFeas[:on] -= self.c              # dFeas1 = A1'y - c
             dFeas[on:] += z                                 # dFeas2 = A2'y + z
+            mu = sz/ns
 
             # Adjust regularization parameters
             mu = sum(comp)/ns
@@ -333,24 +351,73 @@ class RegLPInteriorPointSolver:
             # At the first iteration, initialize perturbation vectors
             # (q=primal, r=dual).
             if iter == 0:
-                q =  dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
-                r = -pFeas/regdu ; rNorm = norm2(r) ; del_r = regdu * rNorm
+                regpr = self.regpr ; regdu = self.regdu
+                if regpr > 0:
+                    q = dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
+                else:
+                    q = dFeas ; qNorm = norm2(q) ; rho_q = 0.0
+                if regdu > 0:
+                    r = -pFeas/regdu ; rNorm = norm2(r) ; del_r = regdu * rNorm
+                else:
+                    r = -pFeas ; rNorm = norm2(r) ; del_r = 0.0
                 #q = np.zeros(n) ; qNorm = 0 ; rho_q = 0
                 #r = np.zeros(m) ; rNorm = 0 ; del_r = 0
+                pr_infeas_count = 0  # Used to detect primal infeasibility.
+                du_infeas_count = 0  # Used to detect dual infeasibility.
+                pr_last_iter = 0
+                du_last_iter = 0
+                mu0 = mu
+            else:
+                # Adjust regularization parameters.
+                #regpr = max(min(regpr/10, regpr**(1.1)), regpr_min)
+                #regdu = max(min(regdu/10, regdu**(1.1)), regdu_min)
+                # 1) rho+ |dx| <= const * s'z
+                # 2) del+ |dy| <= const * s'z
+                if regdu > 0:
+                    regdu = min(regdu/10, sz/normdy/100, (sz/normdy)**(1.1))
+                    regdu = max(regdu, regdu_min)
+                if regpr > 0:
+                    regpr = min(regpr/10, sz/normdx/100, (sz/normdx)**(1.1))
+                    regpr = max(regpr, regpr_min)
 
-            pResid = norm_infty(pFeas + regdu * r)/(1+self.normc)
-            cResid = norm_infty(comp)/self.normbc
-            dResid = norm_infty(dFeas - regpr * q)/(1+self.normb)
+                # Check for infeasible problem.
+                if check_infeasible:
+                    if mu < 1.0e-6 * mu0 and rho_q > 1000 * mu: # tolerance:
+                        pr_infeas_count += 1
+                        if pr_infeas_count > 1 and pr_last_iter == iter-1:
+                            if pr_infeas_count > 3:
+                                status = 'Problem is (locally) dual infeasible'
+                                short_status = 'dInf'
+                                finished = True
+                                continue
+                        pr_last_iter = iter
+
+                    if mu < 1.0e-6 * mu0 and del_r > 1000 * mu: # tolerance:
+                        du_infeas_count += 1
+                        if du_infeas_count > 1 and du_last_iter == iter-1:
+                            if du_infeas_count > 3:
+                                status='Problem is (locally) primal infeasible'
+                                short_status = 'pInf'
+                                finished = True
+                                continue
+                        du_last_iter = iter
+
+            # Compute residual norms and scaled residual norms.
+            #pResid = norm_infty(pFeas + regdu * r)/(1+self.normc)
+            #dResid = norm_infty(dFeas - regpr * q)/(1+self.normb)
+            pResid = norm2(pFeas) ; spResid = pResid/(1+self.normc)
+            cResid = norm2(comp)  ; scResid = cResid/self.normbc
+            dResid = norm2(dFeas) ; sdResid = dResid/(1+self.normb)
 
             # Compute relative duality gap.
             cx = np.dot(c,x[:on])
             by = np.dot(b,y)
             rgap  = cx - by
-            rgap += regdu * (rNorm**2 + np.dot(r,y))
+            #rgap += regdu * (rNorm**2 + np.dot(r,y))
             rgap  = abs(rgap) / (1 + abs(cx))
 
             # Compute overall residual for stopping condition.
-            kktResid = max(max(pResid, dResid)/self.normbc, rgap)
+            kktResid = max(spResid, sdResid, rgap)
             #kktResid = max(pResid, cResid, dResid)
 
             # Display objective and residual data.
@@ -360,11 +427,13 @@ class RegLPInteriorPointSolver:
 
             if kktResid <= tolerance:
                 status = 'Optimal solution found'
+                short_status = 'opt'
                 finished = True
                 continue
 
             if iter >= itermax:
                 status = 'Maximum number of iterations reached'
+                short_status= 'iter'
                 finished = True
                 continue
 
@@ -373,126 +442,163 @@ class RegLPInteriorPointSolver:
             minz = np.min(z)
             maxs = np.max(s)
 
-            # Solve the linear system
-            #
-            # [ -pI          0          A1' ] [∆x] = [ c - A1' y              ]
-            # [  0   -(S^{-1} Z + pI)   A2' ] [∆s]   [   - A2' y - µ S^{-1} e ]
-            # [  A1          A2         dI  ] [∆y]   [ b - A1 x - A2 s        ]
-            #
-            # where s are the slack variables, p is the primal regularization
-            # parameter, d is the dual regularization parameter, and
-            # A = [ A1  A2 ]  where the columns of A1 correspond to the original
-            # problem variables and those of A2 correspond to slack variables.
-            #
-            # We recover ∆z = -z - S^{-1} (Z ∆s + µ e).
+            # Repeatedly assemble system and compute step until primal and
+            # dual regularization parameters have appropriate values.
 
-            # Compute augmented matrix and factorize it.
-            factorized = False
-            nb_bump = 0
-            while not factorized and nb_bump < 5:
+            # Reset primal and dual regularization parameters to best guess
+            #if iter > 0:
+            #    regpr = max(regpr_min, 0.5*sigma*dResid/normds)
+            #    regdu = max(regdu_min, 0.5*sigma*pResid/normdy)
 
-                if self.stabilize:
-                    col_scale[:on] = sqrt(regpr)
-                    col_scale[on:] = np.sqrt(z/s + regpr)
-                    H.put(-sqrt(regdu), range(n))
-                    H.put( sqrt(regdu), range(n,n+m))
-                    AA = self.A.copy()
-                    AA.col_scale(1/col_scale)
-                    H[n:,:n] = AA
+            step_acceptable = False
+
+            while not step_acceptable:
+
+                # Solve the linear system
+                # 
+                # [-pI          0          A1'] [∆x]   [c - A1' y             ]
+                # [ 0   -(S^{-1} Z + pI)   A2'] [∆s] = [  - A2' y - µ S^{-1} e]
+                # [ A1          A2         dI ] [∆y]   [b - A1 x - A2 s       ]
+                #
+                # where s are the slack variables, p is the primal
+                # regularization parameter, d is the dual regularization
+                # parameter, and  A = [ A1  A2 ]  where the columns of A1
+                # correspond to the original problem variables and those of A2
+                # correspond to slack variables.
+                #
+                # We recover ∆z = -z - S^{-1} (Z ∆s + µ e).
+                # Compute augmented matrix and factorize it.
+                factorized = False
+                nb_bump = 0
+                while not factorized and nb_bump < 5:
+
+                    if self.stabilize:
+                        col_scale[:on] = sqrt(regpr)
+                        col_scale[on:] = np.sqrt(z/s + regpr)
+                        H.put(-sqrt(regdu), range(n))
+                        H.put( sqrt(regdu), range(n,n+m))
+                        AA = self.A.copy()
+                        AA.col_scale(1/col_scale)
+                        H[n:,:n] = AA
+                    else:
+                        if regpr > 0: H.put(-regpr,       range(on))
+                        H.put(-z/s - regpr, range(on,n))
+                        if regdu > 0: H.put(regdu,        range(n,n+m))
+
+                    #if iter == 5:
+                    #    # Export current matrix to file for futher inspection.
+                    #    import os
+                    #    name = os.path.basename(self.lp.name)
+                    #    fname = '.'.join(name.split('.')[:-1]) + '.mtx'
+                    #    H.exportMmf(fname)
+
+                    self.LBL.factorize(H)
+                    factorized = True
+
+                    # If the augmented matrix does not have full rank, bump up
+                    # regularization parameters.
+                    if not self.LBL.isFullRank:
+                        if self.verbose:
+                            sys.stderr.write('Primal-Dual Matrix ')
+                            sys.stderr.write('Rank Deficient')
+                        if regdu == 0.0:
+                            sys.stderr.write('... No regularization in effect')
+                            sys.stderr.write('... bailing out\n')
+                            factorized = False
+                            nb_bump = 5
+                            continue
+                        else:
+                            sys.stderr.write('... bumping up reg parameters\n')
+                        regpr *= 10 ; regdu *= 10
+                        nb_bump += 1
+                        factorized = False
+
+                # Abandon if regularization is unsuccessful.
+                if not self.LBL.isFullRank and nb_bump >= 5:
+                    status = 'Unable to regularize sufficiently.'
+                    short_status = 'degn'
+                    finished = True
+                    continue  # Does this get us out of the outer while?
+
+                # Compute duality measure.
+                mu = sz/ns
+
+                if PredictorCorrector:
+                    # Use Mehrotra predictor-corrector method.
+                    # Compute affine-scaling step, i.e. with centering = 0.
+                    rhs[:n]    = -dFeas
+                    rhs[on:n] += z
+                    rhs[n:]    = -pFeas
+
+                    # if 'stabilize' is on, must scale right-hand side.
+                    if self.stabilize:
+                        rhs[:n] /= col_scale
+                        rhs[n:] /= sqrt(regdu)
+
+                    (step, nres, neig) = self.solveSystem(rhs)
+
+                    # Unscale step if 'stabilize' is on.
+                    if self.stabilize:
+                        step[:n] *= sqrt(regdu) / col_scale
+
+                    # Recover dx and dz.
+                    dx = step[:n]
+                    ds = dx[on:]
+                    dz = -z * (1 + ds/s)
+
+                    # Compute largest allowed primal and dual stepsizes.
+                    (alpha_p, ip) = self.maxStepLength(s, ds)
+                    (alpha_d, ip) = self.maxStepLength(z, dz)
+
+                    # Estimate duality gap after affine-scaling step.
+                    muAff = np.dot(s + alpha_p * ds, z + alpha_d * dz)/ns
+                    sigma = (muAff/mu)**3
+
+                    # Incorporate predictor information for corrector step.
+                    comp += ds*dz
                 else:
-                    H.put(-regpr,       range(on))
-                    H.put(-z/s - regpr, range(on,n))
-                    H.put(regdu,        range(n,n+m))
+                    # Use long-step method: Compute centering parameter.
+                    sigma = min(0.1, 100*mu)
 
-                self.LBL.factorize(H)
-                factorized = True
+                # Assemble right-hand side with centering information.
+                comp -= sigma * mu
 
-                # If the augmented matrix does not have full rank, bump up the
-                # regularization parameters.
-                if not self.LBL.isFullRank:
-                    if self.verbose:
-                        sys.stderr.write('Primal-Dual Matrix Rank Deficient\n')
-                    regpr *= 100 ; regdu *= 100
-                    nb_bump += 1
-                    factorized = False
+                if PredictorCorrector:
+                    # Only update rhs[on:n]; the rest of rhs did not change.
+                    if self.stabilize:
+                        rhs[on:n] += (comp/s - z)/col_scale[on:n]
+                    else:
+                        rhs[on:n] += comp/s - z
+                else:
+                    rhs[:n]    = -dFeas
+                    rhs[on:n] += comp/s
+                    rhs[n:]    = -pFeas
 
-            # Abandon if regularization is unsuccessful.
-            if not self.LBL.isFullRank and nb_bump == 5:
-                status = 'Unable to regularize sufficiently.'
-                finished = True
-                continue
+                    # If 'stabilize' is on, must scale right-hand side.
+                    # In the predictor-corrector method, this has already been
+                    # done.
+                    if self.stabilize:
+                        rhs[:n] /= col_scale
+                        rhs[n:] /= sqrt(regdu)
 
-            # Compute duality measure.
-            mu = sum(comp)/ns
-
-            if PredictorCorrector:
-                # Use Mehrotra predictor-corrector method.
-                # Compute affine-scaling step, i.e. with centering = 0.
-                rhs[:n]    = -dFeas
-                rhs[on:n] += z
-                rhs[n:]    = -pFeas
-
-                # if 'stabilize' is on, must scale right-hand side.
-                if self.stabilize:
-                    rhs[:n] /= col_scale
-                    rhs[n:] /= sqrt(regdu)
-
+                # Solve augmented system.
                 (step, nres, neig) = self.solveSystem(rhs)
-                
+
                 # Unscale step if 'stabilize' is on.
                 if self.stabilize:
                     step[:n] *= sqrt(regdu) / col_scale
 
-                # Recover dx and dz.
+                # Recover step.
                 dx = step[:n]
                 ds = dx[on:]
-                dz = -z * (1 + ds/s)
+                dy = step[n:]
 
-                # Compute largest allowed primal and dual stepsizes.
-                (alpha_p, ip) = self.maxStepLength(s, ds)
-                (alpha_d, ip) = self.maxStepLength(z, dz)
+                normds = norm2(ds) ; normdy = norm2(dy) ; normdx = norm2(dx)
+                step_acceptable = True  # Must get rid of this
 
-                # Estimate duality gap after affine-scaling step.
-                muAff = np.dot(s + alpha_p * ds, z + alpha_d * dz)/ns
-                sigma = (muAff/mu)**3
+            # End while not step_acceptable
 
-                # Incorporate predictor information for corrector step.
-                comp += ds*dz
-            else:
-                # Use long-step method: Compute centering parameter.
-                sigma = min(0.1, 100*mu)
-
-            # Assemble right-hand side with centering information.
-            comp -= sigma * mu
-
-            if PredictorCorrector:
-                # Only update rhs[on:n]; the rest of the vector did not change.
-                if self.stabilize:
-                    rhs[on:n] += (comp/s - z)/col_scale[on:n]
-                else:
-                    rhs[on:n] += comp/s - z
-            else:
-                rhs[:n]    = -dFeas
-                rhs[on:n] += comp/s
-                rhs[n:]    = -pFeas
-
-                # If 'stabilize' is on, must scale right-hand side.
-                # In the predictor-corrector method, this has already been done.
-                if self.stabilize:
-                    rhs[:n] /= col_scale
-                    rhs[n:] /= sqrt(regdu)
-
-            # Solve augmented system.
-            (step, nres, neig) = self.solveSystem(rhs)
-
-            # Unscale step if 'stabilize' is on.
-            if self.stabilize:
-                step[:n] *= sqrt(regdu) / col_scale
-
-            # Recover step.
-            dx = step[:n]
-            ds = dx[on:]
-            dy = step[n:]
+            # Recover step in z.
             dz = -(comp + z*ds)/s
 
             # Compute largest allowed primal and dual stepsizes.
@@ -536,22 +642,23 @@ class RegLPInteriorPointSolver:
                                                  nres, regpr, regdu, rho_q,
                                                  del_r, mins, minz, maxs))
 
-            # Update iterates and perturbation vectors.
-            x += alpha_p * dx    # This also updates slack variables.
+            # Update primal variables and slacks.
+            x += alpha_p * dx
+
+            # Update dual variables.
             y += alpha_d * dy
             z += alpha_d * dz
+
+            # Update perturbation vectors.
             q *= (1-alpha_p) ; q += alpha_p * dx
             r *= (1-alpha_d) ; r += alpha_d * dy
             qNorm = norm2(q) ; rNorm = norm2(r)
-            rho_q = regpr * qNorm/self.normc ; del_r = regdu * rNorm/self.normb
-
-            # Update regularization parameters.
-            regpr = max(min(regpr/2, regpr**(1.1)), self.regpr_min)
-            regdu = max(min(regdu/2, regdu**(1.1)), self.regdu_min)
+            rho_q = regpr * qNorm/(1+self.normc)
+            del_r = regdu * rNorm/(1+self.normb)
 
             iter += 1
 
-        solve_time = cputime() - setup_time
+        solve_time = cputime() - solve_time
 
         if self.verbose:
             sys.stdout.write('\n')
@@ -567,13 +674,13 @@ class RegLPInteriorPointSolver:
         self.kktResid = kktResid
         self.solve_time = solve_time
         self.status = status
+        self.short_status = short_status
 
         # Unscale problem if applicable.
         if self.prob_scaled: self.unscale()
 
         # Recompute final objective value.
         self.obj_value = np.dot(self.c, x[:on]) + self.c0
-
         return
 
     def set_initial_guess(self, lp, **kwargs):
@@ -679,11 +786,11 @@ class RegLPInteriorPointSolver:
             kmin = -1
         return (stepmax, kmin)
 
-    def solveSystem(self, rhs, itref_threshold=1.0e-5, nitrefmax=5):
-        self.LBL.solve(rhs)            
-        nr = norm2(self.LBL.residual)
-        #self.LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
+    def solveSystem(self, rhs, itref_threshold=1.0e-5, nitrefmax=3):
+        self.LBL.solve(rhs)
         #nr = norm2(self.LBL.residual)
+        self.LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
+        nr = norm2(self.LBL.residual)
         return (self.LBL.x, nr, self.LBL.neig)
 
 

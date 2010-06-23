@@ -11,26 +11,23 @@ __docformat__ = 'restructuredtext'
 import numpy
 from nlpy.model import AmplModel
 from nlpy.tools import List
-from pysparse.pysparseMatrix import PysparseMatrix as sp
-from pysparse import spmatrix
+from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
+from pysparse.sparse import spmatrix
 
 class SlackFramework( AmplModel ):
-    r"""
+    """
     General framework for converting a nonlinear optimization problem to a
     form using slack variables.
 
     The initial problem has the form
 
-    .. math::
+    minimize    f(x)
+    subject to  ci(x) = ai,           i = 1, ..., m,
+                gjL <= gj(x) <= gjU,  j = 1, ..., p,
+                xkL <= xk <= xkU,     k = 1, ..., n,
 
-       \min        & f(x) & \\
-       \text{s.t.} & c_i(x) = a_i,                 & i = 1, \ldots, m, \\
-                   & g_j^L \leq g_j(x) \leq g_j^U, & j = 1, \ldots, p, \\
-                   & x_k^L \leq x_k \leq x_k^U,    & k = 1, \ldots, n,
-
-    where some or all lower bounds :math:`g_j^L` and :math:`x_k^L` may be equal
-    to :math:`- \infty`, and some or all upper bounds :math:`g_j^U`
-    and :math:`x_k^U` may be equal to :math:`+ \infty`.
+    where some or all lower bounds gjL and xkL may be equal to -infinity, and
+    some or all upper bounds gjU and xkU may be equal to +infinity.
 
     The transformed problem is
 
@@ -148,20 +145,21 @@ class SlackFramework( AmplModel ):
         [ bR ]   linear constraints corresponding to 'upper' side of two-sided
                  bounds
         """
-        m = self.m
+        n = self.n ; on = self.original_n
+        m = self.m ; om = self.original_m
         equalC = self.equalC
         lowerC = self.lowerC ; nlowerC = self.nlowerC
         upperC = self.upperC ; nupperC = self.nupperC
         rangeC = self.rangeC ; nrangeC = self.nrangeC
 
-        mslow = self.original_n + self.nrangeC + self.n_con_low
+        mslow = on + self.n_con_low
         msup  = mslow + self.n_con_up
-        s_low = x[self.original_n + self.nrangeC:mslow]
-        s_up  = x[mslow:msup]
+        s_low = x[on:mslow]    # len(s_low) = n_con_low
+        s_up  = x[mslow:msup]  # len(s_up)  = n_con_up
 
         c = numpy.empty(m)
-        c[:self.original_m] = AmplModel.cons(self, x[:self.original_n])
-        c[self.original_m:self.original_m + self.nrangeC] = c[rangeC]
+        c[:om] = AmplModel.cons(self, x[:on])
+        c[om:om+nrangeC] = c[rangeC]
 
         c[equalC] -= self.Lcon[equalC]
         c[lowerC] -= self.Lcon[lowerC] ; c[lowerC] -= s_low[:nlowerC]
@@ -171,21 +169,21 @@ class SlackFramework( AmplModel ):
 
         c[rangeC] -= self.Lcon[rangeC] ; c[rangeC] -= s_low[nlowerC:]
 
-        c[self.original_m:self.original_m+self.nrangeC] -= self.Ucon[rangeC]
-        c[self.original_m:self.original_m+self.nrangeC] *= -1
-        c[self.original_m:self.original_m+self.nrangeC] -= s_up[nupperC:]
+        c[om:om+nrangeC] -= self.Ucon[rangeC]
+        c[om:om+nrangeC] *= -1
+        c[om:om+nrangeC] -= s_up[nupperC:]
 
         # Add linear constraints corresponding to bounds on original problem
         lowerB = self.lowerB ; nlowerB = self.nlowerB ; Lvar = self.Lvar
         upperB = self.upperB ; nupperB = self.nupperB ; Uvar = self.Uvar
         rangeB = self.rangeB ; nrangeB = self.nrangeB
 
-        nt = self.original_n + self.n_con_low + self.n_con_up
+        nt = on + self.n_con_low + self.n_con_up
         ntlow = nt + self.n_var_low
         t_low = x[nt:ntlow]
         t_up  = x[ntlow:]
 
-        b = c[self.original_m+self.nrangeC:]
+        b = c[om+nrangeC:]
 
         b[:nlowerB] = x[lowerB] - Lvar[lowerB] - t_low[:nlowerB]
         b[nlowerB:nlowerB+nrangeB] = x[rangeB] - Lvar[rangeB] - t_low[nlowerB:]
@@ -203,10 +201,14 @@ class SlackFramework( AmplModel ):
         upperB = self.upperB ; nupperB = self.nupperB
         rangeB = self.rangeB ; nrangeB = self.nrangeB
 
-        n  = self.n
+        n  = self.n ; on = self.original_n
+        mslow = on + nrangeC + self.n_con_low
+        msup  = mslow + self.n_con_up
+        nt = self.original_n + self.n_con_low + self.n_con_up
+        ntlow = nt + self.n_var_low
 
-        t_low  = x[msup:mtlow]
-        t_up   = x[mtlow:]
+        t_low  = x[msup:ntlow]
+        t_up   = x[ntlow:]
 
         b = numpy.empty(n + nrangeB)
         b[:n] = x[:]

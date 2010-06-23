@@ -49,7 +49,7 @@ References
 __docformat__ = 'restructuredtext'
 
 import numpy
-from pysparse import spmatrix   # To assemble the projection matrix
+from pysparse.sparse import spmatrix   # To assemble the projection matrix
 
 try:                            # To compute projections
     from nlpy.linalg.pyma57 import PyMa57Context as LBLContext

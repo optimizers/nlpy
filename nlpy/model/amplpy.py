@@ -7,7 +7,7 @@ Python interface to the AMPL modeling language
 
 import numpy as np
 from nlpy.model import _amplpy
-from pysparse.pysparseMatrix import PysparseMatrix as sp
+from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
 from nlpy.tools import sparse_vector_class as sv
 import tempfile, os
 
@@ -239,12 +239,12 @@ class AmplModel:
 
         :parameters:
 
-            :x:  NumPy array of length :attr:`n` giving the vector of
+            :x:  Numpy array of length :attr:`n` giving the vector of
                  primal variables,
-            :y:  NumPy array of length :attr:`m` + :attr:`nrangeC` giving the
+            :y:  Numpy array of length :attr:`m` + :attr:`nrangeC` giving the
                  vector of Lagrange multipliers for general constraints
                  (see below),
-            :z:  NumPy array of length :attr:`nbounds` + :attr:`nrangeB` giving
+            :z:  Numpy array of length :attr:`nbounds` + :attr:`nrangeB` giving
                  the vector of Lagrange multipliers for simple bounds (see
                  below).
 
@@ -489,7 +489,7 @@ class AmplModel:
     def grad(self, x):
         """
         Evaluate objective gradient at x.
-        Returns a numpy array. This method changes the sign of the objective
+        Returns a Numpy array. This method changes the sign of the objective
         gradient if the problem is a maximization problem.
         """
         g = _amplpy.grad_obj(x)
@@ -532,9 +532,9 @@ class AmplModel:
     def cons(self, x):
         """
         Evaluate vector of constraints at x.
-        Returns a numpy array.
+        Returns a Numpy array.
 
-        The constraints appear in the following order:
+        The constraints appear in natural order. To order them as follows
 
         1) equalities
 
@@ -542,7 +542,9 @@ class AmplModel:
 
         3) upper bound only
 
-        4) range constraints.
+        4) range constraints,
+
+        use the `permC` permutation vector.
         """
         try:
             c = _amplpy.eval_cons(x)
@@ -556,18 +558,12 @@ class AmplModel:
 
     def consPos(self, x):
         """
-        Convenience function to return the vector of constraints when the
-        latter are reformulated as
+        Convenience function to return the vector of constraints
+        reformulated as
 
             ci(x) - ai  = 0  for i in equalC
-
-            ci(x) - Li >= 0  for i in lowerC
-
-            ci(x) - Li >= 0  for i in rangeC
-
-            Ui - ci(x) >= 0  for i in upperC
-
-            Ui - ci(x) >= 0  for i in rangeC.
+            ci(x) - Li >= 0  for i in lowerC + rangeC
+            Ui - ci(x) >= 0  for i in upperC + rangeC.
 
         The constraints appear in natural order, except for the fact that the
         'upper side' of range constraints is appended to the list.
@@ -578,7 +574,7 @@ class AmplModel:
         upperC = self.upperC
         rangeC = self.rangeC ; nrangeC = self.nrangeC
 
-        c = numpy.empty(m + nrangeC)
+        c = np.empty(m + nrangeC)
         c[:m] = self.cons(x)
         c[m:] = c[rangeC]
 
@@ -601,7 +597,7 @@ class AmplModel:
     def igrad(self, i, x):
         """
         Evaluate dense gradient of i-th constraint at x.
-        Returns a numpy array.
+        Returns a Numpy array.
         """
         self.Jeval += 1
         return _amplpy.eval_gi(i, x)
@@ -740,7 +736,7 @@ class AmplModel:
     def hprod(self, z, v):
         """
         Evaluate matrix-vector product H(x,z) * v.
-        Returns a numpy array.
+        Returns a Numpy array.
 
         Note that the sign of the Hessian matrix of the objective function
         appears as if the problem were a minimization problem.
@@ -780,5 +776,41 @@ class AmplModel:
         See also :meth:`set_x`.
         """
         return _amplpy.unset_x()
+
+    def display_basic_info(self):
+        """
+        Display vital statistics about the current model.
+        """
+        import sys
+        write = sys.stderr.write
+        write('Problem Name: %s\n' % self.name)
+        write('Number of Variables: %d\n' % self.n)
+        write('Number of Bound Constraints: %d' % self.nbounds)
+        write(' (%d lower, %d upper, %d two-sided)\n' % (self.nlowerB,
+            self.nupperB, self.nrangeB))
+        if self.nlowerB > 0: write('Lower bounds: %s\n' % self.lowerB)
+        if self.nupperB > 0: write('Upper bounds: %s\n' % self.upperB)
+        if self.nrangeB > 0: write('Two-Sided bounds: %s\n' + self.rangeB)
+        write('Vector of lower bounds: %s\n' % self.Lvar)
+        write('Vectof of upper bounds: %s\n' % self.Uvar)
+        write('Number of General Constraints: %d' % self.m)
+        write(' (%d equality, %d lower, %d upper, %d range)\n' % (self.nequalC,
+            self.nlowerC, self.nupperC, self.nrangeC))
+        if self.nequalC > 0: write('Equality: %s\n' % self.equalC)
+        if self.nlowerC > 0: write('Lower   : %s\n' % self.lowerC)
+        if self.nupperC > 0: write('Upper   : %s\n' % self.upperC)
+        if self.nrangeC > 0: write('Range   : %s\n' % self.rangeC)
+        write('Vector of constraint lower bounds: %s\n' % self.Lcon)
+        write('Vector of constraint upper bounds: %s\n' % self.Ucon)
+        write('Number of Linear Constraints: %d\n' % self.nlin)
+        write('Number of Nonlinear Constraints: %d\n' % self.nnln)
+        write('Number of Network Constraints: %d\n' % self.nnet)
+        write('Number of nonzeros in Jacobian: %d\n' % self.nnzj)
+        write('Number of nonzeros in Lagrangian Hessian: %d\n' % self.nnzh)
+        if self.islp(): write('This problem is a linear program.\n')
+        write('Initial Guess: %s\n' % self.x0)
+
+        return
+
 
 ###############################################################################

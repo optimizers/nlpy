@@ -57,7 +57,7 @@ class Image1D:
 class Image1DMinres(Image1D):
 
     def __init__(self, n=80, sig=.05, err=2, **kwargs):
-        Image1D.__init__(self, n=80, sig=.05, err=2, **kwargs)
+        Image1D.__init__(self, n, sig, err, **kwargs)
 
     def setsolver(self):
         self.solver = Minres(self.matvec, check=True, show=True, shift=9.94334578e-01)
@@ -71,8 +71,8 @@ class Image1DMinres(Image1D):
 class Image1DMinresAug(Image1D):
 
     def __init__(self, n=80, sig=.05, err=2, **kwargs):
-        Image1D.__init__(self, n=80, sig=.05, err=2, **kwargs)
-        self.reg = 1.0e-3
+        Image1D.__init__(self, n, sig, err, **kwargs)
+        self.reg = kwargs.get('reg',1.0e-3)
 
     def setsolver(self):
         self.solver = Minres(self.matvec, check=True, show=True)
@@ -96,16 +96,18 @@ if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
 
+    damp = 0.1
+
     img = Image1D(err=1)
     #recon = img.deblur(damp=0.0, show=True)
-    recon_damp = img.deblur(damp=0.1, show=True)
+    recon_damp = img.deblur(damp=damp, show=True)
 
     #err = np.linalg.norm(img.trueimg-recon)/np.linalg.norm(img.trueimg)
     err2 = np.linalg.norm(img.trueimg-recon_damp)/np.linalg.norm(img.trueimg)
     #print 'Direct error (no damping) = ', err
     print 'Direct error (with damping) = ', err2
 
-    img2 = Image1DMinresAug(err=2)
+    img2 = Image1DMinresAug(err=2, reg=damp**2)
     reconMinres = img2.deblur(itnlim=1000)
 
     err3 = np.linalg.norm(img.trueimg-reconMinres[img.n:])/np.linalg.norm(img.trueimg)
