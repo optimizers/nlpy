@@ -26,5 +26,5 @@ __doc__ += """
 Miscellaneous
 -------------
 
-    __version__  :  pyorder version string
+    __version__  :  NLPy version string
 """

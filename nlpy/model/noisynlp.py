@@ -10,7 +10,7 @@ def _random():
     "Return a random number in [-1,1)."
     return 2*random.random()-1
 
-def _random_array(n)
+def _random_array(n):
     "Return a random array of length n with elements in [-1,1)."
     return 2*random_array()-1
 
@@ -25,14 +25,14 @@ class NoisyAmplModel(AmplModel):
         self.noise_amplitude = noise_amplitude
 
     def obj(self, x):
-        f = AmplModel.obj(x)
+        f = AmplModel.obj(self, x)
         noise = _random()
-        return f + noise_amplitude * noise
+        return f + self.noise_amplitude * noise
 
     def grad(self, x):
-        g = AmplModel.grad(x)
+        g = AmplModel.grad(self, x)
         noise = _random_array(self.n)
-        return g + noise_amplitude * noise
+        return g + self.noise_amplitude * noise
 
     def hess(self, x, z, *args):
         raise NotImplementedError, 'Second derivatives are not available!'
@@ -44,68 +44,66 @@ class NoisyAmplModel(AmplModel):
         return False
 
     def sgrad(self, x):
-        sg = AmplModel.sgrad(x)
+        sg = AmplModel.sgrad(self, x)
         for k in sg.keys():
-            sg[k] += noise_amplitude * _random()
+            sg[k] += self.noise_amplitude * _random()
         return sg
 
     def cost(self):
-        c = AmplModel.cost()
+        c = AmplModel.cost(self)
         for k in c.keys():
-            c[k] += noise_amplitude * _random()
+            c[k] += self.noise_amplitude * _random()
         return c
 
     def cons(self, x):
-        c = AmplModel.cons(x)
+        c = AmplModel.cons(self, x)
         noise = _random_array(self.m)
-        return c + noise_amplitude * noise
+        return c + self.noise_amplitude * noise
 
     def consPos(self, x):
-        c = AmplModel.consPos(x)
+        c = AmplModel.consPos(self, x)
         noise = _random_array(self.m)
-        return c + noise_amplitude * noise
+        return c + self.noise_amplitude * noise
 
     def icons(self, i, x):
-        ci = AmplModel.icons(i, x)
+        ci = AmplModel.icons(self, i, x)
         noise = _random()
-        return ci + noise_amplitude * noise
+        return ci + self.noise_amplitude * noise
 
     def igrad(self, i, x):
-        gi = AmplModel.igrad(i, x)
+        gi = AmplModel.igrad(self, i, x)
         noise = _random_array(self.n)
-        return gi + noise_amplitude * noise
+        return gi + self.noise_amplitude * noise
 
     def sigrad(self, i, x):
-        sgi = AmplModel.sigrad(i, x)
+        sgi = AmplModel.sigrad(self, i, x)
         for k in sgi.keys():
-            sgi[k] += noise_amplitude * _random()
+            sgi[k] += self.noise_amplitude * _random()
         return sgi
 
     def irow(self, i):
-        row = AmplModel.irow(i)
+        row = AmplModel.irow(self, i)
         for k in row.keys():
-            row[k] += noise_amplitude * _random()
+            row[k] += self.noise_amplitude * _random()
         return row
 
     def A(self, *args):
-        A = AmplModel.A(*args)
+        A = AmplModel.A(self, *args)
         noise = _random_array(A.nnz)
         (val,irow,jcol) = A.find()
-        A.addAt(noise_amplitude * noise, irow, jcol)
+        A.addAt(self.noise_amplitude * noise, irow, jcol)
         return A
 
     def jac(self, x, *args):
-        J = AmplModel.jac(x, *args)
+        J = AmplModel.jac(self, x, *args)
         noise = _random_array(J.nnz)
         (val,irow,jcol) = J.find()
-        J.addAt(noise_amplitude * noise, irow, jcol)
+        J.addAt(self.noise_amplitude * noise, irow, jcol)
         return J
 
     def jacPos(self, x):
-        J = AmplModel.jacPos(x)
+        J = AmplModel.jacPos(self, x)
         noise = _random_array(J.nnz)
         (val,irow,jcol) = J.find()
-        J.addAt(noise_amplitude * noise, irow, jcol)
+        J.addAt(self.noise_amplitude * noise, irow, jcol)
         return J
-
-
