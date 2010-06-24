@@ -8,24 +8,13 @@ from nlpy.tools.timing import cputime
 import numpy
 import sys
 
-if len(sys.argv) < 2:
-    sys.stderr.write('Please specify model name\n')
-    sys.exit(-1)
-
-# Set printing standards for arrays
-numpy.set_printoptions(precision=3, linewidth=80, threshold=10, edgeitems=3)
-
-showbanner = True
-
-for ProblemName in sys.argv[1:]:
-    t = cputime()
-    nlp = amplpy.AmplModel(ProblemName)         # Create a model
+def pass_to_trunk(nlp, showbanner=True):
 
     if nlp.nbounds > 0 or nlp.m > 0:         # Check for unconstrained problem
         sys.stderr.write('%s has %d bounds and %d general constraints\n' % (ProblemName, nlp.nbounds, nlp.m))
-        nlp.close()
-        continue
+        return None
 
+    t = cputime()
     tr = TR(Delta=1.0, eta1=0.05, eta2=0.9, gamma1=0.25, gamma2=2.5)
 
     # When instantiating TrunkFramework of TrunkLbfgsFramework,
@@ -64,20 +53,31 @@ for ProblemName in sys.argv[1:]:
     print '  Setup/Solve time            : %-gs/%-gs' % (t_setup, TRNK.tsolve)
     print '  Total time                  : %-gs' % (t_setup + TRNK.tsolve)
     print '-------------------------------'
+    return TRNK
 
+if len(sys.argv) < 2:
+    sys.stderr.write('Please specify model name\n')
+    sys.exit(-1)
+
+# Set printing standards for arrays
+numpy.set_printoptions(precision=3, linewidth=80, threshold=10, edgeitems=3)
+
+for ProblemName in sys.argv[1:]:
+    nlp = amplpy.AmplModel(ProblemName)         # Create a model
+    TRNK = pass_to_trunk(nlp, showbanner=True)
     #nlp.writesol(TRNK.x, nlp.pi0, 'And the winner is')    # Output "solution"
-    nlp.close()                                    # Close connection with model
-
+    nlp.close()                                 # Close connection with model
 
 # Plot the evolution of the trust-region radius on the last problem
-try:
-    import pylab
-except:
-    sys.stderr.write('If you had pylab installed, you would be looking ')
-    sys.stderr.write('at a plot of the evolution of the trust-region ')
-    sys.stderr.write('radius, right now.\n')
-    sys.exit(0)
-radii = numpy.array(TRNK.radii, 'd')
-pylab.plot(numpy.where(radii < 100, radii, 100))
-pylab.title('Trust-region radius')
-pylab.show()
+if TRNK is not None:
+    try:
+        import pylab
+    except:
+        sys.stderr.write('If you had pylab installed, you would be looking ')
+        sys.stderr.write('at a plot of the evolution of the trust-region ')
+        sys.stderr.write('radius, right now.\n')
+        sys.exit(0)
+    radii = numpy.array(TRNK.radii, 'd')
+    pylab.plot(numpy.where(radii < 100, radii, 100))
+    pylab.title('Trust-region radius')
+    pylab.show()
