@@ -87,9 +87,10 @@ class TrunkFramework:
         """
         return v
 
-    def UpdatePrecon(self, **kwargs):
+    def PostIteration(self, **kwargs):
         """
-        Override this method for preconditioners that need updating,
+        Override this method to perform work at the end of an iteration. For
+        example, use this method for preconditioners that need updating,
         e.g., a limited-memory BFGS preconditioner.
         """
         return None
@@ -133,7 +134,7 @@ class TrunkFramework:
                 cgtol = max(1.0e-6, min(0.5 * cgtol, sqrt(self.gnorm)))
 
             self.solver = self.TrSolver(self.g,
-                                        matvec = lambda v: nlp.hprod(nlp.pi0,v),
+                                        matvec = lambda v: nlp.hprod(nlp.pi0,v,iter=self.iter),
                                         #H = nlp.hess(self.x,nlp.pi0),
                                         prec = self.Precon,
                                         radius = self.TR.Delta,
@@ -182,7 +183,7 @@ class TrunkFramework:
                     self.TR.UpdateRadius(rho, snorm)
 
             self.radii.append(self.TR.Delta)
-            self.UpdatePrecon()
+            self.PostIteration()
             self.iter += 1
             self.alpha = 1.0     # For the next iteration
 
@@ -214,7 +215,7 @@ class TrunkLbfgsFramework(TrunkFramework):
         """
         return self.lbfgs.solve(self.iter, v)
 
-    def UpdatePrecon(self, **kwargs):
+    def PostIteration(self, **kwargs):
         """
         This method updates the limited-memory BFGS preconditioner by appending
         the most rencet (s,y) pair to it and possibly discarding the oldest one
