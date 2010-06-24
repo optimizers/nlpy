@@ -3,6 +3,8 @@ from nlpy.tools import norms
 from nlpy.tools.timing import cputime
 import numpy
 
+__docformat__ = 'restructuredtext'
+
 class InverseLBFGS:
     """
     Class InverseLBFGS is a container used to store and manipulate

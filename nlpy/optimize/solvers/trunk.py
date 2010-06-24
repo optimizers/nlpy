@@ -14,6 +14,8 @@ import numpy
 import sys
 from math import sqrt
 
+__docformat__ = 'restructuredtext'
+
 class TrunkFramework:
     """
     An abstract framework for a trust-region-based algorithm for nonlinear
@@ -182,6 +184,7 @@ class TrunkFramework:
                 else:
                     self.TR.UpdateRadius(rho, snorm)
 
+            self.status = status
             self.radii.append(self.TR.Delta)
             self.PostIteration()
             self.iter += 1
