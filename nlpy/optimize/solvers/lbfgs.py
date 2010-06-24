@@ -80,7 +80,7 @@ class InverseLBFGS:
         function returns the input vector v, i.e., no preconditioning occurs.
         In this case, a safeguarding step should probably be taken.
         """
-        q = v
+        q = v.copy()
         for i in range(min(self.npairs, iter)):
             k = (iter-1-i) % self.npairs
             self.ys[k] = numpy.dot(self.y[:,k], self.s[:,k])
