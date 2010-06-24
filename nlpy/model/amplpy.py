@@ -734,7 +734,7 @@ class AmplModel(NLPModel):
             self.Heval += 1
             return _amplpy.eval_H(x, z, self.mformat)
 
-    def hprod(self, z, v):
+    def hprod(self, z, v, **kwargs):
         """
         Evaluate matrix-vector product H(x,z) * v.
         Returns a Numpy array.
