@@ -62,7 +62,8 @@ class TrustRegionFramework:
             return ared/pred
         else:
             # Error: Negative predicted reduction
-            raise ValueError, 'TrustRegion:: Nonpositive predicted reduction!'
+            msg = 'TrustRegion:: Nonpositive predicted reduction: %8.1e' % pred
+            raise ValueError, msg
             return None
 
     def UpdateRadius(self, rho, stepNorm):
