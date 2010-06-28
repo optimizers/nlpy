@@ -242,7 +242,7 @@ class TrunkFramework:
         self.tsolve = cputime() - t    # Solve time
 
         # Set final solver status.
-        if self.gnorm <= self.stoptol:
+        if self.gnorm <= stoptol:
             self.status = 'opt'
         else: # self.iter > self.maxiter:
             self.status = 'itr'
