@@ -40,6 +40,8 @@ class TrunkFramework:
         :inexact:      use inexact Newton stopping tol    (default False)
         :ny:           apply Nocedal/Yuan linesearch      (default False)
         :monotone:     use monotone descent strategy      (default False)
+        :nIterNonMonotone: number of iterations for which non-strict descent
+                           can be tolerated if monotone=False (default 25)
         :silent:       verbosity level                    (default False)
 
     Once a `TrunkFramework` object has been instantiated and the problem is
@@ -76,7 +78,8 @@ class TrunkFramework:
         self.silent  = kwargs.get('silent',  False)
         self.ny      = kwargs.get('ny',      False)
         self.inexact = kwargs.get('inexact', False)
-        self.monotone = kwargs.get('monotone', True)
+        self.monotone = kwargs.get('monotone', False)
+        self.nIterNonMonotone = kwargs.get('nIterNonMonotone', 25)
     
         self.hformat = '%-5s  %8s  %7s  %5s  %8s  %8s  %4s\n'
         self.header  = self.hformat % ('Iter','f(x)','|g(x)|','cg','rho','Radius','Stat')
@@ -201,7 +204,7 @@ class TrunkFramework:
                         fCan = f_trial
                         sigCan = 0
 
-                    if l == 25:
+                    if l == self.nIterNonMonotone:
                         fRef = fCan
                         sigRef = sigCan
 
@@ -211,7 +214,9 @@ class TrunkFramework:
 
                 if self.ny: # Backtracking linesearch following "Nocedal & Yuan"
                     slope = numpy.dot(self.g, step)
-                    while f_trial >= self.f + 1.0e-4 * self.alpha * slope:
+                    bk = 0
+                    while bk < 5 and f_trial >= self.f + 1.0e-4 * self.alpha * slope:
+                        bk = bk + 1
                         self.alpha /= 1.2
                         x_trial = self.x + self.alpha * step
                         f_trial = nlp.obj(x_trial)
