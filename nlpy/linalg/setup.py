@@ -56,7 +56,7 @@ def configuration(parent_package='',top_path=None):
         sources=[os.path.join('src',name) for name in pyma27_src],
         depends=[],
         libraries=['nlpy_ma27'],
-        include_dirs=['src'], # + [pysparse_include],
+        include_dirs=['src'],
         extra_info=blas_info,
         )
 
@@ -78,7 +78,7 @@ def configuration(parent_package='',top_path=None):
         sources=pyma57_sources,
         libraries=[metis_lib,'nlpy_ma57'],
         library_dirs=[metis_dir],
-        include_dirs=['src'], # + [pysparse_include],
+        include_dirs=['src'],
         extra_info=blas_info,
         )
 
