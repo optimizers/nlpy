@@ -39,6 +39,7 @@ class TrunkFramework:
         :maxiter:      maximum number of outer iterations (default max(1000,2n))
         :inexact:      use inexact Newton stopping tol    (default False)
         :ny:           apply Nocedal/Yuan linesearch      (default False)
+        :monotone:     use monotone descent strategy      (default False)
         :silent:       verbosity level                    (default False)
 
     Once a `TrunkFramework` object has been instantiated and the problem is
@@ -75,6 +76,7 @@ class TrunkFramework:
         self.silent  = kwargs.get('silent',  False)
         self.ny      = kwargs.get('ny',      False)
         self.inexact = kwargs.get('inexact', False)
+        self.monotone = kwargs.get('monotone', True)
     
         self.hformat = '%-5s  %8s  %7s  %5s  %8s  %8s  %4s\n'
         self.header  = self.hformat % ('Iter','f(x)','|g(x)|','cg','rho','Radius','Stat')
@@ -110,7 +112,6 @@ class TrunkFramework:
         stoptol = max(self.abstol, self.reltol * self.g0)
 
         # Initialize non-monotonicity parameters.
-        self.monotone = kwargs.get('monotone', True)
         if not self.monotone:
             fMin = fRef = fCan = self.f0
             l = 0
