@@ -241,6 +241,13 @@ class TrunkFramework:
 
         self.tsolve = cputime() - t    # Solve time
 
+        # Set final solver status.
+        if self.gnorm <= self.stoptol:
+            self.status = 'opt'
+        else: # self.iter > self.maxiter:
+            self.status = 'itr'
+
+
 
 class TrunkLbfgsFramework(TrunkFramework):
     """
