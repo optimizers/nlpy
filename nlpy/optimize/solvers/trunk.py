@@ -39,6 +39,11 @@ class TrunkFramework:
         :maxiter:      maximum number of outer iterations (default max(1000,2n))
         :inexact:      use inexact Newton stopping tol    (default False)
         :ny:           apply Nocedal/Yuan linesearch      (default False)
+        :nbk:          max number of backtracking steps in Nocedal/Yuan
+                       linesearch                         (default 5)
+        :monotone:     use monotone descent strategy      (default False)
+        :nIterNonMono: number of iterations for which non-strict descent
+                       can be tolerated if monotone=False (default 25)
         :silent:       verbosity level                    (default False)
 
     Once a `TrunkFramework` object has been instantiated and the problem is
@@ -69,12 +74,15 @@ class TrunkFramework:
         self.alpha  = 1.0       # For Nocedal-Yuan backtracking linesearch
         self.tsolve = 0.0
 
-        self.reltol  = kwargs.get('reltol',  1.0e-12)
-        self.abstol  = kwargs.get('abstol',  1.0e-6)
+        self.reltol  = kwargs.get('reltol', 1.0e-12)
+        self.abstol  = kwargs.get('abstol', 1.0e-6)
         self.maxiter = kwargs.get('maxiter', max(1000, 2*self.nlp.n))
-        self.silent  = kwargs.get('silent',  False)
-        self.ny      = kwargs.get('ny',      False)
+        self.silent  = kwargs.get('silent', False)
+        self.ny      = kwargs.get('ny', False)
+        self.nbk     = kwargs.get('nbk', 5)
         self.inexact = kwargs.get('inexact', False)
+        self.monotone = kwargs.get('monotone', False)
+        self.nIterNonMono = kwargs.get('nIterNonMono', 25)
     
         self.hformat = '%-5s  %8s  %7s  %5s  %8s  %8s  %4s\n'
         self.header  = self.hformat % ('Iter','f(x)','|g(x)|','cg','rho','Radius','Stat')
@@ -97,7 +105,7 @@ class TrunkFramework:
         """
         return None
 
-    def Solve(self):
+    def Solve(self, **kwargs):
 
         nlp = self.nlp
         rho = 1                  # Dummy initial value for rho
@@ -108,6 +116,12 @@ class TrunkFramework:
         else:
             cgtol = -1.0
         stoptol = max(self.abstol, self.reltol * self.g0)
+
+        # Initialize non-monotonicity parameters.
+        if not self.monotone:
+            fMin = fRef = fCan = self.f0
+            l = 0
+            sigRef = sigCan = 0
 
         t = cputime()
 
@@ -158,20 +172,55 @@ class TrunkFramework:
             self.cgiter += niter
             x_trial = self.x + step
             f_trial = nlp.obj(x_trial)
+
             rho  = self.TR.Rho(self.f, f_trial, m)
+
+            if not self.monotone:
+                rhoHis = (fRef - f_trial)/(sigRef - m)
+                rho = max(rho, rhoHis)
 
             status = 'Rej'
             if rho >= self.TR.eta1:
+
+                # Trust-region step is accepted.
+
                 self.TR.UpdateRadius(rho, snorm)
                 self.x = x_trial
                 self.f = f_trial
                 self.g = nlp.grad(self.x)
                 self.gnorm = norms.norm2(self.g)
                 status = 'Acc'
+
+                # Update non-monotonicity parameters.
+                if not self.monotone:
+                    sigRef = sigRef - m
+                    sigCan = sigCan - m
+                    if f_trial < fMin:
+                        fCan = f_trial
+                        fMin = f_trial
+                        sigCan = 0
+                        l = 0
+                    else:
+                        l = l + 1
+                        
+                    if f_trial > fCan:
+                        fCan = f_trial
+                        sigCan = 0
+
+                    if l == self.nIterNonMono:
+                        fRef = fCan
+                        sigRef = sigCan
+
             else:
+
+                # Trust-region step is rejected.
+
                 if self.ny: # Backtracking linesearch following "Nocedal & Yuan"
                     slope = numpy.dot(self.g, step)
-                    while f_trial >= self.f + 1.0e-4 * self.alpha * slope:
+                    bk = 0
+                    while bk < self.nbk and \
+                            f_trial >= self.f + 1.0e-4 * self.alpha * slope:
+                        bk = bk + 1
                         self.alpha /= 1.2
                         x_trial = self.x + self.alpha * step
                         f_trial = nlp.obj(x_trial)
@@ -191,6 +240,13 @@ class TrunkFramework:
             self.alpha = 1.0     # For the next iteration
 
         self.tsolve = cputime() - t    # Solve time
+
+        # Set final solver status.
+        if self.gnorm <= stoptol:
+            self.status = 'opt'
+        else: # self.iter > self.maxiter:
+            self.status = 'itr'
+
 
 
 class TrunkLbfgsFramework(TrunkFramework):
