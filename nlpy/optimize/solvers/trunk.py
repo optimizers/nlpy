@@ -97,7 +97,7 @@ class TrunkFramework:
         """
         return None
 
-    def Solve(self):
+    def Solve(self, **kwargs):
 
         nlp = self.nlp
         rho = 1                  # Dummy initial value for rho
@@ -108,6 +108,13 @@ class TrunkFramework:
         else:
             cgtol = -1.0
         stoptol = max(self.abstol, self.reltol * self.g0)
+
+        # Initialize non-monotonicity parameters.
+        self.monotone = kwargs.get('monotone', True)
+        if not self.monotone:
+            fMin = fRef = fCan = self.f0
+            l = 0
+            sigRef = sigCan = 0
 
         t = cputime()
 
@@ -158,17 +165,49 @@ class TrunkFramework:
             self.cgiter += niter
             x_trial = self.x + step
             f_trial = nlp.obj(x_trial)
+
             rho  = self.TR.Rho(self.f, f_trial, m)
+
+            if not self.monotone:
+                rhoHis = (fRef - f_trial)/(sigRef - m)
+                rho = max(rho, rhoHis)
 
             status = 'Rej'
             if rho >= self.TR.eta1:
+
+                # Trust-region step is accepted.
+
                 self.TR.UpdateRadius(rho, snorm)
                 self.x = x_trial
                 self.f = f_trial
                 self.g = nlp.grad(self.x)
                 self.gnorm = norms.norm2(self.g)
                 status = 'Acc'
+
+                # Update non-monotonicity parameters.
+                if not self.monotone:
+                    sigRef = sigRef - m
+                    sigCan = sigCan - m
+                    if f_trial < fMin:
+                        fCan = f_trial
+                        fMin = f_trial
+                        sigCan = 0
+                        l = 0
+                    else:
+                        l = l + 1
+                        
+                    if f_trial > fCan:
+                        fCan = f_trial
+                        sigCan = 0
+
+                    if l == 25:
+                        fRef = fCan
+                        sigRef = sigCan
+
             else:
+
+                # Trust-region step is rejected.
+
                 if self.ny: # Backtracking linesearch following "Nocedal & Yuan"
                     slope = numpy.dot(self.g, step)
                     while f_trial >= self.f + 1.0e-4 * self.alpha * slope:
