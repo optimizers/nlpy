@@ -34,7 +34,7 @@ class TrunkFramework:
     :keywords:
 
         :x0:           starting point                     (default nlp.x0)
-        :reltol:       relative stopping tolerance        (default 1.0e-12)
+        :reltol:       relative stopping tolerance        (default `nlp.stop_d`)
         :abstol:       absolute stopping tolerance        (default 1.0e-6)
         :maxiter:      maximum number of outer iterations (default max(1000,2n))
         :inexact:      use inexact Newton stopping tol    (default False)
@@ -74,7 +74,7 @@ class TrunkFramework:
         self.alpha  = 1.0       # For Nocedal-Yuan backtracking linesearch
         self.tsolve = 0.0
 
-        self.reltol  = kwargs.get('reltol', 1.0e-12)
+        self.reltol  = kwargs.get('reltol', self.nlp.stop_d)
         self.abstol  = kwargs.get('abstol', 1.0e-6)
         self.maxiter = kwargs.get('maxiter', max(1000, 2*self.nlp.n))
         self.silent  = kwargs.get('silent', False)
