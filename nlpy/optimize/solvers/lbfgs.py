@@ -141,8 +141,8 @@ class LBFGSFramework:
         self.nlp = nlp
         self.npairs = kwargs.get('npairs', 5)
         self.silent = kwargs.get('silent', False)
-        self.atol = kwargs.get('abstol', 1.0e-6)
-        self.rtol = kwargs.get('reltol', self.nlp.stop_d)
+        self.abstol = kwargs.get('abstol', 1.0e-6)
+        self.reltol = kwargs.get('reltol', self.nlp.stop_d)
         self.iter   = 0
         self.nresets = 0
         self.converged = False
