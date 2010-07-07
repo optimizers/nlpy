@@ -76,6 +76,8 @@ for ProblemName in args:
     lbfgs.solve()
 
     # Output final statistics
+    if ProblemName[-3:] == '.nl':
+        ProblemName = ProblemName[:-3]
     print fmt % (ProblemName, lbfgs.iter, lbfgs.f, lbfgs.gnorm, t_setup, lbfgs.tsolve, lbfgs.converged)
 
     if options.verbose:
