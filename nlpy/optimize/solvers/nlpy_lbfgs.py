@@ -66,7 +66,6 @@ for ProblemName in args:
         nlp.close()
         continue
 
-    nlp.stop_d = 1.0e-12    
     lbfgs = LBFGSFramework(nlp,
                            npairs=options.npairs,
                            scaling=not options.noscale,

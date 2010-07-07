@@ -121,11 +121,13 @@ class LBFGSFramework:
 
         lbfgs.solve().
 
-    Optional keyword arguments include
+    :keywords:
 
-        npairs      the number of (s,y) pairs to store (default: 5)
-        x0          the starting point (default: nlp.x0)
-        maxiter     the maximum number of iterations (default: max(10n,1000))
+        :npairs:    the number of (s,y) pairs to store (default: 5)
+        :x0:        the starting point (default: nlp.x0)
+        :maxiter:   the maximum number of iterations (default: max(10n,1000))
+        :abstol:    absolute stopping tolerance (default: 1.0e-6)
+        :reltol:    relative stopping tolerance (default: `nlp.stop_d`)
 
     Other keyword arguments will be passed to InverseLBFGS.
         
@@ -139,6 +141,8 @@ class LBFGSFramework:
         self.nlp = nlp
         self.npairs = kwargs.get('npairs', 5)
         self.silent = kwargs.get('silent', False)
+        self.atol = kwargs.get('abstol', 1.0e-6)
+        self.rtol = kwargs.get('reltol', self.nlp.stop_d)
         self.iter   = 0
         self.nresets = 0
         self.converged = False
@@ -162,7 +166,10 @@ class LBFGSFramework:
 
         # Initial LBFGS matrix is the identity. In other words,
         # the initial search direction is the steepest descent direction
-        stoptol = self.nlp.stop_d * max(1.0, norms.norm2(self.x))
+
+        # This is the original L-BFGS stopping condition.
+        #stoptol = self.nlp.stop_d * max(1.0, norms.norm2(self.x))
+        stoptol = max(self.abstol, self.reltol * self.g0)
 
         while self.gnorm > stoptol and self.iter < self.maxiter:
 
