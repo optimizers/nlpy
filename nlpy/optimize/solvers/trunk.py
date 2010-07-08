@@ -33,18 +33,18 @@ class TrunkFramework:
 
     :keywords:
 
-        :x0:           starting point                     (default nlp.x0)
-        :reltol:       relative stopping tolerance        (default `nlp.stop_d`)
-        :abstol:       absolute stopping tolerance        (default 1.0e-6)
-        :maxiter:      maximum number of outer iterations (default max(1000,2n))
-        :inexact:      use inexact Newton stopping tol    (default False)
-        :ny:           apply Nocedal/Yuan linesearch      (default False)
+        :x0:           starting point                    (default nlp.x0)
+        :reltol:       relative stopping tolerance       (default `nlp.stop_d`)
+        :abstol:       absolute stopping tolerance       (default 1.0e-6)
+        :maxiter:      maximum number of iterations      (default max(1000,10n))
+        :inexact:      use inexact Newton stopping tol   (default False)
+        :ny:           apply Nocedal/Yuan linesearch     (default False)
         :nbk:          max number of backtracking steps in Nocedal/Yuan
-                       linesearch                         (default 5)
-        :monotone:     use monotone descent strategy      (default False)
-        :nIterNonMono: number of iterations for which non-strict descent
-                       can be tolerated if monotone=False (default 25)
-        :silent:       verbosity level                    (default False)
+                       linesearch                        (default 5)
+        :monotone:     use monotone descent strategy     (default False)
+        :nIterNonMono: number of iterations for which non-strict descent can
+                       be tolerated if monotone=False    (default 25)
+        :silent:       verbosity level                   (default False)
 
     Once a `TrunkFramework` object has been instantiated and the problem is
     set up, solve problem by issuing a call to `TRNK.solve()`. The algorithm
@@ -76,7 +76,7 @@ class TrunkFramework:
 
         self.reltol  = kwargs.get('reltol', self.nlp.stop_d)
         self.abstol  = kwargs.get('abstol', 1.0e-6)
-        self.maxiter = kwargs.get('maxiter', max(1000, 2*self.nlp.n))
+        self.maxiter = kwargs.get('maxiter', max(1000, 10*self.nlp.n))
         self.silent  = kwargs.get('silent', False)
         self.ny      = kwargs.get('ny', False)
         self.nbk     = kwargs.get('nbk', 5)
