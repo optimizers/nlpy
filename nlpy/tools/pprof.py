@@ -169,7 +169,7 @@ class MetricsClass:
         if self.metric is not None:
             self.metric = numpy.concatenate((self.metric, [metrics]))
         else:
-            self.metric = numpy.array([metrics])
+            self.metric = numpy.array([metrics], dtype=numpy.float)
 
         # Current num of probs grabbed
         nprobs = len(metrics)
