@@ -308,7 +308,7 @@ class RegLPInteriorPointSolver:
          short_status...short version of status, used for printing.
         """
         lp = self.lp
-        itermax = kwargs.get('itermax', 10*lp.n)
+        itermax = kwargs.get('itermax', max(100,10*lp.n))
         tolerance = kwargs.get('tolerance', 1.0e-6)
         PredictorCorrector = kwargs.get('PredictorCorrector', True)
         check_infeasible = kwargs.get('check_infeasible', True)
@@ -337,7 +337,7 @@ class RegLPInteriorPointSolver:
         iter = 0
 
         # Acceptance thresholds for primal and dual reg parameters.
-        t1 = t2 = 0.99
+        #t1 = t2 = 0.99
 
         solve_time = cputime()
 
@@ -357,10 +357,10 @@ class RegLPInteriorPointSolver:
             mu = sz/ns
 
             # Adjust regularization parameters
-            mu = sum(comp)/ns
-            if mu < 1:
-                regpr = sqrt(mu)
-                regdu = sqrt(mu)
+            #mu = sum(comp)/ns
+            #if mu < 1:
+            #    regpr = sqrt(mu)
+            #    regdu = sqrt(mu)
 
             # At the first iteration, initialize perturbation vectors
             # (q=primal, r=dual).
@@ -388,10 +388,10 @@ class RegLPInteriorPointSolver:
                 # 1) rho+ |dx| <= const * s'z
                 # 2) del+ |dy| <= const * s'z
                 if regdu > 0:
-                    regdu = min(regdu/10, sz/normdy/100, (sz/normdy)**(1.1))
+                    regdu = min(regdu/10, sz/normdy/10, (sz/normdy)**(1.1))
                     regdu = max(regdu, regdu_min)
                 if regpr > 0:
-                    regpr = min(regpr/10, sz/normdx/100, (sz/normdx)**(1.1))
+                    regpr = min(regpr/10, sz/normdx/10, (sz/normdx)**(1.1))
                     regpr = max(regpr, regpr_min)
 
                 # Check for infeasible problem.
