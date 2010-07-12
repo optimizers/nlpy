@@ -7,8 +7,6 @@
 #
 # D. Orban, Montreal 2009.
 
-import pdb
-
 from nlpy.model import SlackFramework
 try:                            # To solve augmented systems
     from nlpy.linalg.pyma57 import PyMa57Context as LBLContext
@@ -493,8 +491,6 @@ class RegQPInteriorPointSolver:
                 rhs[:n]    = -dFeas
                 rhs[on:n] += z
                 rhs[n:]    = -pFeas
-
-                #pdb.set_trace()
 
                 (step, nres, neig) = self.solveSystem(rhs)
                 
