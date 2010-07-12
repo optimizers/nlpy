@@ -22,7 +22,6 @@ from pysparse.sparse.pysparseMatrix import PysparseMatrix
 import numpy as np
 from math import sqrt
 import sys
-import pdb
 
 
 class RegLPInteriorPointSolver:
@@ -83,7 +82,7 @@ class RegLPInteriorPointSolver:
 
         scale = kwargs.get('scale', True)
         self.verbose = kwargs.get('verbose', True)
-        self.stabilize = kwargs.get('stabilize', False)
+        self.stabilize = kwargs.get('stabilize', True)
 
         self.lp = lp
         self.A = lp.A()               # Constraint matrix
