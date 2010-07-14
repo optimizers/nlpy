@@ -357,6 +357,8 @@ class RegLPInteriorPointSolver:
             mu = sz/ns
 
             # Compute residual norms and scaled residual norms.
+            # We don't need to keep both the scaled and unscaled residuals
+            # store.
             #pResid = norm_infty(pFeas + regdu * r)/(1+self.normc)
             #dResid = norm_infty(dFeas - regpr * q)/(1+self.normb)
             pResid = norm2(pFeas) ; spResid = pResid/(1+self.normc)
@@ -407,8 +409,6 @@ class RegLPInteriorPointSolver:
                 else:
                     r = -pFeas ; rNorm = norm2(r) ; del_r = 0.0
                 del_r_min = del_r
-                #q = np.zeros(n) ; qNorm = 0 ; rho_q = 0
-                #r = np.zeros(m) ; rNorm = 0 ; del_r = 0
                 pr_infeas_count = 0  # Used to detect primal infeasibility.
                 du_infeas_count = 0  # Used to detect dual infeasibility.
                 pr_last_iter = 0
