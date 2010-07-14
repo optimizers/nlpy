@@ -356,6 +356,37 @@ class RegLPInteriorPointSolver:
             dFeas[on:] += z                                 # dFeas2 = A2'y + z
             mu = sz/ns
 
+            # Compute residual norms and scaled residual norms.
+            #pResid = norm_infty(pFeas + regdu * r)/(1+self.normc)
+            #dResid = norm_infty(dFeas - regpr * q)/(1+self.normb)
+            pResid = norm2(pFeas) ; spResid = pResid/(1+self.normc)
+            cResid = norm2(comp)  ; scResid = cResid/self.normbc
+            dResid = norm2(dFeas) ; sdResid = dResid/(1+self.normb)
+
+            # Compute relative duality gap.
+            cx = np.dot(c,x[:on])
+            by = np.dot(b,y)
+            rgap  = cx - by
+            #rgap += regdu * (rNorm**2 + np.dot(r,y))
+            rgap  = abs(rgap) / (1 + abs(cx))
+            rgap2 = mu /(1 + abs(cx))
+
+            # Compute overall residual for stopping condition.
+            kktResid = max(spResid, sdResid, rgap2)
+            #kktResid = max(pResid, cResid, dResid)
+
+            if kktResid <= tolerance:
+                status = 'Optimal solution found'
+                short_status = 'opt'
+                finished = True
+                continue
+
+            if iter >= itermax:
+                status = 'Maximum number of iterations reached'
+                short_status= 'iter'
+                finished = True
+                continue
+
             # Adjust regularization parameters
             #mu = sum(comp)/ns
             #if mu < 1:
@@ -370,10 +401,12 @@ class RegLPInteriorPointSolver:
                     q = dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
                 else:
                     q = dFeas ; qNorm = norm2(q) ; rho_q = 0.0
+                rho_q_min = rho_q
                 if regdu > 0:
                     r = -pFeas/regdu ; rNorm = norm2(r) ; del_r = regdu * rNorm
                 else:
                     r = -pFeas ; rNorm = norm2(r) ; del_r = 0.0
+                del_r_min = del_r
                 #q = np.zeros(n) ; qNorm = 0 ; rho_q = 0
                 #r = np.zeros(m) ; rNorm = 0 ; del_r = 0
                 pr_infeas_count = 0  # Used to detect primal infeasibility.
@@ -396,60 +429,32 @@ class RegLPInteriorPointSolver:
 
                 # Check for infeasible problem.
                 if check_infeasible:
-                    if mu < 1.0e-6 * mu0 and rho_q > 1000 * mu: # tolerance:
+                    #if mu < 1.0e-8 * mu0 and rho_q > 1.0e+3 * kktResid * self.normbc: #* mu * self.normbc:
+                    if mu < 1.0e-8 * mu0 and rho_q > 1.0e+2 * rho_q_min:
                         pr_infeas_count += 1
                         if pr_infeas_count > 1 and pr_last_iter == iter-1:
-                            if pr_infeas_count > 3:
-                                status = 'Problem is (locally) dual infeasible'
+                            if pr_infeas_count > 6:
+                                status = 'Problem seems to be (locally) dual infeasible'
                                 short_status = 'dInf'
                                 finished = True
                                 continue
                         pr_last_iter = iter
 
-                    if mu < 1.0e-6 * mu0 and del_r > 1000 * mu: # tolerance:
+                    #if mu < 1.0e-8 * mu0 and del_r > 1.0e+3 * kktResid * self.normbc: # * mu * self.normbc:
+                    if mu < 1.0e-8 * mu0 and del_r > 1.0e+2 * del_r_min:
                         du_infeas_count += 1
                         if du_infeas_count > 1 and du_last_iter == iter-1:
-                            if du_infeas_count > 3:
-                                status='Problem is (locally) primal infeasible'
+                            if du_infeas_count > 6:
+                                status='Problem seems to be (locally) primal infeasible'
                                 short_status = 'pInf'
                                 finished = True
                                 continue
                         du_last_iter = iter
 
-            # Compute residual norms and scaled residual norms.
-            #pResid = norm_infty(pFeas + regdu * r)/(1+self.normc)
-            #dResid = norm_infty(dFeas - regpr * q)/(1+self.normb)
-            pResid = norm2(pFeas) ; spResid = pResid/(1+self.normc)
-            cResid = norm2(comp)  ; scResid = cResid/self.normbc
-            dResid = norm2(dFeas) ; sdResid = dResid/(1+self.normb)
-
-            # Compute relative duality gap.
-            cx = np.dot(c,x[:on])
-            by = np.dot(b,y)
-            rgap  = cx - by
-            #rgap += regdu * (rNorm**2 + np.dot(r,y))
-            rgap  = abs(rgap) / (1 + abs(cx))
-
-            # Compute overall residual for stopping condition.
-            kktResid = max(spResid, sdResid, rgap)
-            #kktResid = max(pResid, cResid, dResid)
-
             # Display objective and residual data.
             if self.verbose:
                 sys.stdout.write(self.format1 % (iter, cx, pResid, dResid,
                                                  cResid, rgap, qNorm, rNorm))
-
-            if kktResid <= tolerance:
-                status = 'Optimal solution found'
-                short_status = 'opt'
-                finished = True
-                continue
-
-            if iter >= itermax:
-                status = 'Maximum number of iterations reached'
-                short_status= 'iter'
-                finished = True
-                continue
 
             # Record some quantities for display
             mins = np.min(s)
@@ -667,8 +672,8 @@ class RegLPInteriorPointSolver:
             q *= (1-alpha_p) ; q += alpha_p * dx
             r *= (1-alpha_d) ; r += alpha_d * dy
             qNorm = norm2(q) ; rNorm = norm2(r)
-            rho_q = regpr * qNorm/(1+self.normc)
-            del_r = regdu * rNorm/(1+self.normb)
+            rho_q = regpr * qNorm/(1+self.normc) ; rho_q_min = min(rho_q_min, rho_q)
+            del_r = regdu * rNorm/(1+self.normb) ; del_r_min = min(del_r_min, del_r)
 
             iter += 1
 
