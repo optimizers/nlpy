@@ -335,6 +335,7 @@ class RegQPInteriorPointSolver:
         itermax = kwargs.get('itermax', max(100,10*qp.n))
         tolerance = kwargs.get('tolerance', 1.0e-6)
         PredictorCorrector = kwargs.get('PredictorCorrector', True)
+        check_infeasible = kwargs.get('check_infeasible', True)
 
         # Transfer pointers for convenience.
         m, n = self.A.shape ; on = qp.original_n
@@ -377,18 +378,11 @@ class RegQPInteriorPointSolver:
             dFeas = y*A ; dFeas[:on] -= self.c + Qx     # dFeas1 = A1'y - c - Qx
             dFeas[on:] += z                             # dFeas2 = A2'y + z
 
-            # At the first iteration, initialize perturbation vectors
-            # (q=primal, r=dual).
-            if iter == 0:
-                q =  dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
-                r = -pFeas/regdu ; rNorm = norm2(r) ; del_r = regdu * rNorm
-                #q = np.zeros(n) ; qNorm = 0 ; rho_q = 0
-                #r = np.zeros(m) ; rNorm = 0 ; del_r = 0
+            # Compute duality measure.
+            if ns > 0:
+                mu = sz/ns
             else:
-                regdu = min(regdu/10, sz/normdy/10, (sz/normdy)**(1.1))
-                regdu = max(regdu, regdu_min)
-                regpr = min(regpr/10, sz/normdx/10, (sz/normdx)**(1.1))
-                regpr = max(regpr, regpr_min)
+                mu = 0.0
 
             # Compute residual norms and scaled residual norms.
             #pResid = norm_infty(pFeas + regdu * r)/(1+self.normc+self.normQ)
@@ -407,10 +401,58 @@ class RegQPInteriorPointSolver:
             rgap  = cx + xQx - by
             #rgap += regdu * (rNorm**2 + np.dot(r,y))
             rgap  = abs(rgap) / (1 + abs(cx) + self.normQ)
+            rgap2 = mu / (1 + abs(cx) + self.normQ)
 
             # Compute overall residual for stopping condition.
-            kktResid = max(spResid, sdResid, rgap)
+            kktResid = max(spResid, sdResid, rgap2)
             #kktResid = max(pResid, cResid, dResid)
+
+            # At the first iteration, initialize perturbation vectors
+            # (q=primal, r=dual).
+            # Should probably get rid of q when regpr=0 and of r when regdu=0.
+            if iter == 0:
+                if regpr > 0:
+                    q =  dFeas/regpr ; qNorm = dResid/regpr ; rho_q = dResid
+                else:
+                    q =  dFeas ; qNorm = dResid ; rho_q = 0.0
+                rho_q_min = rho_q
+                if regdu > 0:
+                    r = -pFeas/regdu ; rNorm = pResid/regdu ; del_r = pResid
+                else:
+                    r = -pFeas ; rNorm = pResid ; del_r = 0.0
+                del_r_min = del_r
+                pr_infeas_count = 0  # Used to detect primal infeasibility.
+                du_infeas_count = 0  # Used to detect dual infeasibility.
+                pr_last_iter = 0
+                du_last_iter = 0
+                mu0 = mu
+            else:
+                regdu = min(regdu/10, sz/normdy/10, (sz/normdy)**(1.1))
+                regdu = max(regdu, regdu_min)
+                regpr = min(regpr/10, sz/normdx/10, (sz/normdx)**(1.1))
+                regpr = max(regpr, regpr_min)
+
+                # Check for infeasible problem.
+                if check_infeasible:
+                    if mu < 1.0e-8 * mu0 and rho_q > 1.0e+2 * rho_q_min:
+                        pr_infeas_count += 1
+                        if pr_infeas_count > 1 and pr_last_iter == iter-1:
+                            if pr_infeas_count > 6:
+                                status = 'Problem seems to be (locally) dual infeasible'
+                                short_status = 'dInf'
+                                finished = True
+                                continue
+                        pr_last_iter = iter
+
+                    if mu < 1.0e-8 * mu0 and del_r > 1.0e+2 * del_r_min:
+                        du_infeas_count += 1
+                        if du_infeas_count > 1 and du_last_iter == iter-1:
+                            if du_infeas_count > 6:
+                                status='Problem seems to be (locally) primal infeasible'
+                                short_status = 'pInf'
+                                finished = True
+                                continue
+                        du_last_iter = iter
 
             # Display objective and residual data.
             if self.verbose:
@@ -478,12 +520,6 @@ class RegQPInteriorPointSolver:
                 short_status = 'degn'
                 finished = True
                 continue
-
-            # Compute duality measure.
-            if ns > 0:
-                mu = sz/ns
-            else:
-                mu = 0.0
 
             if PredictorCorrector:
                 # Use Mehrotra predictor-corrector method.
@@ -583,13 +619,8 @@ class RegQPInteriorPointSolver:
             q *= (1-alpha_p) ; q += alpha_p * dx
             r *= (1-alpha_d) ; r += alpha_d * dy
             qNorm = norm2(q) ; rNorm = norm2(r)
-            rho_q = regpr * qNorm/(1+self.normc)
-            del_r = regdu * rNorm/(1+self.normb)
-
-            # Update regularization parameters.
-            #regpr = max(min(regpr/2, regpr**(1.1)), self.regpr_min)
-            #regdu = max(min(regdu/2, regdu**(1.1)), self.regdu_min)
-
+            rho_q = regpr * qNorm/(1+self.normc) ; rho_q_min = min(rho_q_min, rho_q)
+            del_r = regdu * rNorm/(1+self.normb) ; del_r_min = min(del_r_min, del_r)
             iter += 1
 
         solve_time = cputime() - setup_time
