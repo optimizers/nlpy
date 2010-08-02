@@ -43,7 +43,7 @@ class TruncatedCG:
         :returns:
 
           :step:       final step,
-          :it:         number of iterations,
+          :niter:      number of iterations,
           :stepNorm:   Euclidian norm of the step.
 
         If both `matvec` and `H` are specified, `matvec` takes precedence. If
@@ -82,6 +82,9 @@ class TruncatedCG:
         self.debug = kwargs.get('debug', False)
         self.status = '?'
         self.onBoundary = False
+        self.step = None
+        self.stepNorm = 0.0
+        self.niter = 0
 
         # Formats for display
         self.hd_fmt = ' %-5s  %9s  %8s\n'
