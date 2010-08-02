@@ -81,6 +81,7 @@ class TruncatedCG:
         self.prec = kwargs.get('prec', lambda v: v)
         self.debug = kwargs.get('debug', False)
         self.status = '?'
+        self.onBoundary = False
 
         # Formats for display
         self.hd_fmt = ' %-5s  %9s  %8s\n'
@@ -194,6 +195,7 @@ class TruncatedCG:
         self.step = s
         self.niter = k
         self.stepNorm = sqrt(snorm2)
+        self.onBoundary = onBoundary
         return
 
 
