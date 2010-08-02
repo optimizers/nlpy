@@ -42,9 +42,9 @@ class TruncatedCG:
 
         :returns:
 
-          :s:          final step,
+          :step:       final step,
           :it:         number of iterations,
-          :snorm:      Euclidian norm of the step.
+          :stepNorm:   Euclidian norm of the step.
 
         If both `matvec` and `H` are specified, `matvec` takes precedence. If
         `matvec` is specified, it is supposed to receive a vector `p` as input
@@ -222,35 +222,3 @@ def H_prod(H, v):
     H.matvec(v, Hv)
     return Hv
 
-if __name__ == '__main__':
-
-    from pysparse.sparse import spmatrix
-    import precon
-    from nlpy_timing import cputime
-    #from demo_pygltr import SpecSheet
-    #(H,g) = SpecSheet() # The GLTR spec sheet example
-    
-    t_setup = cputime()
-    H = spmatrix.ll_mat_from_mtx('1138bus.mtx')
-    n = H.shape[0]
-    e = np.ones(n, 'd')
-    g = np.empty(n, 'd')
-    H.matvec(e, g)
-    K = precon.DiagonalPreconditioner(H)
-    #K = precon.BandedPreconditioner(H)
-    t_setup = cputime() - t_setup
-
-    t_solve = cputime()
-    #(s,it,snorm) = trpcg(g, Delta=40.0, matvec = lambda p: H_prod(H,p))
-    (s,it,snorm) = trpcg(g,
-                         Delta = 33.5,
-                         H = H,
-                         prec = K.precon
-                        )
-    t_solve = cputime() - t_solve
-
-    print ' #it = ', it
-    print ' snorm = ', snorm
-    print ' q(s) = ', model_value(H, g, s)
-    print ' setup time: ', t_setup
-    print ' solve time: ', t_solve
