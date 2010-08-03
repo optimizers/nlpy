@@ -27,7 +27,7 @@ class ProjectedCG( ProjectedKrylov ):
         """
         Solve the equality-constrained quadratic programming problem
 
-            minimize     < c, x > + 1/2 < x, Hx >                            (1)
+            minimize     < c, x > + 1/2 < x, Hx >                           (1)
             subject to   A x = b
 
         using the projected preconditioned conjugate-gradient algorithm.
@@ -37,7 +37,7 @@ class ProjectedCG( ProjectedKrylov ):
         trust-region subproblem
 
             minimize     < c, x > + 1/2 < x, Hx >
-            subject to   A x = 0                                             (2)
+            subject to   A x = 0                                            (2)
                          sqrt(< x, Mx >)  <=  radius,
 
         where M is a symmetric positive definite scaling matrix and radius > 0
@@ -49,7 +49,7 @@ class ProjectedCG( ProjectedKrylov ):
         Equivalently, this module is appropriate for solving saddle-point
         systems of the form
 
-            [ H   A^T ] [ x ] = [ -c ]                                       (3)
+            [ H   A^T ] [ x ] = [ -c ]                                      (3)
             [ A    0  ] [ y ]   [  b ]
 
         where H is a symmetric matrix. If H is positive definite on the
@@ -101,59 +101,42 @@ class ProjectedCG( ProjectedKrylov ):
                         (or of the preconditioned projected gradient, if a
                          preconditioner is given.)
 
-        Optional keyword arguments are given in the following table.
+        :keywords:
+            :A: the matrix defining linear equality constraints (None)
+            :rhs: a nonzero right-hand side of the constraints (None)
+            :H: the explicit matrix H (with matvec method) (None)
+            :matvec: a method to compute H-vector products (None)
+            :precon: a preconditioner G (given explicitly) (Identity)
+            :Proj: an existing factorization of the projection matrix
+                   conforming to the LBLContext (None)
+            :abstol: the absolute stopping tolerance (1.0e-8)
+            :reltol: the relative stopping tolerance (1.0e-6)
+            :maxiter: the maximum number of iterations (2n)
+            :max_itref: the maximum number of iterative refinement steps (3)
+            :itref_tol: the required threshold for the residual after
+                        iterative refinement (1.0e-6)
+            :radius: trust-region radius (None)
+            :btol: fraction-to-the-boundary factor (None)
+            :cur_iter: a vector related to btol (see below) (None)
+            :factorize: set to `False` if calling again with the same
+                        constraint matrix `A` (True)
+            :debug: a boolean indicating debug/verbose mode (False)
 
-        +----------+-------------------------------------------------+---------+
-        | Keyword  | Description                                     | Default |
-        +==========+=================================================+=========+
-        | A        | the matrix defining linear equality constraints | None    |
-        +----------+-------------------------------------------------+---------+
-        | rhs      | a nonzero right-hand side of the constraints    | None    |
-        +----------+-------------------------------------------------+---------+
-        | H        | the explicit matrix H (with matvec method)      | None    |
-        +----------+-------------------------------------------------+---------+
-        | matvec   | a method to compute H-vector products           | None    |
-        +----------+-------------------------------------------------+---------+
-        | precon   | a preconditioner G (given explicitly)           | Identity|
-        +----------+-------------------------------------------------+---------+
-        | Proj     | an existing factorization of the projection     |         |
-        |          | matrix conforming to the LBLContext             | None    |
-        +----------+-------------------------------------------------+---------+
-        | abstol   | the absolute stopping tolerance                 | 1.0e-8  |
-        +----------+-------------------------------------------------+---------+
-        | reltol   | the relative stopping tolerance                 | 1.0e-6  |
-        +----------+-------------------------------------------------+---------+
-        | maxiter  | the maximum number of iterations                | 2n      |
-        +----------+-------------------------------------------------+---------+
-        | max_itref| the maximum number of iterative refinement steps| 3       |
-        +----------+-------------------------------------------------+---------+
-        | itref_tol| the required threshold for the residual after   |         |
-        |          |    iterative refinement                         | 1.0e-6  |
-        +----------+-------------------------------------------------+---------+
-        | radius   | trust-region radius                             | None    |
-        +----------+-------------------------------------------------+---------+
-        | btol     | fraction-to-the-boundary factor                 | None    |
-        +----------+-------------------------------------------------+---------+
-        | cur_iter | a vector related to btol (see below)            | None    |
-        +----------+-------------------------------------------------+---------+
-        | factorize| set to False if calling again with the same A   | True    |
-        +----------+-------------------------------------------------+---------+
-        | debug    | a boolean indicating debug/verbose mode         | False   |
-        +----------+-------------------------------------------------+---------+
-
-        If specified, a positive factor btol will cause the algorithm to enforce
-        all conjugate gradient iterates to satisfy  sk >= btol. Typically, in an
-        interior-point methods calling ppcg(), the step computed at iteration k
-        must be such that
+        If specified, a positive factor `btol` will cause the algorithm to
+        enforce all conjugate gradient iterates to satisfy  sk >= btol.
+        Typically, in an interior-point methods calling `ppcg()`, the step
+        computed at iteration k must be such that
                 dk >= -tau xk
         where 0 < tau < 1, so that
                 xk + dk >= (1-tau) xk,
         which prevents the iterates from getting too close to the boundary of
-        the nonnegative orthant. In this type of setting, btol should be set to
+        the nonnegative orthant. In this type of setting, btol should be set
+        to
                 btol = tau
         and the vector cur_iter should be set to
                 cur_iter = xk.
-        This ensures that no copy of xk occurs and only a pointer to xk is used.
+        This ensures that no copy of xk occurs and only a pointer to xk is
+        used.
 
         Reference
         ---------
