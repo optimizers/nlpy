@@ -2,9 +2,9 @@
 A pure Python/numpy implementation of the Steihaug-Toint
 truncated preconditioned conjugate gradient algorithm as described in
 
-  T. Steihaug,
-  *The conjugate gradient method and trust regions in large scale optimization*,
-  SIAM Journal on Numerical Analysis **20** (3), pp. 626-637, 1983.
+  T. Steihaug, *The conjugate gradient method and trust regions in large scale
+  optimization*, SIAM Journal on Numerical Analysis **20** (3), pp. 626-637,
+  1983.
 
 .. moduleauthor:: D. Orban <dominique.orban@gerad.ca>
 """
@@ -32,7 +32,7 @@ class TruncatedCG:
 
         :keywords:
 
-          :radius:     the trust-region radius (default: ||g||),
+          :radius:     the trust-region radius (default: None),
           :matvec:     a function to compute matrix-vector products with `H`,
           :H:          the explicit matrix `H`,
           :abstol:     absolute stopping tolerance (default: 1.0e-8),
@@ -44,7 +44,11 @@ class TruncatedCG:
 
           :step:       final step,
           :niter:      number of iterations,
-          :stepNorm:   Euclidian norm of the step.
+          :stepNorm:   Euclidian norm of the step,
+          :dir:        direction of infinite descent (if radius=None and
+                       H is not positive definite),
+          :onBoundary: set to True if trust-region boundary was hit,
+          :infDescent: set to True if a direction of infinite descent was found
 
         If both `matvec` and `H` are specified, `matvec` takes precedence. If
         `matvec` is specified, it is supposed to receive a vector `p` as input
@@ -74,7 +78,7 @@ class TruncatedCG:
             if self.H is None:
                 raise ValueError, 'Specify one of matvec or H'
 
-        self.radius = kwargs.get('radius', 1.0)
+        self.radius = kwargs.get('radius', None)
         self.abstol = kwargs.get('absol', 1.0e-8)
         self.reltol = kwargs.get('reltol', 1.0e-6)
         self.maxiter = kwargs.get('maxiter', 2*self.n)
@@ -85,6 +89,7 @@ class TruncatedCG:
         self.step = None
         self.stepNorm = 0.0
         self.niter = 0
+        self.dir = None
 
         # Formats for display
         self.hd_fmt = ' %-5s  %9s  %8s\n'
@@ -108,6 +113,8 @@ class TruncatedCG:
         in Euclidian norm. If known, supply optional argument `ss` whose value
         should be the squared Euclidian norm of `s`.
         """
+        if radius is None:
+            raise ValueError, 'Input value radius must be positive number.'
         sp = np.dot(s,p)
         pp = np.dot(p,p)
         if ss is None: ss = np.dot(s,s)
@@ -143,12 +150,14 @@ class TruncatedCG:
         if matvec is None: Hp = np.empty(n)
 
         onBoundary = False
+        infDescent = False
 
         if self.debug:
             self._write(self.header)
             self._write('-' * len(self.header) + '\n')
 
-        while sqrtry > stopTol and k < self.maxiter and not onBoundary:
+        while sqrtry > stopTol and k < self.maxiter and \
+                not onBoundary and not infDescent:
 
             # Compute matrix-vector product H*p.
             if matvec is not None:
@@ -161,14 +170,22 @@ class TruncatedCG:
                 self._write(self.fmt % (k, ry, pHp))
 
             # Compute steplength to the boundary.
-            sigma = self.to_boundary(s,p,Delta,ss=snorm2)
+            if Delta is not None:
+                sigma = self.to_boundary(s,p,Delta,ss=snorm2)
 
             # Compute CG steplength.
             alpha = ry/pHp
 
-            if pHp <= 0.0 or alpha > sigma:
-                # Either p is direction of singularity or negative curvature or
-                # leads past the trust-region boundary. Follow p to the boundary.
+            if pHp <= 0 and Delta is None:
+                # p is direction of singularity or negative curvature.
+                self.status = 'infinite descent'
+                snorm2 = 0
+                self.dir = p
+                infDescent = True
+                continue
+
+            if (pHp <= 0  or alpha > sigma) and Delta is not None:
+                # p leads past the trust-region boundary. Move to the boundary.
                 s += sigma * p
                 snorm2 = Delta*Delta
                 self.status = 'on boundary (sigma = %g)' % sigma
@@ -199,6 +216,7 @@ class TruncatedCG:
         self.niter = k
         self.stepNorm = sqrt(snorm2)
         self.onBoundary = onBoundary
+        self.infDescent = infDescent
         return
 
 
