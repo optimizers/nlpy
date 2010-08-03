@@ -174,7 +174,7 @@ class ProjectedCG( ProjectedKrylov ):
         self.infiniteDescentDir = None
         self.xNorm2 = 0.0        # Square norm of step, not counting x_feasible
         self.stepNorm = self.xNorm2 # Shortcut for consistency with TruncatedCG
-        self.dir = None  $ Direction of infinity descent
+        self.dir = None  # Direction of infinity descent
         self.onBoundary = False
         self.infDescent = False
 
