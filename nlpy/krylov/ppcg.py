@@ -171,7 +171,7 @@ class ProjectedCG( ProjectedKrylov ):
         self.rhs = numpy.zeros( self.n + self.m, 'd' )
         self.iter = self.nMatvec = 0
         self.infiniteDescentDir = None
-        self.xNorm2 = 0.0         # Square norm of step, not counting x_feasible
+        self.xNorm2 = 0.0        # Square norm of step, not counting x_feasible
 
         if self.matvec is None:
             self._hp = numpy.empty( self.n, 'd' )
@@ -181,16 +181,18 @@ class ProjectedCG( ProjectedKrylov ):
         self.header = self.hd_fmt % ('Iter', '<r,g>', 'curv')
         self.fmt = ' %-5d  %9.2e  %8.2e\n'
 
-    def to_boundary(self, s, p, Delta, ss = None):
+    def to_boundary(self, s, p, Delta, ss=None):
         """
-        Given vectors s and p and a trust-region radius Delta > 0, this function
-        returns the positive scalar sigma such that
+        Given vectors `s` and `p` and a trust-region radius `Delta` > 0,
+        return the positive scalar sigma such that
 
             || s + sigma * p || = Delta
 
-        in Euclidian norm. If known, supply optional argument ss whose value
-        should be the squared Euclidian norm of argument s.
+        in Euclidian norm. If known, supply optional argument `ss` whose value
+        should be the squared Euclidian norm of argument `s`.
         """
+        if Delta is None:
+            raise ValueError, 'Radius value must be positive number.'
         sp = numpy.dot(s,p)
         pp = numpy.dot(p,p)
         if ss is None: ss = numpy.dot(s,s)
@@ -203,22 +205,24 @@ class ProjectedCG( ProjectedKrylov ):
         return sigma
 
     def ftb(self, s, p):
-        # If fraction-to-the-boundary rule is to be enforced, compute step
-        # length to satisfy  s + t*p >= btol * cur_iter.
+        """
+        If fraction-to-the-boundary rule is to be enforced, compute step
+        length to satisfy  s + t*p >= btol * cur_iter.
+        """
         neg_idx = numpy.where(p < 0.0)[0]
         stepLen = 1.0
         for i in neg_idx:
             stepLen = min(stepLen, -(self.btol * self.cur_iter[i] + s[i])/p[i])
         return stepLen
 
-    def Solve( self ):
+    def Solve(self):
         if self.A is not None:
             if self.factorize and not self.factorized: self.Factorize()
             if self.b is not None: self.FindFeasible()
 
         n = self.n
         m = self.m
-        xNorm2 = 0.0    # Squared norm of current iterate x, not counting x_feas
+        xNorm2 = 0.0   # Squared norm of current iterate x, not counting x_feas
 
         # Obtain initial projected residual
         self.t_solve = cputime()
@@ -255,6 +259,7 @@ class ProjectedCG( ProjectedKrylov ):
         threshold = max( self.abstol, self.reltol * sqrt(self.residNorm0) )
         iter = 0
         onBoundary = False
+        infDescent = False
 
         if self.debug:
             self._write( self.header )
@@ -277,15 +282,15 @@ class ProjectedCG( ProjectedKrylov ):
             elif pHp <= 0.0:
                 self._write('Problem is not second-order sufficient\n')
                 status = 'problem not SOS'
-                self.infiniteDescentDir = p
-                onBoundary = True
+                self.infDescent = True
+                self.dir = p
                 continue
 
             alpha = rg/pHp
 
             if self.radius is not None and (pHp <= 0.0 or alpha > sigma):
-                # p is a direction of singularity or negative curvature
-                # or next iterate will lie past the boundary of the trust region
+                # p is a direction of singularity or negative curvature or
+                # next iterate will lie past the boundary of the trust region
                 # Move to boundary of trust-region
                 self.x += sigma * p
                 xNorm2 = self.radius * self.radius
