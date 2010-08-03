@@ -184,7 +184,7 @@ class TruncatedCG:
                 infDescent = True
                 continue
 
-            if (pHp <= 0  or alpha > sigma) and Delta is not None:
+            if  Delta is not None and (pHp <= 0  or alpha > sigma):
                 # p leads past the trust-region boundary. Move to the boundary.
                 s += sigma * p
                 snorm2 = Delta*Delta
