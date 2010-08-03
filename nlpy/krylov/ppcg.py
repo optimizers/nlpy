@@ -165,6 +165,7 @@ class ProjectedCG( ProjectedKrylov ):
         # Initializations
         self.x_feasible = None
         self.x = numpy.zeros( self.n, 'd' )
+        self.step = self.x  # Shortcut for consistency with TruncatedCG
         self.v = None
         self.residNorm  = None
         self.residNorm0 = None
@@ -172,6 +173,10 @@ class ProjectedCG( ProjectedKrylov ):
         self.iter = self.nMatvec = 0
         self.infiniteDescentDir = None
         self.xNorm2 = 0.0        # Square norm of step, not counting x_feasible
+        self.stepNorm = self.xNorm2 # Shortcut for consistency with TruncatedCG
+        self.dir = None  $ Direction of infinity descent
+        self.onBoundary = False
+        self.infDescent = False
 
         if self.matvec is None:
             self._hp = numpy.empty( self.n, 'd' )
@@ -180,6 +185,7 @@ class ProjectedCG( ProjectedKrylov ):
         self.hd_fmt = ' %-5s  %9s  %8s\n'
         self.header = self.hd_fmt % ('Iter', '<r,g>', 'curv')
         self.fmt = ' %-5d  %9.2e  %8.2e\n'
+
 
     def to_boundary(self, s, p, Delta, ss=None):
         """
@@ -204,6 +210,7 @@ class ProjectedCG( ProjectedKrylov ):
 
         return sigma
 
+
     def ftb(self, s, p):
         """
         If fraction-to-the-boundary rule is to be enforced, compute step
@@ -214,6 +221,7 @@ class ProjectedCG( ProjectedKrylov ):
         for i in neg_idx:
             stepLen = min(stepLen, -(self.btol * self.cur_iter[i] + s[i])/p[i])
         return stepLen
+
 
     def Solve(self):
         if self.A is not None:
@@ -259,7 +267,6 @@ class ProjectedCG( ProjectedKrylov ):
         threshold = max( self.abstol, self.reltol * sqrt(self.residNorm0) )
         iter = 0
         onBoundary = False
-        infDescent = False
 
         if self.debug:
             self._write( self.header )
