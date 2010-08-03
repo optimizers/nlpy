@@ -372,7 +372,7 @@ class ProjectedCG( ProjectedKrylov ):
             self._write( self.fmt % (iter, rg, pHp) )
 
         # Obtain final solution x
-        self.xNorm2 = xNorm2
+        self.xNorm2 = self.stepNorm = xNorm2
         if self.x_feasible is not None:
             self.x += self.x_feasible
 
@@ -389,6 +389,7 @@ class ProjectedCG( ProjectedKrylov ):
 
         self.t_solve = cputime() - self.t_solve
 
+        self.step = self.x  # Alias for consistency with TruncatedCG.
         self.onBoundary = onBoundary
         self.converged = (iter < self.maxiter)
         if iter < self.maxiter and not onBoundary:
