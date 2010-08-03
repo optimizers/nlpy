@@ -138,6 +138,23 @@ class ProjectedCG( ProjectedKrylov ):
         This ensures that no copy of xk occurs and only a pointer to xk is
         used.
 
+        Upon completion, a few members of the instance are set so a status
+        check can be performed. The most important situations are:
+
+        * A point was found where the residual is sufficiently small (whether
+          no trust region was present, or its boundary was not encountered).
+          This can only happen when `H` is second-order sufficient.
+          In this case `onBoundary` is set to `False` and `infDescent` is set
+          to `False`.
+        * No trust region is present but the problem is not second-order
+          sufficient. In this case, an infinite descent direction has been
+          identified: `infDescent` is set to `True` and `dir` contains the
+          infinite descent direction. `onBoundary` is set to `False`.
+        * A trust-region is present and its boundary was hit. If no infinite
+          descent direction has been discovered, `infDescent` is set to
+          `False`. Otherwise, it is set to `True`. In both cases, `onBoundary`
+          is set to `True`.
+
         Reference
         ---------
 
@@ -302,6 +319,7 @@ class ProjectedCG( ProjectedKrylov ):
                 self.x += sigma * p
                 xNorm2 = self.radius * self.radius
                 status = 'on boundary (sigma = %g)' % sigma
+                self.infDescent = True
                 onBoundary = True
                 continue
 
