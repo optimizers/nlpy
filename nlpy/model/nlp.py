@@ -2,6 +2,7 @@
 # Define an abstract class to represent a general
 # nonlinear optimization problem.
 # D. Orban, 2004.
+import numpy
 
 class NLPModel:
     """
@@ -45,9 +46,6 @@ class NLPModel:
     
     def __init__(self, n=0, m=0, name='Generic', **kwargs):
     
-        import numpy
-        import math
-
         self.n = n          # Number of variables
         self.m = m          # Number of general constraints
         self.name = name    # Problem name
@@ -156,9 +154,9 @@ class NLPModel:
         self.nbounds = self.n - self.nfreeB
 
         # Define default stopping tolerances
-        self.stop_d = math.pow(10.0, -6.0)    # Dual feasibility
-        self.stop_c = math.pow(10.0, -6.0)    # Complementarty
-        self.stop_p = math.pow(10.0, -6.0)    # Primal feasibility
+        self.stop_d = 1.0e-6    # Dual feasibility
+        self.stop_c = 1.0e-6    # Complementarty
+        self.stop_p = 1.0e-6    # Primal feasibility
 
         # Initialize some counters
         self.feval = 0    # evaluations of objective  function
