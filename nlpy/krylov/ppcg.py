@@ -201,6 +201,7 @@ class ProjectedCG( ProjectedKrylov ):
         # Formats for display
         self.hd_fmt = ' %-5s  %9s  %8s\n'
         self.header = self.hd_fmt % ('Iter', '<r,g>', 'curv')
+        self.fmt1 = ' %-5d  %9.2e\n'
         self.fmt = ' %-5d  %9.2e  %8.2e\n'
 
 
@@ -288,6 +289,7 @@ class ProjectedCG( ProjectedKrylov ):
         if self.debug:
             self._write( self.header )
             self._write( '-' * len(self.header) + '\n' )
+            self._write( self.fmt1 % (iter, rg) )
 
         while sqrt(rg) > threshold and iter < self.maxiter and not onBoundary:
 
