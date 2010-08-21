@@ -19,6 +19,9 @@ def configuration(parent_package='',top_path=None):
     blas_info = get_info('blas_opt',0)
     if not blas_info:
         print 'No blas info found'
+    lapack_info = get_info('lapack_opt',0)
+    if not lapack_info:
+        print 'No lapack info found'
 
     gdir = os.path.join(galahad_dir,'src')
     libgltr_src = [os.path.join(hsl_dir,'hsl_zd11d.f90'),
@@ -37,7 +40,7 @@ def configuration(parent_package='',top_path=None):
     config.add_library(
         name='nlpy_gltr',
         sources=libgltr_src,
-        extra_info=blas_info,
+        extra_info=[blas_info, lapack_info],
         )
 
     config.add_extension(
@@ -45,7 +48,7 @@ def configuration(parent_package='',top_path=None):
         sources=[os.path.join('src',name) for name in pygltr_src],
         libraries=['nlpy_gltr'],
         include_dirs=['src'],
-        extra_info=blas_info,
+        extra_info=[blas_info, lapack_info],
         )
 
     config.make_config_py()
