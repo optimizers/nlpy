@@ -3,9 +3,13 @@
 #  C. R. Vogel, Computational Methods for Inverse Problems,
 #  Frontiers in Applied Mathematics Series #23, SIAM, Philadelphia, 2002.
 
+try:
+    from scipy.linalg import toeplitz
+except:
+    raise ImportError, 'SciPy is required for this demo.'
+
 from nlpy.optimize.solvers import LSQRFramework
 from nlpy.krylov.minres import Minres
-from scipy.linalg import toeplitz
 from math import sqrt
 import numpy as np
 

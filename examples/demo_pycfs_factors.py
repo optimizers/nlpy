@@ -4,8 +4,6 @@
 from __future__ import division
 from pysparse import spmatrix
 from nlpy.precon import pycfs
-from pyorder.tools.spy import FastSpy
-import matplotlib.pyplot as plt
 import sys
 
 def usage():
@@ -51,12 +49,18 @@ def pycfs_fact(ProblemList, bigp=500):
 
         print fmt % (prob, n, nnzA, nnzL, densityA, densityL, shift, memory_available, p_nnz)
 
-        # Plot sparsity patterns
-        left = plt.subplot(121)
-        right = plt.subplot(122)
-        FastSpy(m,n,arow,acol,ax=left)
-        FastSpy(m,n,lrow,lcol,ax=right)
-        plt.show()
+        try:
+            import matplotlib.pyplot as plt
+            from pyorder.tools.spy import FastSpy
+            # Plot sparsity patterns
+            left = plt.subplot(121)
+            right = plt.subplot(122)
+            FastSpy(m,n,arow,acol,ax=left)
+            FastSpy(m,n,lrow,lcol,ax=right)
+            plt.show()
+        except:
+            sys.stderr.write('Not plotting sparsity patterns.')
+            sys.stderr.write(' Did you install Matplotlib?\n')
         
 
     print '-' * lhead

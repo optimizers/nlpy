@@ -10,13 +10,14 @@ Example usage: python demo_sqd.py bcsstk18.mtx bcsstk11.mtx
 D. Orban, Montreal, December 2007.
 """
 
-from nlpy.linalg.pyma27 import PyMa27Context as LBLContext
-#from nlpy.linalg.pyma57 import PyMa57Context as LBLContext
+try:
+    from nlpy.linalg.pyma57 import PyMa57Context as LBLContext
+except:
+    from nlpy.linalg.pyma27 import PyMa27Context as LBLContext
+
 from pysparse import spmatrix
 import numpy as np
 from nlpy.tools.timing import cputime
-import pylab
-from pyorder.tools import FastSpy
 import sys
 
 if len(sys.argv) < 3:
@@ -58,12 +59,18 @@ sys.stderr.write('Factorization time with sqd=False: %5.2fs   ' % t )
 P.solve(rhs, get_resid=False)
 sys.stderr.write('Error: %7.1e\n' % np.linalg.norm(P.x - e, ord=np.Inf))
 
-# Plot sparsity pattern
-fig = pylab.figure()
-cur_ax = fig.gca()
-cur_ax.plot( [0,nA+nC-1], [nA,nA], 'b--', linewidth=1 )
-cur_ax.plot( [nA,nA], [0,nA+nC-1], 'b--', linewidth=1 )
-(val,irow,jcol) = K.find()
-FastSpy(nA+nC, nA+nC, irow, jcol, sym=True, ax=cur_ax)
-#pylab.savefig('sqd.png', bbox_inches='tight')
-pylab.show()
+try:
+    import pylab
+    from pyorder.tools import FastSpy
+    # Plot sparsity pattern
+    fig = pylab.figure()
+    cur_ax = fig.gca()
+    cur_ax.plot( [0,nA+nC-1], [nA,nA], 'b--', linewidth=1 )
+    cur_ax.plot( [nA,nA], [0,nA+nC-1], 'b--', linewidth=1 )
+    (val,irow,jcol) = K.find()
+    FastSpy(nA+nC, nA+nC, irow, jcol, sym=True, ax=cur_ax)
+    #pylab.savefig('sqd.png', bbox_inches='tight')
+    pylab.show()
+except:
+    sys.stderr.write('Not plotting sparsity pattern.')
+    sys.stderr.write(' Did you install Matplotlib?\n')
