@@ -240,7 +240,6 @@ class Minres:
         # ---------------------------------------------------------------------
         # Main iteration loop.
         # --------------------------------------------------------------------
-        print 'done = ', done
         if not done:                          # k = itn = 1 first time through
             while itn < itnlim:
                 itn    = itn  +  1
