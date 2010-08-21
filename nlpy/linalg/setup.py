@@ -30,12 +30,12 @@ def configuration(parent_package='',top_path=None):
         print 'No blas info found'
 
     # Relevant files for building MA27 extension.
-    ma27_src = ['fd05ad.f', 'id05ad.f', 'ma27ad.f']
+    ma27_src = ['fd05ad.f', 'ma27ad.f']
     libma27_src = ['ma27fact.f']
     pyma27_src = ['ma27_lib.c','nlpy_alloc.c','_pyma27.c']
 
     # Relevant files for building MA57 extension.
-    ma57_src = ['fd05ad.f', 'ma57ad.f', 'mc41ad.f', 'mc47ad.f', 'mc49ad.f',
+    ma57_src = ['fd05ad.f', 'ma57ad.f', 'mc47ad.f',
                 'mc71ad.f', 'fd15ad.f',
                 'mc21ad.f', 'mc59ad.f', 'mc34ad.f', 'mc64ad.f']
     pyma57_src = ['ma57_lib.c','nlpy_alloc.c','_pyma57.c']
