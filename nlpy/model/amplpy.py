@@ -80,7 +80,7 @@ class AmplModel(NLPModel):
     `neednl` to `True` so AMPL generates the `nl` file, as in
     `AmplModel('elec.mod', data='elec.dat', neednl=True)`.
     """
-    # Constructor
+
     def __init__(self, model, **kwargs):
 
         neednl = kwargs.get('neednl', False)
@@ -242,9 +242,11 @@ class AmplModel(NLPModel):
 
             :x:  Numpy array of length :attr:`n` giving the vector of
                  primal variables,
+
             :y:  Numpy array of length :attr:`m` + :attr:`nrangeC` giving the
                  vector of Lagrange multipliers for general constraints
                  (see below),
+
             :z:  Numpy array of length :attr:`nbounds` + :attr:`nrangeB` giving
                  the vector of Lagrange multipliers for simple bounds (see
                  below).

@@ -29,7 +29,7 @@ methods are implemented
           +------------------------------+----------+----------+
 
 Other projected iterative methods may be found as part of the PyKrylov
-package. See `http://github.com/dpo/pykrylov`_.
+package. See http://github.com/dpo/pykrylov.
 
 References
 ----------

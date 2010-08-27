@@ -19,7 +19,6 @@ The :mod:`amplpy` Module
 .. autoclass:: AmplModel
    :show-inheritance:
    :members:
-   :inherited-members:
    :undoc-members:
 
 
@@ -44,7 +43,6 @@ The :mod:`nlp` Module
 .. autoclass:: NLPModel
    :show-inheritance:
    :members:
-   :inherited-members:
    :undoc-members:
 
 
@@ -68,37 +66,40 @@ The :mod:`slacks` Module
 `SlackFramework` is a general framework for converting a nonlinear optimization
 problem to a form using slack variables.
 
-The initial problem has the form
+The initial problem consists in minimizing an objective :math:`f(x)` subject to
+the constraints
 
 .. math::
 
-    \text{minimize}   & f(x) & \\
-    \text{subject to} & c_i(x) = a_i,                 & i = 1, \ldots, m, \\
-                      & g_j^L \leq g_j(x) \leq g_j^U, & j = 1, \ldots, p, \\
-                      & x_k^L \leq x_k \leq x_k^U,    & k = 1, \ldots, n,
+    c_i(x) = a_i,  & \qquad i = 1, \ldots, m, \\
+    g_j^L \leq g_j(x) \leq g_j^U, & \qquad j = 1, \ldots, p, \\
+    x_k^L \leq x_k \leq x_k^U,    & \qquad k = 1, \ldots, n,
 
 where some or all lower bounds :math:`g_j^L` and :math:`x_k^L` may be equal to
 :math:`-\infty`, and some or all upper bounds :math:`g_j^U` and :math:`x_k^U`
 may be equal to :math:`+\infty`.
 
-The transformed problem is
+The transformed problem is in the variables `x`, `s` and `t` and its
+constraints have the form
 
 .. math::
 
-    \text{minimize}   & f(x) & & \\
-    \text{subject to} & c_i(x) - a_i = 0, & i = 1, \ldots, m, & \\
-    & g_j(x) - g_j^L - s_j^L = 0, & j = 1, \ldots, p, &
+    c_i(x) - a_i = 0, & \qquad i = 1, \ldots, m, \\
+    g_j(x) - g_j^L - s_j^L = 0, & \qquad j = 1, \ldots, p,
     \text{ for which } g_j^L > -\infty, \\
-    & s_j^L \geq 0, & j = 1, \ldots, p, & \text{ for which } g_j^L > -\infty, \\
-    & g_j^U - g_j(x) - s_j^U = 0, & j = 1, \ldots, p, & \text{ for which }
-    g_j^U < +\infty, \\
-    & s_j^U >= 0, & j = 1, \ldots, p, & \text{ for which } g_j^U < +\infty, \\
-    & x_k - x_k^L - t_k^L = 0, & k = 1, \ldots, n, & \text{ for which }
-    x_k^L > -\infty, \\
-    & t_k^L >= 0, & k = 1, \ldots, n, & \text{ for which } x_k^L > -\infty, \\
-    & x_k^U - x_k - t_k^U = 0, & k = 1, \ldots, n, & \text{ for which }
-    x_k^U < +\infty, \\
-    & t_k^U >= 0, & k = 1, \ldots, n, & \text{ for which } x_k^U < +\infty.
+    s_j^L \geq 0, & \qquad j = 1, \ldots, p, \text{ for which } g_j^L > -\infty, \\
+    g_j^U - g_j(x) - s_j^U = 0, & \qquad j = 1, \ldots, p,
+    \text{ for which } g_j^U < +\infty, \\
+    s_j^U >= 0, & \qquad j = 1, \ldots, p,
+    \text{ for which } g_j^U < +\infty, \\
+    x_k - x_k^L - t_k^L = 0, & \qquad k = 1, \ldots, n,
+    \text{ for which } x_k^L > -\infty, \\
+    t_k^L >= 0, & \qquad k = 1, \ldots, n,
+    \text{ for which } x_k^L > -\infty, \\
+    x_k^U - x_k - t_k^U = 0, & \qquad k = 1, \ldots, n,
+    \text{ for which } x_k^U < +\infty, \\
+    t_k^U >= 0, & \qquad k = 1, \ldots, n,
+    \text{ for which } x_k^U < +\infty.
 
 In the latter problem, the only inequality constraints are bounds on
 the slack variables. The other constraints are (typically) nonlinear
@@ -134,11 +135,10 @@ such as the index set of constraints with an upper bound, etc., but
 rather performs the evaluations of the constraints for the updated
 model implicitly.
 
-.. .. autoclass:: SlackFramework
-..    :show-inheritance:
-..    :members:
-..    :inherited-members:
-..    :undoc-members:
+.. autoclass:: SlackFramework
+   :show-inheritance:
+   :members:
+   :undoc-members:
 
 
 Example
@@ -149,4 +149,4 @@ Example
 Inheritance Diagram
 ===================
 
-.. inheritance-diagram:: nlpy.model.slacks
+.. .. inheritance-diagram:: nlpy.model.slacks
