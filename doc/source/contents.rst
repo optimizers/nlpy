@@ -26,6 +26,7 @@ The NLPy Library
    :maxdepth: 2
 
    Introduction <introduction>
+   Installation <installation>
 
 =========
 Reference
