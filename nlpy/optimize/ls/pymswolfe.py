@@ -11,9 +11,9 @@ class StrongWolfeLineSearch:
     A general-purpose linesearch procedure enforcing the strong
     Wolfe conditions
 
-        f(x+td) <= f(x) + ftol * t * <g(x),d>    (Armijo    condition)
+    f(x+td) <= f(x) + ftol * t * <g(x),d>    (Armijo condition)
         
-        | <g(x+td),d> | <= gtol * | <g(x),d> |   (curvature condition)
+    | <g(x+td),d> | <= gtol * | <g(x),d> |   (curvature condition)
     
     This is a Python interface to Jorge Nocedal's modification of
     the More and Thuente linesearch. Usage of this class is slightly
@@ -21,28 +21,28 @@ class StrongWolfeLineSearch:
 
     Instantiate as follows
 
-        SWLS = StrongWolfeLineSearch(f, x, g, d, obj, grad)
+    SWLS = StrongWolfeLineSearch(f, x, g, d, obj, grad)
 
     where
 
-        f     is the objective value at the current iterate x
-        x     is the current iterate
-        g     is the objective gradient at the current iterate x
-        d     is the current search direction
-        obj   is a scalar function used to evaluate the value of
-              the objective at a given point
-        grad  is a scalar function used to evaluate the gradient
-              of the objective at a given point.
+    * f     is the objective value at the current iterate x
+    * x     is the current iterate
+    * g     is the objective gradient at the current iterate x
+    * d     is the current search direction
+    * obj   is a scalar function used to evaluate the value of
+            the objective at a given point
+    * grad  is a scalar function used to evaluate the gradient
+            of the objective at a given point.
 
-    Optional keywords include
+    :keywords:
 
-        ftol    the constant used in the Armijo condition (1e-4)
-        gtol    the constant used in the curvature condition (0.9)
-        xtol    a minimal relative step bracket length (1e-16)
-        stp     an initial step value (1.0)
-        stpmin  the initial lower bound of the bracket (1e-20)
-        stpmax  the initial upper bound of the bracket (1e+20)
-        maxfev  the maximum number of function evaluations permitted (20)
+        :ftol:    the constant used in the Armijo condition (1e-4)
+        :gtol:    the constant used in the curvature condition (0.9)
+        :xtol:    a minimal relative step bracket length (1e-16)
+        :stp:     an initial step value (1.0)
+        :stpmin:  the initial lower bound of the bracket (1e-20)
+        :stpmax:  the initial upper bound of the bracket (1e+20)
+        :maxfev:  the maximum number of function evaluations permitted (20)
 
     To ensure existence of a step satisfying the strong Wolfe
     conditions, d should be a descent direction for f at x and

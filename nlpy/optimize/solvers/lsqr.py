@@ -108,10 +108,9 @@ class LSQRFramework:
            :r1norm: = norm(r), where r = b - Ax.
            :r2norm: = sqrt(norm(r)^2  +  damp^2 * norm(x)^2)
                     = r1norm if damp = 0.
-           :anorm: = estimate of Frobenius norm of Abar = [  A   ].
-                                                          [damp*I]
+           :anorm: = estimate of Frobenius norm of (regularized) A.
            :acond: = estimate of cond(Abar).
-           :arnorm: = estimate of norm(A'*r - damp^2*x).
+           :arnorm: = estimate of norm(A'r - damp^2 x).
            :xnorm: = norm(x).
            :var:   (if present) estimates all diagonals of (A'A)^{-1}
                    (if damp=0) or more generally (A'A + damp^2*I)^{-1}.

@@ -45,14 +45,15 @@ class PyMa57Context( Sils ):
            sqd  Flag indicating symmetric quasi-definite matrix (default: False)
 
         Example:
-            import pyma57
-            import norms
-            P = pyma57.PyMa57Context( A )
-            P.solve( rhs, get_resid=True )
-            print norms.norm2( P.residual )
+
+        >>> import pyma57
+        >>> import numpy
+        >>> P = pyma57.PyMa57Context(A)
+        >>> P.solve(rhs, get_resid=True)
+        >>> print numpy.linalg.norm(P.residual)
 
         Pyma57 relies on the sparse direct multifrontal code MA57
-        from the Harwell Subroutine Library (free for academic use).
+        from the Harwell Subroutine Library.
 
         From the MA57 spec sheet, 'In addition to being more efficient largely
         through its use of the Level 3 BLAS, it has many added features. Among
@@ -185,8 +186,7 @@ if __name__ == '__main__':
 
     import sys
     from pysparse.sparse import spmatrix
-    import numpy
-    import norms
+    import numpy as np
 
     M = spmatrix.ll_mat_from_mtx( sys.argv[1] )
     (m,n) = M.shape
@@ -211,8 +211,8 @@ if __name__ == '__main__':
     w( ' Solving system... ' )
     G.solve( rhs )
     w( ' done\n' )
-    w( ' Residual = %-g\n' % norms.norm_infty( G.residual ) )
-    w( ' Relative error = %-g\n' % norms.norm_infty( G.x - e ) )
+    w( ' Residual = %-g\n' % np.linalg.norm(G.residual, ord=np.inf))
+    w( ' Relative error = %-g\n' % np.linalg.norm(G.x - e, ord=np.inf))
     w( ' Performing iterative refinement if necessary... ' )
     G.refine( rhs )
     w( ' done\n' )
@@ -224,5 +224,5 @@ if __name__ == '__main__':
     w( '   Infinity-norm of input matrix: %8.1e\n' % G.matNorm )
     w( '   Infinity-norm of computed solution: %8.1e\n' % G.xNorm )
     w( '   Relative residual: %8.1e\n' % G.relRes )
-    #w( ' Residual = %-g\n' % norms.norm_infty( G.residual ) )
-    w( ' Relative error = %-g\n' % norms.norm_infty( G.x - e ) )
+    #w( ' Residual = %-g\n' % np.linalg.norm(G.residual, ord=np.inf))
+    w( ' Relative error = %-g\n' % np.linalg.norm(G.x - e, ord=np.inf))

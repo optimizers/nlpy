@@ -25,23 +25,23 @@ class SlackFramework( AmplModel ):
 
     The order of variables in the transformed problem is as follows:
 
-    - x, the original problem variables.
+    1. x, the original problem variables.
 
-    - sL = [ sLL | sLR ], sLL being the slack variables corresponding to
-      general constraints with a lower bound only, and sLR being the slack
-      variables corresponding to the 'lower' side of range constraints.
+    2. sL = [ sLL | sLR ], sLL being the slack variables corresponding to
+       general constraints with a lower bound only, and sLR being the slack
+       variables corresponding to the 'lower' side of range constraints.
 
-    - sU = [ sUU | sUR ], sUU being the slack variables corresponding to
-      general constraints with an upper bound only, and sUR being the slack
-      variables corresponding to the 'upper' side of range constraints.
+    3. sU = [ sUU | sUR ], sUU being the slack variables corresponding to
+       general constraints with an upper bound only, and sUR being the slack
+       variables corresponding to the 'upper' side of range constraints.
 
-    - tL = [ tLL | tLR ], tLL being the slack variables corresponding to
-      variables with a lower bound only, and tLR being the slack variables
-      corresponding to the 'lower' side of two-sided bounds.
+    4. tL = [ tLL | tLR ], tLL being the slack variables corresponding to
+       variables with a lower bound only, and tLR being the slack variables
+       corresponding to the 'lower' side of two-sided bounds.
 
-    - tU = [ tUU | tUR ], tUU being the slack variables corresponding to
-      variables with an upper bound only, and tLR being the slack variables
-      corresponding to the 'upper' side of two-sided bounds.
+    5. tU = [ tUU | tUR ], tUU being the slack variables corresponding to
+       variables with an upper bound only, and tLR being the slack variables
+       corresponding to the 'upper' side of two-sided bounds.
 
     This framework initializes the slack variables sL, sU, tL, and tU to
     zero by default.
@@ -223,19 +223,9 @@ class SlackFramework( AmplModel ):
         nbnds  = nlowerB + nupperB + 2*nrangeB
         nSlacks = nlowerC + nupperC + 2*nrangeC
 
-        #print '%d variables and %d constraints' % (self.n, self.m)
-        #print '%d slack variables' % nSlacks
-        #print 'nlowerC = ', nlowerC
-        #print 'nupperC = ', nupperC
-        #print 'nrangeC = ', nrangeC
-        #print 'nlowerB = ', nlowerB
-        #print 'nupperB = ', nupperB
-        #print 'nrangeB = ', nrangeB
-
         # Initialize sparse Jacobian
         nnzJ = 2 * self.nnzj + m + nrangeC + nbnds + nrangeB  # Overestimate
         J = sp(nrow=self.m, ncol=self.n, sizeHint=nnzJ)
-        #J = spmatrix.ll_mat(self.m, self.n, nnzJ)
 
         # Insert contribution of general constraints
         if lp:
@@ -243,9 +233,7 @@ class SlackFramework( AmplModel ):
         else:
             J[:m,:n] = AmplModel.jac(self,x[:n])
         J[upperC,:n] *= -1.0               # Flip sign of 'upper' gradients
-        #J[upperC,:n].scale(-1.0)
         J[m:m+nrangeC,:n] = J[rangeC,:n]  # Append 'upper' side of range const.
-        #J[m:m+nrangeC,:n].scale(-1.0)
         J[m:m+nrangeC,:n] *= -1.0        # Flip sign of 'upper' range gradients.
 
         # Create a few index lists
@@ -294,15 +282,15 @@ class SlackFramework( AmplModel ):
         3. variables with an upper bound only
         4. upper bound on variables with two-sided bounds
 
-        The overall Jacobian of the new constraints thus has the form
+        The overall Jacobian of the new constraints thus has the form::
 
-        [ J    -I           ]
-        [-JR      -I        ]
-        [ I           -I    ]
-        [-I               -I]
+            [ J    -I         ]
+            [-JR      -I      ]
+            [ I          -I   ]
+            [-I             -I]
 
         where the columns correspond, in order, to the variables `x`, `s`, `sU`,
-        `t`, and `tU`, and the rows correspond, in order, to
+        `t`, and `tU`, the rows correspond, in order, to
 
         1. general constraints (in natural order)
         2. 'upper' side of range constraints

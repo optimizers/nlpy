@@ -17,25 +17,25 @@ class InverseLBFGS:
 
     Instantiation is as follows
 
-        lbfgsupdate = InverseLBFGS(n)
+    lbfgsupdate = InverseLBFGS(n)
 
     where n is the number of variables of the problem.
     
-    Optional keywords include
+    :keywords:
 
-        npairs        the number of (s,y) pairs stored (default: 5)
-        scaling       enable scaling of the 'initial matrix'. Scaling is
+        :npairs:        the number of (s,y) pairs stored (default: 5)
+        :scaling:       enable scaling of the 'initial matrix'. Scaling is
                       done as 'method M3' in the LBFGS paper by Zhou and
                       Nocedal; the scaling factor is <sk,yk>/<yk,yk>
                       (default: False).
         
     Member functions are
 
-        store         to store a new (s,y) pair and discard the oldest one
-                      in case the maximum storage has been reached,
-        matvec        to compute a matrix-vector product between the current
-                      positive-definite approximation to the inverse Hessian
-                      and a given vector.
+    * store         to store a new (s,y) pair and discard the oldest one
+                    in case the maximum storage has been reached,
+    * matvec        to compute a matrix-vector product between the current
+                    positive-definite approximation to the inverse Hessian
+                    and a given vector.
     """
 
     def __init__(self, n, npairs=5, **kwargs):
@@ -114,12 +114,12 @@ class LBFGSFramework:
 
     Instantiation is done by
 
-        lbfgs = LBFGSFramework(nlp)
+    lbfgs = LBFGSFramework(nlp)
 
     where nlp is an instance of a nonlinear problem. A solution of the
     problem is obtained by called the solve member function, as in
 
-        lbfgs.solve().
+    lbfgs.solve().
 
     :keywords:
 

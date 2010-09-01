@@ -70,9 +70,9 @@ class TrustRegionFramework:
         """
         Update the trust-region radius. The rule implemented by this method is:
 
-          Delta = gamma1 * stepNorm       if ared/pred <  eta1
-          Delta = gamma2 * Delta          if ared/pred >= eta2
-          Delta unchanged otherwise,
+        Delta = gamma1 * stepNorm       if ared/pred <  eta1
+        Delta = gamma2 * Delta          if ared/pred >= eta2
+        Delta unchanged otherwise,
 
         where ared/pred is the quotient computed by self.Rho().
         """
@@ -99,11 +99,7 @@ class TrustRegionSolver:
     subject to  ||d|| <= radius,
 
     where q(d) is a quadratic function of the n-vector d, i.e., q has the
-    general form
-
-    .. math::
-
-       q(d) = g^T d + 1/2 d^T H d,
+    general form q(d) = g' d + 1/2 d' H d,
 
     where `g` is a n-vector typically interpreted as the gradient of some
     merit function and `H` is a real symmetric n-by-n matrix. Note that `H`
@@ -186,16 +182,10 @@ class TrustRegionPCG(TrustRegionSolver):
 
     The trust-region subproblem has the form
 
-    minimize    q(d)
-    subject to  Ad = 0,
-                ||d|| <= radius,
+    minimize q(d)  subject to  Ad = 0  and  ||d|| <= radius,
 
     where q(d) is a quadratic function of the n-vector d, i.e., q has the
-    general form
-
-    .. math::
-
-       q(d) = g^T d + 1/2 d^T H d,
+    general form q(d) = g' d + 1/2 d' H d,
 
     where `g` is a n-vector typically interpreted as the gradient of some
     merit function and `H` is a real symmetric n-by-n matrix. Note that `H`

@@ -7,7 +7,7 @@ Installing NLPy
 Requirements
 ============
 
-* `Numpy <>`_
+* `Numpy <http://numpy.scipy.org>`_
 
 * `PySparse <http://pysparse.sf.net>`_
 
