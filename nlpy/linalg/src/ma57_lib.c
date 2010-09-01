@@ -281,8 +281,8 @@ extern "C" {   /* To prevent C++ compilers from mangling symbols */
     NLPy_Free( ma57->ifact );
     //NLPy_Free( ma57->rhs );
     NLPy_Free( ma57->work );
-    free(ma57); //NLPy_Free( ma57 );
     LOGMSG( " done.\n" );
+    free(ma57); //NLPy_Free( ma57 );
     return;
   }
 
