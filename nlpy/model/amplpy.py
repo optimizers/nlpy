@@ -284,22 +284,22 @@ class AmplModel(NLPModel):
         :math:`c_i^U - c_i(x) \geq 0` instead of :math:`c_i(x) \leq c_i^U`.
 
         For equality constraints, the sign of each `y[i]` should be so the
-        Lagrangian may be written
+        Lagrangian may be written::
 
-        :math:`L(x,y,z) = f(x) - <y, c_E(x)> - ...`
+            L(x,y,z) = f(x) - <y, c_E(x)> - ...
 
         Similarly, the multipliers `z` associated to bound constraints must be
         ordered as follows:
 
-        :math:`x_i  = L_i` (`i` in `fixedB`) : `z[:nfixedB]`
+        1. `x_i  = L_i` (`i` in `fixedB`) : `z[:nfixedB]`
 
-        :math:`x_i \geq L_i` (`i` in `lowerB`) : `z[nfixedB:nfixedB+nlowerB]`
+        2. `x_i \geq L_i` (`i` in `lowerB`) : `z[nfixedB:nfixedB+nlowerB]`
 
-        :math:`x_i \leq U_i` (`i` in `upperB`) : `z[nfixedB+nlowerB:nfixedB+nlowerB+nupperB]`
+        3. `x_i \leq U_i` (`i` in `upperB`) : `z[nfixedB+nlowerB:nfixedB+nlowerB+nupperB]`
 
-        :math:`x_i \geq L_i` (`i` in `rangeB`) : `z[nfixedB+nlowerB+nupperB:nfixedB+nlowerB+nupperB+nrangeB]`
+        4. `x_i \geq L_i` (`i` in `rangeB`) : `z[nfixedB+nlowerB+nupperB:nfixedB+nlowerB+nupperB+nrangeB]`
 
-        :math:`x_i \leq U_i` (`i` in `rangeB`) : `z[nfixedB+nlowerB+nupper+nrangeB:]`
+        5. `x_i \leq U_i` (`i` in `rangeB`) : `z[nfixedB+nlowerB+nupper+nrangeB:]`
 
         The sign of each `z[i]` should be as if it corresponded to a
         nonnegativity constraint (except for fixed variables), i.e., those
@@ -319,13 +319,13 @@ class AmplModel(NLPModel):
 
         # Make sure input multipliers have the right sign
 
-        if self.m > 0:
-            if len( np.where(y[self.nequalC:]<0)[0] ) > 0:
-                raise ValueError, 'Negative Lagrange multipliers...'
+        #if self.m > 0:
+        #    if len( np.where(y[self.nequalC:]<0)[0] ) > 0:
+        #        raise ValueError, 'Negative Lagrange multipliers...'
 
-        if self.nbounds > 0:
-            if len( np.where(z[self.nfixedB:]<0)[0] ) > 0:
-                raise ValueError, 'Negative Lagrange multipliers for bounds...'
+        #if self.nbounds > 0:
+        #    if len( np.where(z[self.nfixedB:]<0)[0] ) > 0:
+        #        raise ValueError, 'Negative Lagrange multipliers for bounds...'
 
         # Transfer some pointers for readability
 
