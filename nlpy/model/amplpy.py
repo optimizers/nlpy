@@ -319,13 +319,13 @@ class AmplModel(NLPModel):
 
         # Make sure input multipliers have the right sign
 
-        #if self.m > 0:
-        #    if len( np.where(y[self.nequalC:]<0)[0] ) > 0:
-        #        raise ValueError, 'Negative Lagrange multipliers...'
+        if self.m > 0:
+            if len( np.where(y[:self.nequalC]<0)[0] ) > 0:
+                raise ValueError, 'Negative Lagrange multipliers...'
 
-        #if self.nbounds > 0:
-        #    if len( np.where(z[self.nfixedB:]<0)[0] ) > 0:
-        #        raise ValueError, 'Negative Lagrange multipliers for bounds...'
+        if self.nbounds > 0:
+            if len( np.where(z[self.nfixedB:]<0)[0] ) > 0:
+                raise ValueError, 'Negative Lagrange multipliers for bounds...'
 
         # Transfer some pointers for readability
 
@@ -434,12 +434,12 @@ class AmplModel(NLPModel):
         FJ = ('FJ' in kwargs.keys())
         objMult = kwargs.get('FJ', 1.0)
 
-        sign = 1
-        if not self.minimize: sign = -1  # Account for minimization problem.
-
         if not FJ:
             g = kwargs.get('g', self.grad(x))
-            dFeas += sign * g
+            if self.minimize:
+                dFeas += g
+            else:
+                dFeas -= g   # Maximization problem.
         else:
             if float(objMult) != 0.0: dFeas += objMult * sign * self.grad(x)
 
@@ -464,8 +464,9 @@ class AmplModel(NLPModel):
 
         df = np.linalg.norm(res[0], ord=np.inf)
         cp = 0.0 ; fs = 0.0
-        if self.m > 0:
+        if self.m - self.nequalC > 0:
             cp = max(cp, np.linalg.norm(res[1], ord=np.inf))
+        if self.m > 0:
             fs = max(fs, np.linalg.norm(res[3], ord=np.inf))
         if self.nbounds > 0:
             cp = max(cp, np.linalg.norm(res[2], ord=np.inf))
