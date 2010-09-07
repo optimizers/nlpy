@@ -317,16 +317,6 @@ class AmplModel(NLPModel):
 
         error_return = (None, None, None, None, None)
 
-        # Make sure input multipliers have the right sign
-
-        if self.m > 0:
-            if len( np.where(y[:self.nequalC]<0)[0] ) > 0:
-                raise ValueError, 'Negative Lagrange multipliers...'
-
-        if self.nbounds > 0:
-            if len( np.where(z[self.nfixedB:]<0)[0] ) > 0:
-                raise ValueError, 'Negative Lagrange multipliers for bounds...'
-
         # Transfer some pointers for readability
 
         fixedB = self.fixedB ; nfixedB = self.nfixedB #; print fixedB
@@ -357,6 +347,24 @@ class AmplModel(NLPModel):
         yrangeCL = y[nequalC+nlowerC+nupperC:nequalC+nlowerC+nupperC+nrangeC]
         yrangeCU = y[nequalC+nlowerC+nupperC+nrangeC:]
         
+        # Make sure input multipliers have the right sign
+
+        if len( np.where(ylowerC < 0)[0] ) > 0:
+            raise ValueError, 'Negative multipliers for lower constraints...'
+
+        if len( np.where(yupperC < 0)[0] ) > 0:
+            raise ValueError, 'Negative multipliers for upper constraints...'
+
+        if len( np.where(yrangeCL < 0)[0] ) > 0:
+            raise ValueError, 'Negative multipliers for range constraints...'
+
+        if len( np.where(yrangeCU < 0)[0] ) > 0:
+            raise ValueError, 'Negative multipliers for range constraints...'
+
+        if self.nbounds > 0:
+            if len( np.where(z[self.nfixedB:]<0)[0] ) > 0:
+                raise ValueError, 'Negative multipliers for bounds...'
+
         # Bounds feasibility, part 1
 
         bRes = np.empty(nfixedB + nlowerB + nupperB + 2*nrangeB)
