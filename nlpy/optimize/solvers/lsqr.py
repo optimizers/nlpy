@@ -56,7 +56,8 @@ class LSQRFramework:
                   'Ax - b is small enough for this machine                   ',
                   'The least-squares solution is good enough for this machine',
                   'Cond(Abar) seems to be too large for this machine         ',
-                  'The iteration limit has been reached                      ']
+                  'The iteration limit has been reached                      ',
+                  'The trust-region boundary has been hit                    ']
 
         self.m = m; self.n = n
         self.aprod = aprod
@@ -69,7 +70,7 @@ class LSQRFramework:
         return
 
     def solve(self, rhs, itnlim=0, damp=0.0,
-              atol=1.0e-6, btol=1.0e-7, conlim=1.0e+8,
+              atol=1.0e-6, btol=1.0e-7, conlim=1.0e+8, radius=None,
               show=False, wantvar=False):
         """
         Solve the linear system, linear least-squares problem or regularized
@@ -96,6 +97,7 @@ class LSQRFramework:
                     than 1.0e+8. Maximum precision can be obtained by setting
                     `atol` = `btol` = `conlim` = zero, but the number of
                     iterations may then be excessive.
+           :radius: an optional trust-region radius (default: None).
            :show:   if set to `True`, gives an iteration log.
                     If set to `False`, suppresses output.
 
@@ -137,6 +139,10 @@ class LSQRFramework:
         z = 0.
         xnorm = 0. ; xxnorm = 0. ; ddnorm = 0. ; res2 = 0.
 
+        tr_active = False
+        if radius is None:
+            stepMax = None
+
         if show:
             print ' '
             print 'LSQR            Least-squares solution of  Ax = b'
@@ -150,22 +156,22 @@ class LSQRFramework:
         # These satisfy  beta*u = b,  alfa*v = A'u.
 
         u = rhs[:m].copy()
-        alfa = 0.; beta = norm(u)
+        alfa = 0. ; beta = norm(u)
         if beta > 0:
             u /= beta; v = self.aprod(2, m, n, u)
-            alfa = norm(v);
+            alfa = norm(v)
 
         if alfa > 0:
-            v /= alfa; w = v.copy();
+            v /= alfa; w = v.copy()
 
-        arnorm = alfa * beta;
+        arnorm = alfa * beta
         if arnorm == 0.0:
             print msg[0]
             return
 
         x = zeros(n)
 
-        rhobar = alfa; phibar = beta; bnorm  = beta;
+        rhobar = alfa ; phibar = beta ; bnorm  = beta
         rnorm  = beta
         r1norm = rnorm
         r2norm = rnorm
@@ -192,7 +198,7 @@ class LSQRFramework:
             #              alfa*v  =  A'*u  -  beta*v.
 
             u    = aprod(1, m, n, v)  -  alfa * u
-            beta = norm(u);
+            beta = norm(u)
             if beta > 0:
                 u    /= beta
                 anorm = normof4(anorm, alfa, beta, damp)
@@ -226,95 +232,109 @@ class LSQRFramework:
             t1      =   phi  /rho;
             t2      = - theta/rho;
             dk      =   (1.0/rho)*w;
-            
-            x      += t1*w
-            w      *= t2; w += v
-            ddnorm  = ddnorm +  norm(dk)**2
-            if wantvar: var += dk*dk
-            
-            # Use a plane rotation on the right to eliminate the
-            # super-diagonal element (theta) of the upper-bidiagonal matrix.
-            # Then use the result to estimate  norm(x).
-            
-            delta   =   sn2 * rho
-            gambar  = - cs2 * rho
-            rhs     =   phi  -  delta * z
-            zbar    =   rhs / gambar
-            xnorm   =   sqrt(xxnorm + zbar**2)
-            gamma   =   normof2(gambar, theta)
-            cs2     =   gambar / gamma
-            sn2     =   theta  / gamma
-            z       =   rhs    / gamma
-            xxnorm +=   z*z
-            
-            # Test for convergence.
-            # First, estimate the condition of the matrix  Abar,
-            # and the norms of  rbar  and  Abar'rbar.
-        
-            acond   =   anorm * sqrt(ddnorm)
-            res1    =   phibar**2
-            res2    =   res2  +  psi**2
-            rnorm   =   sqrt(res1 + res2)
-            arnorm  =   alfa * abs(tau)
-        
-            # 07 Aug 2002:
-            # Distinguish between
-            #    r1norm = ||b - Ax|| and
-            #    r2norm = rnorm in current code
-            #           = sqrt(r1norm^2 + damp^2*||x||^2).
-            #    Estimate r1norm from
-            #    r1norm = sqrt(r2norm^2 - damp^2*||x||^2).
-            # Although there is cancellation, it might be accurate enough.
-        
-            r1sq    =   rnorm**2  -  dampsq * xxnorm
-            r1norm  =   sqrt(abs(r1sq))
-            if r1sq < 0: r1norm = - r1norm
-            r2norm  =   rnorm
-        
-            # Now use these norms to estimate certain other quantities,
-            # some of which will be small near a solution.
-        
-            test1   =   rnorm / bnorm
-            test2   =   arnorm/(anorm * rnorm)
-            test3   =       1.0 / acond
-            t1      =   test1 / (1    +  anorm * xnorm / bnorm)
-            rtol    =   btol  +  atol *  anorm * xnorm / bnorm
-        
-            # The following tests guard against extremely small values of
-            # atol, btol  or  ctol.  (The user may have set any or all of
-            # the parameters  atol, btol, conlim  to 0.)
-            # The effect is equivalent to the normal tests using
-            # atol = eps,  btol = eps,  conlim = 1/eps.
 
-            if itn >= itnlim:   istop = 7
-            if 1 + test3  <= 1: istop = 6
-            if 1 + test2  <= 1: istop = 5
-            if 1 + t1     <= 1: istop = 4
-        
-            # Allow for tolerances set by the user.
-        
-            if  test3 <= ctol:  istop = 3
-            if  test2 <= atol:  istop = 2
-            if  test1 <= rtol:  istop = 1
-        
-            # See if it is time to print something.
+            if radius is not None:
+                # Calculate distance to trust-region boundary from x along w.
+                xw = dot(x,w)
+                ww = dot(w,w)  # Can be updated at each iter ?
+                stepMax = sqrt(xw*xw + ww*(radius*radius - xnorm*xnorm)) - xw
+                stepMax /= ww
+
+                if t1 > stepMax:
+                    x += stepMax * w
+                    xnorm = radius
+                    tr_active = True
+                    istop = 8
             
-            prnt = False;
-            if n     <= 40       : prnt = True
-            if itn   <= 10       : prnt = True
-            if itn   >= itnlim-10: prnt = True
-            if itn % 10 == 0     : prnt = True
-            if test3 <=  2*ctol  : prnt = True
-            if test2 <= 10*atol  : prnt = True
-            if test1 <= 10*rtol  : prnt = True
-            if istop !=  0       : prnt = True
+            if not tr_active:
+                x      += t1*w
+                w      *= t2 ; w += v
+                ddnorm  = ddnorm +  norm(dk)**2
+                if wantvar: var += dk*dk
+            
+                # Use a plane rotation on the right to eliminate the
+                # super-diagonal element (theta) of the upper-bidiagonal matrix.
+                # Then use the result to estimate norm(x).
+            
+                delta   =   sn2 * rho
+                gambar  = - cs2 * rho
+                rhs     =   phi  -  delta * z
+                zbar    =   rhs / gambar
+                xnorm   =   sqrt(xxnorm + zbar**2)
+                gamma   =   normof2(gambar, theta)
+                cs2     =   gambar / gamma
+                sn2     =   theta  / gamma
+                z       =   rhs    / gamma
+                xxnorm +=   z*z
+            
+                # Test for convergence.
+                # First, estimate the condition of the matrix  Abar,
+                # and the norms of  rbar  and  Abar'rbar.
         
-            if prnt and show:
-                str1 = '%6g %12.5e'     % (  itn,   x[0])
-                str2 = ' %10.3e %10.3e' % (r1norm, r2norm)
-                str3 = '  %8.1e %8.1e'  % (test1,  test2)
-                str4 = ' %8.1e %8.1e'   % (anorm,  acond)
-                print str1+str2+str3+str4
+                acond   =   anorm * sqrt(ddnorm)
+                res1    =   phibar**2
+                res2    =   res2  +  psi**2
+                rnorm   =   sqrt(res1 + res2)
+                arnorm  =   alfa * abs(tau)
+        
+                # 07 Aug 2002:
+                # Distinguish between
+                #    r1norm = ||b - Ax|| and
+                #    r2norm = rnorm in current code
+                #           = sqrt(r1norm^2 + damp^2*||x||^2).
+                #    Estimate r1norm from
+                #    r1norm = sqrt(r2norm^2 - damp^2*||x||^2).
+                # Although there is cancellation, it might be accurate enough.
+        
+                r1sq    =   rnorm**2  -  dampsq * xxnorm
+                r1norm  =   sqrt(abs(r1sq))
+                if r1sq < 0: r1norm = - r1norm
+                r2norm  =   rnorm
+        
+                # Now use these norms to estimate certain other quantities,
+                # some of which will be small near a solution.
+        
+                test1 = rnorm / bnorm
+                test2 = arnorm/(anorm * rnorm)
+                test3 = 1.0 / acond
+                t1    = test1 / (1    +  anorm * xnorm / bnorm)
+                rtol  = btol  +  atol *  anorm * xnorm / bnorm
+        
+                # The following tests guard against extremely small values of
+                # atol, btol  or  ctol.  (The user may have set any or all of
+                # the parameters  atol, btol, conlim  to 0.)
+                # The effect is equivalent to the normal tests using
+                # atol = eps,  btol = eps,  conlim = 1/eps.
+
+                if itn >= itnlim:  istop = 7
+                if 1 + test3 <= 1: istop = 6
+                if 1 + test2 <= 1: istop = 5
+                if 1 + t1    <= 1: istop = 4
+        
+                # Allow for tolerances set by the user.
+        
+                if test3 <= ctol: istop = 3
+                if test2 <= atol: istop = 2
+                if test1 <= rtol: istop = 1
+        
+                # See if it is time to print something.
+            
+                prnt = False;
+                if n     <= 40       : prnt = True
+                if itn   <= 10       : prnt = True
+                if itn   >= itnlim-10: prnt = True
+                if itn % 10 == 0     : prnt = True
+                if test3 <=  2*ctol  : prnt = True
+                if test2 <= 10*atol  : prnt = True
+                if test1 <= 10*rtol  : prnt = True
+                if istop !=  0       : prnt = True
+        
+                if prnt and show:
+                    str1 = '%6g %12.5e'     % (  itn,   x[0])
+                    str2 = ' %10.3e %10.3e' % (r1norm, r2norm)
+                    str3 = '  %8.1e %8.1e'  % (test1,  test2)
+                    str4 = ' %8.1e %8.1e'   % (anorm,  acond)
+                    print str1+str2+str3+str4
                 
             if istop > 0: break
 
@@ -347,4 +367,3 @@ class LSQRFramework:
         self.xnorm = xnorm
         self.var = var
         return
-        #return (x, istop, itn, r1norm, r2norm, anorm, acond, arnorm, xnorm, var)
