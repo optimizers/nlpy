@@ -243,13 +243,14 @@ class LSQRFramework:
                 if t1 > stepMax:
                     x += stepMax * w
                     xnorm = radius
+                    r1norm = normof2(rho*stepMax*sn, rho*stepMax*cs - phibar)
                     tr_active = True
                     istop = 8
             
             if not tr_active:
                 x      += t1*w
                 w      *= t2 ; w += v
-                ddnorm  = ddnorm +  norm(dk)**2
+                ddnorm  = ddnorm + norm(dk)**2
                 if wantvar: var += dk*dk
             
                 # Use a plane rotation on the right to eliminate the
