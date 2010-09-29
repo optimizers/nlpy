@@ -187,17 +187,17 @@ class SquaredLinearOperator(LinearOperator):
     def __init__(self, A, **kwargs):
         m, n = A.shape
         LinearOperator.__init__(self, n, m, **kwargs)
+        self.transposed = kwargs.get('transposed', False)
         if isinstance(A, LinearOperator):
             self.A = A
         else:
-            self.A = PysparseLinearOperator(A)
+            self.A = PysparseLinearOperator(A, transposed=False)
         self.symmetric = True
-        self.transpose = kwargs.get('transpose', False)
-        if self.transpose:
-            self.shape = (n, n)
+        if self.transposed:
+            self.shape = (m, m)
             self.__mul__ = self._rmul
         else:
-            self.shape = (m, m)
+            self.shape = (n, n)
             self.__mul__ = self._mul
         if self.log:
             self.logger.info('New squared operator with shape ' + str(self.shape))
