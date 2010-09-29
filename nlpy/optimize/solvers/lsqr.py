@@ -26,10 +26,12 @@ class LSQRFramework:
     `damp = 0`, or `minimize |b - Ax| + damp * |x|` in Euclidian norm if
     `damp > 0`.
 
-    `A`  is an (m x n) matrix defined by  `y = aprod(mode, m, n, x)`,
-    where `aprod` refers to a function that performs matrix-vector products.
-    If `mode` = 1,   `aprod`  must return  `y = Ax`   without altering `x`.
-    If `mode` = 2,   `aprod`  must return  `y = A'x`  without altering `x`.
+    `A`  is an (m x n) linear operator defined by  `y = A * x` (or `y = A(x)`),
+    where `y` is the result of applying the linear operator to `x`. Application
+    of transpose linear operator must be accessible via `u = A.T * x` (or
+    `u = A.T(x)`). The shape of the linear operator `A` must be accessible via
+    `A.shape`. A convenient way to achieve this is to make sure that `A` is
+    a `LinearOperator` instance.
 
     LSQR uses an iterative (conjugate-gradient-like) method.
 
@@ -45,7 +47,7 @@ class LSQRFramework:
        LSQR and CRAIG, BIT 35, 588-604.
     """
 
-    def __init__(self, m, n, aprod):
+    def __init__(self, A):
 
         # Initialize.
 
@@ -59,8 +61,7 @@ class LSQRFramework:
                   'The iteration limit has been reached                      ',
                   'The trust-region boundary has been hit                    ']
 
-        self.m = m; self.n = n
-        self.aprod = aprod
+        self.A = A
         self.x = None ; self.var = None
     
         self.itn = 0; self.istop = 0; self.nstop = 0
@@ -120,7 +121,10 @@ class LSQRFramework:
                    (Not sure what var means if rank(A) < n and damp = 0.)
         """
 
-        if itnlim == 0: itnlim = 3*self.n
+        A = self.A
+        m, n = A.shape
+
+        if itnlim == 0: itnlim = 3*n
 
         if wantvar:
             var = zeros(n,1)
@@ -128,9 +132,6 @@ class LSQRFramework:
             var = None
         dampsq = damp**2;
 
-        m = self.m ; n = self.n
-        msg = self.msg
-        aprod = self.aprod
         itn = 0 ; istop = 0 ; nstop = 0
         ctol = 0.0
         if conlim > 0.0: self.ctol = 1.0/conlim
@@ -158,7 +159,7 @@ class LSQRFramework:
         u = rhs[:m].copy()
         alfa = 0. ; beta = norm(u)
         if beta > 0:
-            u /= beta; v = self.aprod(2, m, n, u)
+            u /= beta; v = A.T * u
             alfa = norm(v)
 
         if alfa > 0:
@@ -166,7 +167,7 @@ class LSQRFramework:
 
         arnorm = alfa * beta
         if arnorm == 0.0:
-            print msg[0]
+            print self.msg[0]
             return
 
         x = zeros(n)
@@ -197,12 +198,12 @@ class LSQRFramework:
             #              beta*u  =  a*v   -  alfa*u,
             #              alfa*v  =  A'*u  -  beta*v.
 
-            u    = aprod(1, m, n, v)  -  alfa * u
+            u    = A * v  -  alfa * u
             beta = norm(u)
             if beta > 0:
                 u    /= beta
                 anorm = normof4(anorm, alfa, beta, damp)
-                v     = aprod(2, m, n, u)  -  beta * v
+                v     = A.T * u - beta * v
                 alfa  = norm(v)
                 if alfa > 0:  v /= alfa
         
@@ -345,7 +346,7 @@ class LSQRFramework:
         if show:
             print ' '
             print 'LSQR finished'
-            print msg[istop]
+            print self.msg[istop]
             print ' '
             str1 = 'istop =%8g   r1norm =%8.1e'   % (istop, r1norm)
             str2 = 'anorm =%8.1e   arnorm =%8.1e' % (anorm, arnorm)
