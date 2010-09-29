@@ -164,3 +164,109 @@ class PysparseLinearOperator(LinearOperator):
         ATy = np.empty(self.nargout)   # This is the transposed op's nargin!
         self.A.matvec_transp(y, ATy)
         return ATy
+
+
+
+class SquaredLinearOperator(LinearOperator):
+    """
+    Given a linear operator `A`, build the linear operator `A.T * A`. If
+    `transpose` is set to `True`, build `A * A.T` instead. This may be useful
+    for solving one of the normal equations
+
+    |           A'Ax = A'b
+    |           AA'y = Ag
+
+    which are the optimality conditions of the linear least-squares problems
+
+    |          minimize{in x}  |Ax-b|
+    |          minimize{in y}  |A'y-g|
+
+    in the Euclidian norm.
+    """
+
+    def __init__(self, A, **kwargs):
+        m, n = A.shape
+        LinearOperator.__init__(self, n, m, **kwargs)
+        if isinstance(A, LinearOperator):
+            self.A = A
+        else:
+            self.A = PysparseLinearOperator(A)
+        self.symmetric = True
+        self.transpose = kwargs.get('transpose', False)
+        if self.transpose:
+            self.shape = (n, n)
+            self.__mul__ = self._rmul
+        else:
+            self.shape = (m, m)
+            self.__mul__ = self._mul
+        if self.log:
+            self.logger.info('New squared operator with shape ' + str(self.shape))
+        self.T = self
+
+
+    def _mul(self, x):
+        return self.A.T * (self.A * x)
+
+
+    def _rmul(self, x):
+        return self.A * (self.A.T * x)
+
+
+
+if __name__ == '__main__':
+    from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
+    from nlpy.model import AmplModel
+    from nlpy.optimize.solvers.lsqr import LSQRFramework
+    import numpy as np
+    import sys
+
+    np.set_printoptions(precision=3, linewidth=80, threshold=10, edgeitems=3)
+
+    nlp = AmplModel(sys.argv[1])
+    J = sp(matrix=nlp.jac(nlp.x0))
+    #J = nlp.jac(nlp.x0)
+    e1 = np.ones(J.shape[0])
+    e2 = np.ones(J.shape[1])
+
+    #print 'Explicitly:'
+    #print 'J*e2 = ', J*e2
+    #print "J'*e1 = ", e1*J
+
+    print 'Testing PysparseLinearOperator:'
+    op = PysparseLinearOperator(J)
+    print 'op.shape = ', op.shape
+    print 'op.T.shape = ', op.T.shape
+    print 'op * e2 = ', op * e2
+    print "op.T * e1 = ", op.T * e1
+    print 'op.T.T * e2 = ', op.T.T * e2
+    print 'op.T.T.T * e1 = ', op.T.T.T * e1
+    print 'With call:'
+    print 'op(e2) = ', op(e2)
+    print 'op.T(e1) = ', op.T(e1)
+    print 'op.T.T is op : ', (op.T.T is op)
+    print
+    print 'Testing SimpleLinearOperator:'
+    op = SimpleLinearOperator(J.shape[1], J.shape[0],
+                              lambda v: J*v,
+                              matvec_transp=lambda u: u*J)
+    print 'op.shape = ', op.shape
+    print 'op.T.shape = ', op.T.shape
+    print 'op * e2 = ', op * e2
+    print 'e1.shape = ', e1.shape
+    print 'op.T * e1 = ', op.T * e1
+    print 'op.T.T * e2 = ', op.T.T * e2
+    print 'op(e2) = ', op(e2)
+    print 'op.T(e1) = ', op.T(e1)
+    print 'op.T.T is op : ', (op.T.T is op)
+    print
+    print 'Solving a constrained least-squares problem with LSQR:'
+    lsqr = LSQRFramework(op)
+    lsqr.solve(np.random.random(nlp.m), show=True)
+    print
+    print 'Building a SquaredLinearOperator:'
+    op2 = SquaredLinearOperator(J, log=True)
+    print 'op2 * e2 = ', op2 * e2
+    print 'op.T * (op * e2) = ', op.T * (op * e2)
+    op3 = SquaredLinearOperator(J, transpose=True, log=True)
+    print 'op3 * e1 = ', op3 * e1
+    print 'op * (op.T * e1) = ', op * (op.T * e1)
