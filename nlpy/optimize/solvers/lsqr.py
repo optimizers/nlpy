@@ -10,7 +10,7 @@ Michael P. Friedlander, University of British Columbia
 Dominique Orban, Ecole Polytechnique de Montreal
 """
 
-from numpy import zeros, dot
+from numpy import zeros, dot, inf
 from numpy.linalg import norm
 from math import sqrt
 
@@ -156,6 +156,7 @@ class LSQRFramework:
         # Set up the first vectors u and v for the bidiagonalization.
         # These satisfy  beta*u = b,  alfa*v = A'u.
 
+        x = zeros(n)
         u = rhs[:m].copy()
         alfa = 0. ; beta = norm(u)
         if beta > 0:
@@ -165,12 +166,13 @@ class LSQRFramework:
         if alfa > 0:
             v /= alfa; w = v.copy()
 
+        x_is_zero = False
         arnorm = alfa * beta
         if arnorm == 0.0:
             print self.msg[0]
-            return
-
-        x = zeros(n)
+            x_is_zero = True
+            istop = 0
+            #return
 
         rhobar = alfa ; phibar = beta ; bnorm  = beta
         rnorm  = beta
@@ -191,7 +193,7 @@ class LSQRFramework:
         # ------------------------------------------------------------------
         #     Main iteration loop.
         # ------------------------------------------------------------------
-        while itn < itnlim:
+        while itn < itnlim and not x_is_zero:
             itn = itn + 1
             #   Perform the next step of the bidiagonalization to obtain the
             #   next  beta, u, alfa, v.  These satisfy the relations
@@ -298,7 +300,10 @@ class LSQRFramework:
         
                 test1 = rnorm / bnorm
                 test2 = arnorm/(anorm * rnorm)
-                test3 = 1.0 / acond
+                if acond == 0.0:
+                    test3 = inf
+                else:
+                    test3 = 1.0 / acond
                 t1    = test1 / (1    +  anorm * xnorm / bnorm)
                 rtol  = btol  +  atol *  anorm * xnorm / bnorm
         
@@ -358,6 +363,12 @@ class LSQRFramework:
             print str5
             print ' '
         
+        if istop == 0: self.status = 'solution is zero'
+        if istop in [1,2,4,5]: self.status = 'residual small'
+        if istop in [3,6]: self.status = 'ill-conditioned operator'
+        if istop == 7: self.status = 'max iterations'
+        if istop == 8: self.status = 'trust-region boundary active'
+        self.onBoundary = tr_active
         self.x = x
         self.istop = istop
         self.itn = itn
