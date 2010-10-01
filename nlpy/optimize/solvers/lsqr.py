@@ -71,7 +71,7 @@ class LSQRFramework:
         return
 
     def solve(self, rhs, itnlim=0, damp=0.0,
-              atol=1.0e-6, btol=1.0e-7, conlim=1.0e+8, radius=None,
+              atol=1.0e-9, btol=1.0e-9, conlim=1.0e+8, radius=None,
               show=False, wantvar=False):
         """
         Solve the linear system, linear least-squares problem or regularized
