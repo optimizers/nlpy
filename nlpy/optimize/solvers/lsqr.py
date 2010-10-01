@@ -10,6 +10,7 @@ Michael P. Friedlander, University of British Columbia
 Dominique Orban, Ecole Polytechnique de Montreal
 """
 
+from nlpy.tools.utils import roots_quadratic
 from numpy import zeros, dot, inf
 from numpy.linalg import norm
 from math import sqrt
@@ -166,7 +167,7 @@ class LSQRFramework:
         if alfa > 0:
             v /= alfa; w = v.copy()
 
-        x_is_zero = False
+        x_is_zero = False   # Is x=0 the solution to the least-squares prob?
         arnorm = alfa * beta
         if arnorm == 0.0:
             print self.msg[0]
@@ -240,10 +241,16 @@ class LSQRFramework:
                 # Calculate distance to trust-region boundary from x along w.
                 xw = dot(x,w)
                 ww = dot(w,w)  # Can be updated at each iter ?
-                stepMax = sqrt(xw*xw + ww*(radius*radius - xnorm*xnorm)) - xw
-                stepMax /= ww
 
-                if t1 > stepMax:
+                # Obtain roots of quadratic to determine intersection of
+                # the search direction with the trust-region boundary.
+                roots = roots_quadratic(ww, 2*xw, xnorm*xnorm - radius*radius)
+
+                # Select largest real root in absolute value with the same
+                # sign as t1.
+                stepMax = max([abs(r) for r in roots if r*t1 > 0])
+
+                if abs(t1) > abs(stepMax):
                     x += stepMax * w
                     xnorm = radius
                     r1norm = normof2(rho*stepMax*sn, rho*stepMax*cs - phibar)
