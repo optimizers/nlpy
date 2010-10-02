@@ -169,17 +169,17 @@ class PysparseLinearOperator(LinearOperator):
 
 class SquaredLinearOperator(LinearOperator):
     """
-    Given a linear operator `A`, build the linear operator `A.T * A`. If
-    `transpose` is set to `True`, build `A * A.T` instead. This may be useful
-    for solving one of the normal equations
+    Given a linear operator ``A``, build the linear operator ``A.T * A``. If
+    ``transpose`` is set to ``True``, build ``A * A.T`` instead. This may be
+    useful for solving one of the normal equations
 
     |           A'Ax = A'b
     |           AA'y = Ag
 
     which are the optimality conditions of the linear least-squares problems
 
-    |          minimize{in x}  |Ax-b|
-    |          minimize{in y}  |A'y-g|
+    |          minimize{in x}  | Ax-b |
+    |          minimize{in y}  | A'y-g |
 
     in the Euclidian norm.
     """
