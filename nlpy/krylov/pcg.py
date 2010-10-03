@@ -18,7 +18,7 @@ __docformat__ = 'restructuredtext'
 
 class TruncatedCG:
 
-    def __init__(self, g, **kwargs):
+    def __init__(self, g, H, **kwargs):
         """
         Solve the quadratic trust-region subproblem
 
@@ -30,16 +30,6 @@ class TruncatedCG:
         product of vectors `x` and `y`. `H` must be a symmetric matrix of
         appropriate size, but not necessarily positive definite.
 
-        :keywords:
-
-          :radius:     the trust-region radius (default: None),
-          :matvec:     a function to compute matrix-vector products with `H`,
-          :H:          the explicit matrix `H`,
-          :abstol:     absolute stopping tolerance (default: 1.0e-8),
-          :reltol:     relative stopping tolerance (default: 1.0e-6),
-          :maxiter:    maximum number of iterations (default: 2n),
-          :prec:       a user-defined preconditioner.
-
         :returns:
 
           :step:       final step,
@@ -49,11 +39,6 @@ class TruncatedCG:
                        H is not positive definite),
           :onBoundary: set to True if trust-region boundary was hit,
           :infDescent: set to True if a direction of infinite descent was found
-
-        If both `matvec` and `H` are specified, `matvec` takes precedence. If
-        `matvec` is specified, it is supposed to receive a vector `p` as input
-        and return the matrix-vector product `H*p`. If `H` is given, it must
-        have a method named `matvec` to compute matrix-vector products.
 
         The algorithm stops as soon as the preconditioned norm of the gradient
         falls under
@@ -65,25 +50,13 @@ class TruncatedCG:
         iterates cross the boundary of the trust region.
         """
 
+        self.H = H
         self.g = g
         self.n = len(g)
 
         self.prefix = 'Pcg: '
         self.name = 'Truncated CG'
 
-        # Grab optional arguments
-        self.matvec = kwargs.get('matvec', None)
-        if self.matvec is None:
-            self.H = kwargs.get('H', None)
-            if self.H is None:
-                raise ValueError, 'Specify one of matvec or H'
-
-        self.radius = kwargs.get('radius', None)
-        self.abstol = kwargs.get('absol', 1.0e-8)
-        self.reltol = kwargs.get('reltol', 1.0e-6)
-        self.maxiter = kwargs.get('maxiter', 2*self.n)
-        self.prec = kwargs.get('prec', lambda v: v)
-        self.debug = kwargs.get('debug', False)
         self.status = '?'
         self.onBoundary = False
         self.step = None
@@ -125,21 +98,33 @@ class TruncatedCG:
     def Solve(self, **kwargs):
         """
         Solve the trust-region subproblem.
+
+        :keywords:
+
+          :radius:     the trust-region radius (default: None),
+          :H:          linear operator representing the matrix `H`,
+          :abstol:     absolute stopping tolerance (default: 1.0e-8),
+          :reltol:     relative stopping tolerance (default: 1.0e-6),
+          :maxiter:    maximum number of iterations (default: 2n),
+          :prec:       a user-defined preconditioner.
         """
+
+        radius  = kwargs.get('radius', None)
+        abstol  = kwargs.get('absol', 1.0e-8)
+        reltol  = kwargs.get('reltol', 1.0e-6)
+        maxiter = kwargs.get('maxiter', 2*self.n)
+        prec    = kwargs.get('prec', lambda v: v)
+        debug   = kwargs.get('debug', False)
+
         n = self.n
         g = self.g
-        matvec = self.matvec
-        if matvec is None: H = self.H
-        prec = self.prec
+        H = self.H
 
         # Initialization
         y = prec(g)
         ry = np.dot(g, y)
         sqrtry = sqrt(ry)
-        stopTol = max(self.abstol, self.reltol * sqrtry)
-
-        Delta = self.radius
-        debug = self.debug
+        stopTol = max(abstol, reltol * sqrtry)
 
         s = np.zeros(n) ; snorm2 = 0.0
 
@@ -147,36 +132,31 @@ class TruncatedCG:
         r = g.copy()                 # r = g + H s0 = g
         p = -y                       # p = - preconditioned residual
         k = 0
-        if matvec is None: Hp = np.empty(n)
 
         onBoundary = False
         infDescent = False
 
-        if self.debug:
+        if debug:
             self._write(self.header)
             self._write('-' * len(self.header) + '\n')
 
-        while sqrtry > stopTol and k < self.maxiter and \
+        while sqrtry > stopTol and k < maxiter and \
                 not onBoundary and not infDescent:
 
-            # Compute matrix-vector product H*p.
-            if matvec is not None:
-                Hp = matvec(p)
-            else:
-                H.matvec(p, Hp)
+            Hp  = H * p
             pHp = np.dot(p, Hp)
 
             if debug:
                 self._write(self.fmt % (k, ry, pHp))
 
             # Compute steplength to the boundary.
-            if Delta is not None:
-                sigma = self.to_boundary(s,p,Delta,ss=snorm2)
+            if radius is not None:
+                sigma = self.to_boundary(s, p, radius, ss=snorm2)
 
             # Compute CG steplength.
             alpha = ry/pHp
 
-            if pHp <= 0 and Delta is None:
+            if pHp <= 0 and radius is None:
                 # p is direction of singularity or negative curvature.
                 self.status = 'infinite descent'
                 snorm2 = 0
@@ -184,10 +164,10 @@ class TruncatedCG:
                 infDescent = True
                 continue
 
-            if  Delta is not None and (pHp <= 0  or alpha > sigma):
+            if radius is not None and (pHp <= 0 or alpha > sigma):
                 # p leads past the trust-region boundary. Move to the boundary.
                 s += sigma * p
-                snorm2 = Delta*Delta
+                snorm2 = radius*radius
                 self.status = 'on boundary (sigma = %g)' % sigma
                 onBoundary = True
                 continue
@@ -208,9 +188,9 @@ class TruncatedCG:
         if debug:
             self._write(self.fmt % (k, ry, pHp))
 
-        if k < self.maxiter and not onBoundary:
+        if k < maxiter and not onBoundary:
             self.status = 'residual small'
-        elif k >= self.maxiter:
+        elif k >= maxiter:
             self.status = 'max iter'
         self.step = s
         self.niter = k
@@ -222,24 +202,9 @@ class TruncatedCG:
 
 def model_value(H, g, s):
     # Return <g,s> + 1/2 <s,Hs>
-    n = len(g)
-    Hs = np.zeros(n, 'd')
-    H.matvec(s, Hs)
-    q = 0.5 * np.dot(s, Hs)
-    q = np.dot(g,s) + q
-    return q
+    return np.dot(g,s) + 0.5 * np.dot(s, H*s)
 
 def model_grad(H, g, s):
     # Return g + Hs
-    n = len(g)
-    Hs = np.zeros(n, 'd')
-    H.matvec(s, Hs)
-    return g+Hs
-
-def H_prod(H, v):
-    # For simulation purposes only
-    n = H.shape[0]
-    Hv = np.zeros(n, 'd')
-    H.matvec(v, Hv)
-    return Hv
+    return g + H*s
 

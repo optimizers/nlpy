@@ -139,17 +139,13 @@ class TrustRegionCG(TrustRegionSolver):
     preconditioner, i.e., any callable object.
     """
 
-    def __init__(self, g, **kwargs):
+    def __init__(self, g, H, **kwargs):
 
         TrustRegionSolver.__init__(self, g, **kwargs)
-        self.cgSolver = TruncatedCG(g, **kwargs)
+        self.cgSolver = TruncatedCG(g, H, **kwargs)
         self.niter = 0
         self.stepNorm = 0.0
         self.step = None
-        self.hprod = kwargs.get('matvec', None)
-        self.H = kwargs.get('H', None)
-        if self.hprod is None and self.H is None:
-            raise ValueError, 'Specify one of hprod and H'
         self.m = None # Model value at candidate solution
 
     def Solve(self, **kwargs):
@@ -161,16 +157,9 @@ class TrustRegionCG(TrustRegionSolver):
         self.niter = self.cgSolver.niter
         self.stepNorm = self.cgSolver.stepNorm
         self.step= self.cgSolver.step
-        # Compute model reduction
-        m = np.dot(self.g, self.step)
-        if self.hprod:
-            m += 0.5 * np.dot(self.step, self.hprod(self.step))
-        else:
-            v = np.empty(self.H.shape[0], 'd')
-            self.H.matvec(self.step, v)
-            m += 0.5 * np.dot(self.step, v)
-        self.m = m
-        #print self.niter, self.stepNorm, m, self.cgSolver.status
+        # Compute model reduction.
+        self.m = np.dot(self.g, self.step)
+        self.m += 0.5 * np.dot(self.step, self.cgSolver.H * self.step)
         return
 
 
@@ -211,29 +200,20 @@ class TrustRegionPCG(TrustRegionSolver):
         self.step = None
         self.hprod = kwargs.get('matvec', None)
         self.H = kwargs.get('H', None)
-        if self.hprod is None and self.H is None:
-            raise ValueError, 'Specify one of hprod and H'
         self.m = None # Model value at candidate solution
 
-    def Solve(self):
+    def Solve(self, **kwargs):
         """
         Solve trust-region subproblem using the projected truncated conjugate
         gradient algorithm.
         """
-        self.cgSolver.Solve()
+        self.cgSolver.Solve(**kwargs)
         self.niter = self.cgSolver.iter
-        self.stepNorm = sqrt(self.cgSolver.xNorm2)
+        self.stepNorm = self.cgSolver.stepNorm
         self.step= self.cgSolver.x
         # Compute model reduction
-        m = np.dot(self.g, self.step)
-        if self.hprod:
-            m += 0.5 * np.dot(self.step, self.hprod(self.step))
-        else:
-            v = np.empty(self.H.shape[0], 'd')
-            self.H.matvec(self.step, v)
-            m += 0.5 * np.dot(self.step, v)
-        self.m = m
-        #print self.niter, self.stepNorm, m, self.cgSolver.status
+        self.m = np.dot(self.g, self.step)
+        self.m += 0.5 * np.dot(self.step, self.H * self.step)
         return
 
 
@@ -258,8 +238,6 @@ try:
             self.step = None
             self.hprod = kwargs.get('matvec', None)
             self.H = kwargs.get('H', None)
-            if self.hprod is None and self.H is None:
-                raise ValueError, 'Specify one of hprod and H'
             self.m = None
 
         def Solve(self):
@@ -267,11 +245,7 @@ try:
             Solve the trust-region subproblem using the generalized Lanczos
             method.
             """
-            if self.hprod is not None:
-                self.gltrSolver.implicit_solve(self.hprod)
-            else:
-                self.gltrSolver.explicit_solve(self.H)
-                    
+            self.gltrSolver.implicit_solve(self.H)
             self.niter = self.gltrSolver.niter
             self.stepNorm = self.gltrSolver.snorm
             self.step = self.gltrSolver.step
@@ -279,3 +253,4 @@ try:
             return
 except:
     pass
+

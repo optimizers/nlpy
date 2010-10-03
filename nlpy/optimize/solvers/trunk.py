@@ -7,6 +7,7 @@
  The Python version of the celebrated  F90/95 solver
  D. Orban                        Montreal Sept. 2003
 """
+from nlpy.krylov.linop import SimpleLinearOperator
 from nlpy.tools import norms
 from nlpy.tools.timing import cputime
 
@@ -149,15 +150,16 @@ class TrunkFramework:
             if self.inexact:
                 cgtol = max(1.0e-6, min(0.5 * cgtol, sqrt(self.gnorm)))
 
-            self.solver = self.TrSolver(self.g,
-                                        matvec = lambda v: nlp.hprod(nlp.pi0,v,iter=self.iter),
-                                        #H = nlp.hess(self.x,nlp.pi0),
-                                        prec = self.Precon,
-                                        radius = self.TR.Delta,
-                                        reltol = cgtol,
-                                        #debug=True
-                                        )
-            self.solver.Solve()
+            H = SimpleLinearOperator(nlp.n, nlp.n,
+                                     lambda v: nlp.hprod(nlp.pi0,v,iter=self.iter),
+                                     symmetric=True)
+
+            self.solver = self.TrSolver(self.g, H)
+            self.solver.Solve(prec = self.Precon,
+                              radius = self.TR.Delta,
+                              reltol = cgtol,
+                              #debug=True
+                              )
 
             step = self.solver.step
             snorm = self.solver.stepNorm
@@ -166,8 +168,7 @@ class TrunkFramework:
             # Obtain model value at next candidate
             m = self.solver.m
             if m is None:
-                m = numpy.dot(self.g,step) + \
-                    0.5*numpy.dot(step, nlp.hprod(nlp.pi0,step))
+                m = numpy.dot(self.g, step) + 0.5*numpy.dot(step, H * step)
 
             self.cgiter += niter
             x_trial = self.x + step
