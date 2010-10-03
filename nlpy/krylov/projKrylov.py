@@ -82,7 +82,7 @@ class ProjectedKrylov:
         :debug:  turn on verbose mode (default: ``False``).
     """
 
-    def __init__(self, c, **kwargs):
+    def __init__(self, c, H, **kwargs):
 
         self.prefix = 'Generic PK: '   # Should be overridden in subclass
         self.name = 'Generic Projected Krylov Method (should be subclassed)'
