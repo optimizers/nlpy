@@ -23,7 +23,7 @@ from nlpy.tools.timing import cputime
 
 class ProjectedCG( ProjectedKrylov ):
 
-    def __init__( self, c, **kwargs ):
+    def __init__( self, c, H, **kwargs ):
         """
         Solve the equality-constrained quadratic programming problem
 
@@ -164,7 +164,7 @@ class ProjectedCG( ProjectedKrylov ):
                     Computing **23**(4), pp. 1376-1395, 2001.
         """
 
-        ProjectedKrylov.__init__(self, c, **kwargs)
+        ProjectedKrylov.__init__(self, c, H, **kwargs)
 
         self.prefix = 'Ppcg: '
         self.name = 'Projected CG'
@@ -194,9 +194,6 @@ class ProjectedCG( ProjectedKrylov ):
         self.dir = None  # Direction of infinity descent
         self.onBoundary = False
         self.infDescent = False
-
-        if self.matvec is None:
-            self._hp = numpy.empty( self.n, 'd' )
 
         # Formats for display
         self.hd_fmt = ' %-5s  %9s  %8s\n'
@@ -254,11 +251,7 @@ class ProjectedCG( ProjectedKrylov ):
         self.t_solve = cputime()
         if self.A is not None:
             if self.b is not None:
-                if self._matvec_found:
-                    self.rhs[:n] = self.c + self.matvec( self.x_feasible )
-                else:
-                    self.H.matvec( self.x_feasible, self.rhs[:n] )
-                    self.rhs[:n] += self.c
+                self.rhs[:n] = self.c + self.H * self.x_feasible
                 self.rhs[n:] = 0.0
             else:
                 self.rhs[:n] = self.c
@@ -274,10 +267,6 @@ class ProjectedCG( ProjectedKrylov ):
 
         # Initialize search direction
         p = -g
-        if self._matvec_found:
-            Hp = None
-        else:
-            Hp = self._hp
         pHp = None
 
         self.residNorm0 = numpy.dot(r,g)
@@ -293,10 +282,7 @@ class ProjectedCG( ProjectedKrylov ):
 
         while sqrt(rg) > threshold and iter < self.maxiter and not onBoundary:
 
-            if self._matvec_found:
-                Hp = self.matvec( p )
-            else:
-                self.H.matvec( p, Hp )
+            Hp = self.H * p
             pHp = numpy.dot(p,Hp)
 
             # Display current iteration info
@@ -381,11 +367,7 @@ class ProjectedCG( ProjectedKrylov ):
 
         if self.A is not None:
             # Find (weighted) least-squares Lagrange multipliers
-            if self._matvec_found:
-                self.rhs[:n] = -self.matvec( self.x )
-            else:
-                self.H.matvec( -self.x, self.rhs[:n] )
-            for i in range( n ): self.rhs[i] -= self.c[i]
+            self.rhs[:n] = - self.c - self.H * self.x
             self.rhs[n:] = 0.0
             self.Proj.solve( self.rhs )
             self.v = self.Proj.x[n:].copy()

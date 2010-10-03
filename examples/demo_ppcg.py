@@ -1,4 +1,5 @@
 from nlpy.model.amplpy import AmplModel
+from nlpy.krylov.linop import SimpleLinearOperator
 from nlpy.krylov.ppcg import ProjectedCG as Ppcg
 from nlpy.tools import norms
 import numpy
@@ -38,8 +39,11 @@ delta = 1000 #max(1.0, 100 * norms.norm_infty(g))
 # Call projected CG to solve problem
 #   min  <g,d> + 1/2 <d, Hd>
 #   s.t  Jd = 0,  |d| <= delta
-hprod = lambda p: nlp.hprod(nlp.pi0,p)
-CG = Ppcg(g, A=J, matvec=hprod, radius=delta, debug=True)
+CG = Ppcg(g,
+          SimpleLinearOperator(nlp.n, nlp.n,
+                               lambda p: nlp.hprod(nlp.pi0,p),
+                               symmetric=True),
+          A=J, radius=delta, debug=True)
 #CG = Ppcg(g, A=J, rhs=-c, matvec=hprod, debug=True)
 CG.Solve()
 

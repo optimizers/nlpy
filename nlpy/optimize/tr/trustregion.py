@@ -191,15 +191,14 @@ class TrustRegionPCG(TrustRegionSolver):
     MP01 MPS-SIAM Series on Optimization, 2000.
     """
 
-    def __init__(self, g, A, **kwargs):
+    def __init__(self, g, H, A, **kwargs):
 
         TrustRegionSolver.__init__(self, g, **kwargs)
-        self.cgSolver = ProjectedCG(g, A=A, **kwargs)
+        self.cgSolver = ProjectedCG(g, H, A=A, **kwargs)
         self.niter = 0
         self.stepNorm = 0.0
         self.step = None
         self.hprod = kwargs.get('matvec', None)
-        self.H = kwargs.get('H', None)
         self.m = None # Model value at candidate solution
 
     def Solve(self, **kwargs):
@@ -213,7 +212,7 @@ class TrustRegionPCG(TrustRegionSolver):
         self.step= self.cgSolver.x
         # Compute model reduction
         self.m = np.dot(self.g, self.step)
-        self.m += 0.5 * np.dot(self.step, self.H * self.step)
+        self.m += 0.5 * np.dot(self.step, self.cgSolver.H * self.step)
         return
 
 
