@@ -190,7 +190,7 @@ class ProjectedCG( ProjectedKrylov ):
         self.iter = self.nMatvec = 0
         self.infiniteDescentDir = None
         self.xNorm2 = 0.0        # Square norm of step, not counting x_feasible
-        self.stepNorm = self.xNorm2 # Shortcut for consistency with TruncatedCG
+        self.stepNorm = 0.0 # Shortcut for consistency with TruncatedCG
         self.dir = None  # Direction of infinity descent
         self.onBoundary = False
         self.infDescent = False
@@ -374,7 +374,8 @@ class ProjectedCG( ProjectedKrylov ):
             self._write( self.fmt % (iter, rg, pHp) )
 
         # Obtain final solution x
-        self.xNorm2 = self.stepNorm = xNorm2
+        self.xNorm2 = xNorm2
+        self.stepNorm = sqrt(xNorm2)
         if self.x_feasible is not None:
             self.x += self.x_feasible
 
