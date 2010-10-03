@@ -56,6 +56,32 @@ from nlpy.tools.timing import cputime
 import sys
 
 class ProjectedKrylov:
+    """
+    :keywords:
+        :A:  the `constraint` matrix. Must be given as an explicit matrix.
+        :H:  the operator in the leading block. Only matrix-vector products
+             with ``H`` are required in projected Krylov methods. ``H`` can be
+             given as a linear operator.
+        :c:  the first part of the right-hand side vector.
+        :b:  the second part of the right-hand side vector (default: ``None``,
+             meaning the vector of zeros).
+        :abstol:  absolute stopping tolerance (default: 1.0e-8).
+        :reltol:  relative stopping tolerance (default: 1.0e-6).
+        :maxiter:  maximum number of iterations of the Krylov method.
+        :max_itref:  maximum number of iterative refinement steps after a
+                     projection (default: 3).
+        :itref_tol:  acceptable residual tolerance during iterative refinement
+                     (default: 1.0e-6).
+        :factorize: if set to ``True``, the projector will be factorized (this
+                    is the default). If set to ``False``, an existing
+                    factorization should be given in ``Proj``.
+        :Proj:    an existing factorization of the projector. If not ``None``,
+                  ``factorize`` will be set to ``False``.
+        :precon:  preconditioner. Normally this is a cheap approximation to
+                  ``H``. It must be specified as an explicit matrix.
+        :debug:  turn on verbose mode (default: ``False``).
+    """
+
     def __init__(self, c, **kwargs):
 
         self.prefix = 'Generic PK: '   # Should be overridden in subclass
@@ -81,14 +107,8 @@ class ProjectedKrylov:
             self.nnzA = self.A.nnz    # Number of nonzeros in constraint matrix
         self.nnzP = 0                 # Number of nonzeros in projection matrix
         self.c = c
+        self.H = H
         self.maxiter = kwargs.get('maxiter', 2 * self.n)
-
-        self.matvec = kwargs.get('matvec', None)
-        self._matvec_found = (self.matvec != None)
-        if self.matvec is None:
-            self.H = kwargs.get('H', None)
-            if self.H is None:
-                raise ValueError, 'Either matvec or H must be supplied'
 
         self.Proj = kwargs.get('Proj', None)
         self.factorized = (self.Proj != None) # Factorization already performed
