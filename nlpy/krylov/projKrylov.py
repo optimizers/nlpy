@@ -184,4 +184,4 @@ class ProjectedKrylov:
         This is the Solve method of the abstract projectedKrylov class. The
         class must be specialized and this method overridden.
         """
-        raise NotImplementedError, 'This method must be subclassed'
+        raise NotImplementedError, 'This method must be overridden.'
