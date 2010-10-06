@@ -1,4 +1,5 @@
 *.pyc
 *~
 build
+site.cfg
 *.sol
