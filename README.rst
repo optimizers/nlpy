@@ -42,8 +42,10 @@ Installation
 
 For now, just::
 
+    cp site.template.cfg site.cfg
+    # Edit site.cfg to adjust to your local settings.
     python setup.py build
-    python setup.py install
+    python setup.py install [--prefix=...]
 
 To select another C and/or Fortran compiler::
 
