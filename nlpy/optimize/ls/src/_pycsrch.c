@@ -10,7 +10,7 @@
 /* ========================================================================== */
 
 #include "Python.h"                /* Main Python header file */
-#include "arrayflavor.h"
+#include "numpy/arrayobject.h"     /* NumPy header */
 #include "string.h"
 
 /* ========================================================================== */
