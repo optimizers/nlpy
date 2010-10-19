@@ -230,9 +230,9 @@ static PyObject *Pycfs_pcg( PycfsObject *self, PyObject *args ) {
                                               &PyArray_Type, &a_d,
                                               &maxiter, &rtol ) )
 	return NULL;
-    if( a_b->descr->type_num  != tFloat64 ) return NULL;
-    if( a_x->descr->type_num  != tFloat64 ) return NULL;
-    if( a_d->descr->type_num  != tFloat64 ) return NULL;
+    if( a_b->descr->type_num  != NPY_DOUBLE ) return NULL;
+    if( a_x->descr->type_num  != NPY_DOUBLE ) return NULL;
+    if( a_d->descr->type_num  != NPY_DOUBLE ) return NULL;
 
     if( !a_b ) return NULL;                         /* conversion error */
     if( a_b->nd != 1 ) return NULL;          /* b must have 1 dimension */

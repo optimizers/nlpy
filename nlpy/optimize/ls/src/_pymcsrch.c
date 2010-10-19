@@ -122,13 +122,13 @@ static PyObject *Pymcsrch_mcsrch( PymcsrchObject *self, PyObject *args ) {
                            &PyArray_Type, &a_g )) return NULL;
 
     /* Check input */
-    if( a_x->descr->type_num != tFloat64 ) return NULL;
+    if( a_x->descr->type_num != NPY_DOUBLE ) return NULL;
     if( !a_x ) return NULL;                               /* conversion error */
     if( a_x->nd != 1 ) return NULL;                /* x must have 1 dimension */
     if( a_x->dimensions[0] != self->n ) return NULL;            /* and size n */
     PyArray_XDECREF( a_x );
     
-    if( a_g->descr->type_num != tFloat64 ) return NULL;
+    if( a_g->descr->type_num != NPY_DOUBLE ) return NULL;
     if( !a_g ) return NULL;                               /* conversion error */
     if( a_g->nd != 1 ) return NULL;                /* g must have 1 dimension */
     if( a_g->dimensions[0] != self->n ) return NULL;            /* and size n */
@@ -187,7 +187,7 @@ static PyObject *Pymcsrch_Init( PyObject *self, PyObject *args ) {
         return NULL;
 
     /* Check input array */
-    if( a_d->descr->type_num != tFloat64 ) return NULL;
+    if( a_d->descr->type_num != NPY_DOUBLE ) return NULL;
     if( !a_d ) return NULL;                               /* conversion error */
     if( a_d->nd != 1 ) return NULL;                /* d must have 1 dimension */
     if( a_d->dimensions[0] != n ) return NULL;            /* and size n */

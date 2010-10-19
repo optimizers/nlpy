@@ -281,9 +281,9 @@ static PyObject *Pyma57_ma57( Pyma57Object *self, PyObject *args ) {
                          &PyArray_Type, &a_x,
                          &PyArray_Type, &a_res, &get_resid ) ) return NULL;
 
-  if( a_rhs->descr->type_num != tFloat64 ) return NULL;
-  if( a_x->descr->type_num != tFloat64 ) return NULL;
-  if( a_res->descr->type_num != tFloat64 ) return NULL;
+  if( a_rhs->descr->type_num != NPY_DOUBLE ) return NULL;
+  if( a_x->descr->type_num != NPY_DOUBLE ) return NULL;
+  if( a_res->descr->type_num != NPY_DOUBLE ) return NULL;
   if( !a_rhs ) return NULL;                               /* conversion error */
   if( a_rhs->nd != 1 ) return NULL;                  /* must have 1 dimension */
   if( a_rhs->dimensions[0] != self->data->n ) return NULL;      /* and size n */
@@ -357,15 +357,15 @@ static PyObject *Pyma57_refine( Pyma57Object *self, PyObject *args ) {
                          &PyArray_Type, &a_rhs,
                          &nitref ) )
     return NULL;
-  if( a_x->descr->type_num != tFloat64 ) return NULL;
+  if( a_x->descr->type_num != NPY_DOUBLE ) return NULL;
   if( !a_x ) return NULL;
   if( a_x->nd != 1 ) return NULL;
   if( a_x->dimensions[0] != self->data->n ) return NULL;
-  if( a_rhs->descr->type_num != tFloat64 ) return NULL;
+  if( a_rhs->descr->type_num != NPY_DOUBLE ) return NULL;
   if( !a_rhs ) return NULL;
   if( a_rhs->nd != 1 ) return NULL;
   if( a_rhs->dimensions[0] != self->data->n ) return NULL;
-  if( a_res->descr->type_num != tFloat64 ) return NULL;
+  if( a_res->descr->type_num != NPY_DOUBLE ) return NULL;
   if( !a_res ) return NULL;
   if( a_res->nd != 1 ) return NULL;
   if( a_res->dimensions[0] != self->data->n ) return NULL;
