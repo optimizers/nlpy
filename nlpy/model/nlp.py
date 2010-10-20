@@ -4,6 +4,25 @@
 # D. Orban, 2004.
 import numpy
 
+
+class KKTresidual:
+    """
+    A generic class to package KKT residuals and corresponding scalings.
+    """
+    def __init__(self, dFeas, pFeas, compl, **kwargs):
+        self.dFeas = dFeas
+        self.pFeas = pFeas
+        self.compl = compl
+        self.scaling = kwargs.get('scaling', None)
+        return
+
+    def set_scaling(self, scaling, **kwargs):
+        "Assign scaling values. `scaling` must be a `KKTresidual` instance.'
+        if not isinstance(scaling, KKTresidual):
+            raise ValueError, 'scaling must be a KKTresidual instance.'
+        self.scaling = scaling
+
+
 class NLPModel:
     """
     Instances of class NLPModel represent an abstract nonlinear optimization
