@@ -9,30 +9,41 @@ class KKTresidual:
     """
     A generic class to package KKT residuals and corresponding scalings.
     """
-    def __init__(self, dFeas, pFeas, bFeas, gCompl, bCompl, **kwargs):
+    def __init__(self, dFeas, pFeas, bFeas, gComp, bComp, **kwargs):
         """
         :parameters:
             dFeas: dual feasibility residual
             pFeas: primal feasibility residual, taking into account
                    constraints that are not bound constraints,
             bFeas: primal feasibility with respect to bounds,
-            gCompl: complementarity residual with respect to constraints
-                    that are not bound constraints,
-            bCompl: complementarity residual with respect to bounds.
+            gComp: complementarity residual with respect to constraints
+                   that are not bound constraints,
+            bComp: complementarity residual with respect to bounds.
         """
-        self.dFeas  = max(0.0, dFeas)
-        self.pFeas  = max(0.0, pFeas)
-        self.bFeas  = max(0.0, bFeas)
-        self.gCompl = max(0.0, gCompl)
-        self.bCompl = max(0.0, bCompl)
-        self.scaling = kwargs.get('scaling', None)
+        self.dFeas = max(0.0, dFeas)
+        self.pFeas = max(0.0, pFeas)
+        self.bFeas = max(0.0, bFeas)
+        self.gComp = max(0.0, gComp)
+        self.bComp = max(0.0, bComp)
+        self._is_scaling = kwargs.get('is_scaling', False)
+        if self._is_scaling:
+            self.scaling = None
+        else:
+            if 'scaling' in kwargs:
+                self.set_scaling(kwargs['scaling'])
+            else:
+                self.scaling = KKTresidual(1.0, 1.0, 1.0, 1.0, 1.0,
+                                           is_scaling=True)
         return
 
     def set_scaling(self, scaling, **kwargs):
         "Assign scaling values. `scaling` must be a `KKTresidual` instance."
+        if self.is_scaling:
+            raise ValueError, 'instance represents scaling factors.'
         if not isinstance(scaling, KKTresidual):
             raise ValueError, 'scaling must be a KKTresidual instance.'
         self.scaling = scaling
+        self.scaling._is_scaling = True
         return
 
 
