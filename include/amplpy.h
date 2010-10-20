@@ -27,30 +27,6 @@ extern "C" {   /* To prevent C++ compilers from mangling symbols */
 #define MAX(m,n)  ((m)>(n)?(m):(n))
 #define MIN(m,n)  ((m)<(n)?(m):(n))
 
-/* Some real constants -- AmplPyReal is defined in galahad.h */
-#define ZERO             (AmplPyReal)0.0
-#define ONE              (AmplPyReal)1.0
-#define TWO              (AmplPyReal)2.0
-#define THREE            (AmplPyReal)3.0
-#define FIVE             (AmplPyReal)5.0
-#define FORTRAN_INFINITY (AmplPyReal)pow( 10, 20 )
-
-/*
- * =================================
- *  T Y P E   D E F I N I T I O N S
- * =================================
- */
-
-/*
- * Define Fortran types for integer and double precision
- * The following choices are from f2c.h
- */
-
-    typedef long int integer;
-    typedef long int logical;
-#define FALSE (0)     /* Fortran FALSE */
-#define TRUE  (1)     /* Fortran  TRUE */
-
 /*
  * Prototypes
  */

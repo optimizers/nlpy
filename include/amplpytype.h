@@ -10,20 +10,6 @@ extern "C" {   /* To prevent C++ compilers from mangling symbols */
 #endif
 
 /*
- * Type definitions
- */
-
-#ifdef SinglePrecision
-    typedef float  AmplPyReal;     /* Single precision real numbers */
-#define     AmplCast    (double)   /* Used to cast single to double */
-#define     RealCast    (float)    /* Used to cast back to single   */
-#else
-    typedef double AmplPyReal;     /* Double precision real numbers */
-#define     RealCast               /* No cast needed as Ampl uses doubles */
-#define     AmplCast               /* No cast needed as Ampl uses doubles */
-#endif
-
-/*
  * Treatment of error
  */
 
