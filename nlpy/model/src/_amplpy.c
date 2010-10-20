@@ -22,7 +22,6 @@
 #include "jacpdim.h"               /* For partially-separable structure */
 /* Various DEFINEs */
 
-#define ZERO (real)0.0
 #define ONE  (real)1.0
 
 #define SYMMETRIC 1    /* Symmetric SpMatrix */
@@ -81,10 +80,11 @@ static int   ampl_written_sol = 0; /* Indicates whether solution was written */
  * Keywords must appear in alphabetical order.
  * Normally, AmplPy is not called from the command line.
  */
-static keyword keywds[] = { };
+static keyword keywds[] = {};
 
 static Option_Info Oinfo = { CHR"amplpy", CHR"AmplPy", CHR"amplpy_options",
-                             keywds, nkeywds, 0, CHR"0.2" };
+                             keywds, nkeywds, 0, CHR"0.2", 0, 0, 0, 0, 0,
+                             20101019 };
 
 /* ========================================================================== */
 
@@ -98,25 +98,26 @@ static char AmplPy_Init_Doc[] = "Read in problem.";
 
 static PyObject *AmplPy_Init( PyObject *self, PyObject *args ) {
 
-    int     argc;    /* # of arguments */
     char  **argv;
     char   *stub;    /* file name containing Ampl problem */
-    //FILE   *nl;      /* pointer to Ampl file */
-    //int     i;       /* loop counter */
 
-    if( ampl_file_open )
-        return Py_BuildValue( "s", "A file is already open" );
+    if( ampl_file_open ) {
+        PyErr_SetString(PyExc_ValueError, "A file is already open.");
+        return NULL;
+    }
 
     /* Arguments are passed by Python -- need to parse them first */
     /* Suppose for now that only 'stub' was passed ... */
 
-    if( ! PyArg_ParseTuple( args, "s", &stub ) )
-        return Py_BuildValue( "s", "Use: ampl_init( stub )" );
+    if( ! PyArg_ParseTuple( args, "s", &stub ) ) {
+        PyErr_SetString(PyExc_ValueError, "Use: ampl_init(stub).");
+        return NULL;
+    }
 
-    argc = 2;
-    if( !(argv = (char **)calloc( 2, sizeof( char* ) )) )      return NULL;
-    if( !(argv[0] = malloc( 7*sizeof( char ) )) )              return NULL;
+    if( !(argv = (char **)calloc( 3, sizeof( char* ) )) )        return NULL;
+    if( !(argv[0] = malloc( 7*sizeof( char ) )) )                return NULL;
     if( !(argv[1] = malloc( (strlen(stub)+1)*sizeof( char ) )) ) return NULL;
+    argv[2] = NULL;
     strcpy( argv[0], "amplpy" );
     strcpy( argv[1], stub );
 
