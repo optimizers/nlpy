@@ -390,6 +390,7 @@ class AmplModel(NLPModel):
         
         pFeas = np.empty(self.m + nrangeC)
         if 'c' in kwargs:
+            c = kwargs['c']
             pFeas[:self.m] = c.copy()
         else:
             pFeas[:self.m] = self.cons(x)[self.permC]
@@ -802,7 +803,7 @@ class AmplModel(NLPModel):
             self.nupperB, self.nrangeB))
         if self.nlowerB > 0: write('Lower bounds: %s\n' % self.lowerB)
         if self.nupperB > 0: write('Upper bounds: %s\n' % self.upperB)
-        if self.nrangeB > 0: write('Two-Sided bounds: %s\n' + self.rangeB)
+        if self.nrangeB > 0: write('Two-Sided bounds: %s\n' % self.rangeB)
         write('Vector of lower bounds: %s\n' % self.Lvar)
         write('Vectof of upper bounds: %s\n' % self.Uvar)
         write('Number of General Constraints: %d' % self.m)
