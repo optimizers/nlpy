@@ -6,7 +6,7 @@ Python interface to the AMPL modeling language
 """
 
 import numpy as np
-from nlpy.model.nlp import NLPModel
+from nlpy.model.nlp import NLPModel, KKTresidual
 from nlpy.model import _amplpy
 from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
 from nlpy.tools import sparse_vector_class as sv
@@ -315,7 +315,15 @@ class AmplModel(NLPModel):
         included in the residuals (it will not be computed).
         """
 
-        error_return = (None, None, None, None, None)
+        # Make sure input multipliers have the right sign
+
+        if self.m > 0:
+            if len( np.where(y[self.nequalC:]<0)[0] ) > 0:
+                raise ValueError, 'Negative Lagrange multipliers...'
+
+        if self.nbounds > 0:
+            if len( np.where(z[self.nfixedB:]<0)[0] ) > 0:
+                raise ValueError, 'Negative Lagrange multipliers for bounds...'
 
         # Transfer some pointers for readability
 
@@ -452,16 +460,34 @@ class AmplModel(NLPModel):
         else:
             if float(objMult) != 0.0: dFeas += objMult * sign * self.grad(x)
 
-        return (dFeas, gComp, bComp, pFeas, bRes)
+        resids = KKTresidual(dFeas, pFeas, bRes, gComp, bComp)
+        #return (dFeas, gComp, bComp, pFeas, bRes)
 
+        # Compute scalings.
+        dScale = gScale = bScale = 1.0
+        if self.m > 0:
+            yNorm = np.linalg.norm(y, ord=1)
+            dScale += yNorm
+        if self.m > nequalC:
+            gScale += np.linalg.norm(y[nequalC:])
+        if nlowerB + nupperB + nrangeB > 0:
+            zNorm = np.linalg.norm(z, ord=1)
+            bScale += zNorm
+            dScale += zNorm
 
-    def AtOptimality(self, x, y, z, **kwargs):
+        scaling = KKTresidual(dScale, 1.0, 1.0, gScale, bScale)
+        resids.set_scaling(scaling)
+        return resids
+
+    def AtOptimality(self, x, y, z, scale=True, **kwargs):
         """
-        See :meth:`OptimalityResiduals` for a description of the arguments.
+        See :meth:`OptimalityResiduals` for a description of the arguments
+        `x`, `y` and `z`. The additional `scale` argument decides whether
+        or not residual scalings should be applied. By default, they are.
 
         :returns:
         
-            :res:  tuple of residuals, as returned by
+            :res:  `KKTresidual` instance, as returned by
                    :meth:`OptimalityResiduals`,
             :optimal:  `True` if the residuals fall below the thresholds
                        specified by :attr:`self.stop_d`, :attr:`self.stop_c`
@@ -471,16 +497,26 @@ class AmplModel(NLPModel):
         # Obtain optimality residuals
         res = self.OptimalityResiduals(x, y, z, **kwargs)
 
-        df = np.linalg.norm(res[0], ord=np.inf)
-        cp = 0.0 ; fs = 0.0
-        if self.m - self.nequalC > 0:
-            cp = max(cp, np.linalg.norm(res[1], ord=np.inf))
+        df = np.linalg.norm(res.dFeas, ord=np.inf)
+        if scale:
+            df /= res.scaling.dFeas
+
         if self.m > 0:
-            fs = max(fs, np.linalg.norm(res[3], ord=np.inf))
+            cp = np.linalg.norm(res.gComp, ord=np.inf)
+            fs = np.linalg.norm(res.pFeas, ord=np.inf)
+            if scale:
+                cp /= res.scaling.gComp
+                fd /= res.scaling.pFeas
+
         if self.nbounds > 0:
-            cp = max(cp, np.linalg.norm(res[2], ord=np.inf))
-            fs = max(fs, np.linalg.norm(res[4], ord=np.inf))
-        
+            bcp = np.linalg.norm(res.bComp, ord=np.inf)
+            bfs = np.linalg.norm(res.bFeas, ord=np.inf)
+            if scale:
+                bcp /= res.scaling.bComp
+                bfs /= res.scaling.bFeas
+            cp = max(cp, bcp)
+            fs = mac(fs, bfs)
+
         opt = (df<=self.stop_d) and (cp<=self.stop_c) and (fs<=self.stop_p)
         return (res, opt)
 
