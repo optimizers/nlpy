@@ -9,18 +9,31 @@ class KKTresidual:
     """
     A generic class to package KKT residuals and corresponding scalings.
     """
-    def __init__(self, dFeas, pFeas, compl, **kwargs):
-        self.dFeas = dFeas
-        self.pFeas = pFeas
-        self.compl = compl
+    def __init__(self, dFeas, pFeas, bFeas, gCompl, bCompl, **kwargs):
+        """
+        :parameters:
+            dFeas: dual feasibility residual
+            pFeas: primal feasibility residual, taking into account
+                   constraints that are not bound constraints,
+            bFeas: primal feasibility with respect to bounds,
+            gCompl: complementarity residual with respect to constraints
+                    that are not bound constraints,
+            bCompl: complementarity residual with respect to bounds.
+        """
+        self.dFeas  = max(0.0, dFeas)
+        self.pFeas  = max(0.0, pFeas)
+        self.bFeas  = max(0.0, bFeas)
+        self.gCompl = max(0.0, gCompl)
+        self.bCompl = max(0.0, bCompl)
         self.scaling = kwargs.get('scaling', None)
         return
 
     def set_scaling(self, scaling, **kwargs):
-        "Assign scaling values. `scaling` must be a `KKTresidual` instance.'
+        "Assign scaling values. `scaling` must be a `KKTresidual` instance."
         if not isinstance(scaling, KKTresidual):
             raise ValueError, 'scaling must be a KKTresidual instance.'
         self.scaling = scaling
+        return
 
 
 class NLPModel:
