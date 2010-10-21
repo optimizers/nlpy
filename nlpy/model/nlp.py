@@ -2,7 +2,7 @@
 # Define an abstract class to represent a general
 # nonlinear optimization problem.
 # D. Orban, 2004.
-import numpy
+import numpy as np
 
 
 class KKTresidual:
@@ -20,11 +20,11 @@ class KKTresidual:
                    that are not bound constraints,
             bComp: complementarity residual with respect to bounds.
         """
-        self.dFeas = max(0.0, dFeas)
-        self.pFeas = max(0.0, pFeas)
-        self.bFeas = max(0.0, bFeas)
-        self.gComp = max(0.0, gComp)
-        self.bComp = max(0.0, bComp)
+        self.dFeas = dFeas
+        self.pFeas = pFeas
+        self.bFeas = bFeas
+        self.gComp = gComp
+        self.bComp = bComp
         self._is_scaling = kwargs.get('is_scaling', False)
         if self._is_scaling:
             self.scaling = None
@@ -38,7 +38,7 @@ class KKTresidual:
 
     def set_scaling(self, scaling, **kwargs):
         "Assign scaling values. `scaling` must be a `KKTresidual` instance."
-        if self.is_scaling:
+        if self._is_scaling:
             raise ValueError, 'instance represents scaling factors.'
         if not isinstance(scaling, KKTresidual):
             raise ValueError, 'scaling must be a KKTresidual instance.'
@@ -103,37 +103,37 @@ class NLPModel:
         if 'x0' in kwargs.keys():
             self.x0 = kwargs['x0']
         else:
-            self.x0 = numpy.zeros(self.n, 'd')
+            self.x0 = np.zeros(self.n, 'd')
 
         # Set initial multipliers
         if 'pi0' in kwargs.keys():
             self.pi0 = kwargs['pi0']
         else:
-            self.pi0 = numpy.zeros(self.m, 'd')
+            self.pi0 = np.zeros(self.m, 'd')
 
         # Set lower bounds on variables    Lvar[i] <= x[i]  i = 1,...,n
         if 'Lvar' in kwargs.keys():
             self.Lvar = kwargs['Lvar']
         else:
-            self.Lvar = self.negInfinity * numpy.ones(self.n, 'd')
+            self.Lvar = self.negInfinity * np.ones(self.n, 'd')
 
         # Set upper bounds on variables    x[i] <= Uvar[i]  i = 1,...,n
         if 'Uvar' in kwargs.keys():
             self.Uvar = kwargs['Uvar']
         else:
-            self.Uvar = self.Infinity * numpy.ones(self.n, 'd')
+            self.Uvar = self.Infinity * np.ones(self.n, 'd')
 
         # Set lower bounds on constraints  Lcon[i] <= c[i]  i = 1,...,m
         if 'Lcon' in kwargs.keys():
             self.Lcon = kwargs['Lcon']
         else:
-            self.Lcon = self.negInfinity * numpy.ones(self.m, 'd')
+            self.Lcon = self.negInfinity * np.ones(self.m, 'd')
 
         # Set upper bounds on constraints  c[i] <= Ucon[i]  i = 1,...,m
         if 'Ucon' in kwargs.keys():
             self.Ucon = kwargs['Ucon']
         else:
-            self.Ucon = self.Infinity * numpy.ones(self.m, 'd')
+            self.Ucon = self.Infinity * np.ones(self.m, 'd')
 
         # Default classification of constraints
         self.lin = []                        # Linear    constraints
