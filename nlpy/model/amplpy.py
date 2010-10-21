@@ -461,19 +461,18 @@ class AmplModel(NLPModel):
             if float(objMult) != 0.0: dFeas += objMult * sign * self.grad(x)
 
         resids = KKTresidual(dFeas, pFeas, bRes, gComp, bComp)
-        #return (dFeas, gComp, bComp, pFeas, bRes)
 
         # Compute scalings.
         dScale = gScale = bScale = 1.0
         if self.m > 0:
-            yNorm = np.linalg.norm(y, ord=1)
-            dScale += yNorm
+            yNorm = np.linalg.norm(y) #, ord=1)
+            dScale += yNorm #/len(y)
         if self.m > nequalC:
-            gScale += np.linalg.norm(y[nequalC:])
+            gScale += np.linalg.norm(y[nequalC:]) #/nequalC
         if nlowerB + nupperB + nrangeB > 0:
-            zNorm = np.linalg.norm(z, ord=1)
-            bScale += zNorm
-            dScale += zNorm
+            zNorm = np.linalg.norm(z) #, ord=1)
+            bScale += zNorm #/len(z)
+            dScale += zNorm #/len(z)
 
         scaling = KKTresidual(dScale, 1.0, 1.0, gScale, bScale)
         resids.set_scaling(scaling)
@@ -501,12 +500,14 @@ class AmplModel(NLPModel):
         if scale:
             df /= res.scaling.dFeas
 
+        cp = fs = 0.0
         if self.m > 0:
-            cp = np.linalg.norm(res.gComp, ord=np.inf)
             fs = np.linalg.norm(res.pFeas, ord=np.inf)
+            if self.m > self.nequalC:
+                cp = np.linalg.norm(res.gComp, ord=np.inf)
             if scale:
                 cp /= res.scaling.gComp
-                fd /= res.scaling.pFeas
+                fs /= res.scaling.pFeas
 
         if self.nbounds > 0:
             bcp = np.linalg.norm(res.bComp, ord=np.inf)
@@ -515,8 +516,9 @@ class AmplModel(NLPModel):
                 bcp /= res.scaling.bComp
                 bfs /= res.scaling.bFeas
             cp = max(cp, bcp)
-            fs = mac(fs, bfs)
-
+            fs = max(fs, bfs)
+ 
+        #print 'KKT resids: ', (df, cp, fs)
         opt = (df<=self.stop_d) and (cp<=self.stop_c) and (fs<=self.stop_p)
         return (res, opt)
 
