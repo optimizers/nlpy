@@ -46,7 +46,7 @@ library. Add the following bit at the bottom of the top-level `Makefile`::
 
     # Create a dynamic library.
     libmetis.dylib: default
-        libtool -dynamic -o $@ -lstdc++ -lm Lib/*.o
+        libtool -dynamic -install_name $(PWD)/$@ -o $@ -lstdc++ -lm Lib/*.o
 
 Note that the last line should begin with a <TAB> character, not just spaces.
 You may need to change `-lstdc++` to something like `-lstdc++.6` depending on
@@ -55,3 +55,6 @@ comes up. All you have to do next is type `make libmetis.dylib` in the
 top-level directory of the METIS tree. NLPy will happily select the dynamic
 library if it is present. If not, it will choose the static library.
 
+Thanks to the flag `-install_name`, you will not have to move libmetis.dylib to
+a place in your `LD_LIBRARY_PATH`. This can only be done for the dynamic
+library.
