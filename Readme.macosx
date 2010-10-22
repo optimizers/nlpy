@@ -16,10 +16,11 @@ Comments pertaining to Mac OS/X users.
    issue the command 'make mrclean ; make' at the command line.
 
 3) If compiling on Snow Leopard (10.6.*), you may receive error messages
-   related to the ppc64 architecture (and the build will fail). One solution
-   seems to be to set the environment variables FFLAGS and LDFLAGS
-   appropriately before building. For example:
+   related to the architecture being linked (and the build might fail).  One
+   solution seems to be to set the environment variables CFLAGS, FFLAGS and
+   LDFLAGS appropriately before building. For example:
 
+     CFLAGS='-arch x86_64 -mmacosx-version-min=10.5' \
      FFLAGS='-arch x86_64 -mmacosx-version-min=10.5' \
      LDFLAGS='-arch x86_64 -Wall -undefined dynamic_lookup -bundle -mmacosx-version-min=10.4' \
      python setup.py build config_fc --fcompiler=gfortran
