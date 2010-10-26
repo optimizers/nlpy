@@ -444,7 +444,7 @@ class AmplModel(NLPModel):
             dFeas = np.zeros(self.n)
         dFeas[lowerB] -= zlowerB
         dFeas[upperB] += zupperB
-        dFeas[rangeB] -= zrangeBL - zrangeBU
+        dFeas[rangeB] -= (zrangeBL - zrangeBU)
 
         # See if we are checking the Fritz-John conditions
 
@@ -465,14 +465,17 @@ class AmplModel(NLPModel):
         # Compute scalings.
         dScale = gScale = bScale = 1.0
         if self.m > 0:
-            yNorm = np.linalg.norm(y) #, ord=1)
-            dScale += yNorm #/len(y)
+            yNorm = np.linalg.norm(y, ord=1)
+            dScale += yNorm /len(y)
         if self.m > nequalC:
-            gScale += np.linalg.norm(y[nequalC:]) #/nequalC
+            gScale += np.linalg.norm(y[lowerC + upperC + rangeC], ord=1)
+            if nrangeC > 0:
+                gScale += np.linalg.norm(y[self.m:], ord=1)
+            gScale /= (nlowerC + nupperC + 2*nrangeC)
         if nlowerB + nupperB + nrangeB > 0:
-            zNorm = np.linalg.norm(z) #, ord=1)
-            bScale += zNorm #/len(z)
-            dScale += zNorm #/len(z)
+            zNorm = np.linalg.norm(z, ord=1)
+            bScale += zNorm /len(z)
+            dScale += zNorm /len(z)
 
         scaling = KKTresidual(dScale, 1.0, 1.0, gScale, bScale)
         resids.set_scaling(scaling)
