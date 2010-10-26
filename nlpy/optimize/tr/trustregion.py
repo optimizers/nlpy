@@ -51,14 +51,14 @@ class TrustRegionFramework:
             eps = eps / 2.0
         return eps*2.0
 
-    def Rho(self, f, f_trial, m):
+    def Rho(self, f, f_trial, m, check_positive=True):
         """
         Compute the ratio of actual versus predicted reduction
         rho = (f - f_trial)/(-m)
         """
         pred = -m + max(1.0, abs(f)) * 10.0 * self.eps
-        if pred > 0:
-            ared = f - f_trial + max(1.0, abs(f)) * 10.0 * self.eps
+        ared = f - f_trial + max(1.0, abs(f)) * 10.0 * self.eps
+        if pred > 0 or not check_positive:
             return ared/pred
         else:
             # Error: Negative predicted reduction
