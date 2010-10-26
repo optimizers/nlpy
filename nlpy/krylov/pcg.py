@@ -123,7 +123,14 @@ class TruncatedCG:
         # Initialization
         y = prec(g)
         ry = np.dot(g, y)
-        sqrtry = sqrt(ry)
+
+        try:
+            sqrtry = sqrt(ry)
+        except:
+            msg = 'Preconditioned residual = %8.1e\n' % ry
+            msg += 'Is preconditioner positive definite?'
+            raise ValueError, msg
+
         stopTol = max(abstol, reltol * sqrtry)
 
         s = np.zeros(n) ; snorm2 = 0.0
@@ -180,7 +187,14 @@ class TruncatedCG:
             beta = ry_next/ry
             p = -y + beta * p
             ry = ry_next
-            sqrtry = sqrt(ry)
+
+            try:
+                sqrtry = sqrt(ry)
+            except:
+                msg = 'Preconditioned residual = %8.1e\n' % ry
+                msg += 'Is preconditioner positive definite?'
+                raise ValueError, msg
+
             snorm2 = np.dot(s,s)
             k += 1
 
