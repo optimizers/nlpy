@@ -792,11 +792,18 @@ class AmplModel(NLPModel):
         Evaluate matrix-vector product H(x,z) * v.
         Returns a Numpy array.
 
+        :keywords:
+            :obj_weight: Add a weight to the Hessian of the objective function.
+                         By default, the weight is one. Setting it to zero
+                         allows to exclude the Hessian of the objective from
+                         the Hessian of the Lagrangian.
+
         Note that the sign of the Hessian matrix of the objective function
         appears as if the problem were a minimization problem.
         """
+        obj_weight = kwargs.get('obj_weight', 1.0)
         self.Hprod += 1
-        return _amplpy.H_prod(z, v)
+        return _amplpy.H_prod(z, v, obj_weight)
 
     def islp(self):
         """
