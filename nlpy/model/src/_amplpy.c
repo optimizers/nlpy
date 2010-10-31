@@ -1038,6 +1038,7 @@ static PyObject *AmplPy_Eval_H( PyObject *self, PyObject *args ) {
 
     /* Misc */
     real   OW[1];         /* Objective type: support single objective for now */
+    real   obj_weight;
     int    nnzh;     /* Number of nonzeros in sparse upper triangular Hessian */
     int    PassedH = 1;         /* Indicates whether matrix was passed or not */
     int    i, j, k;                                           /* Loop indices */
@@ -1045,9 +1046,9 @@ static PyObject *AmplPy_Eval_H( PyObject *self, PyObject *args ) {
 
     /* Read two arrays and an integer */
 
-    if( !PyArg_ParseTuple( args, "O!O!i|O",
+    if( !PyArg_ParseTuple( args, "O!O!id|O",
                &PyArray_Type, &a_x,
-               &PyArray_Type, &a_lambda, &coord, &spHess ) )
+               &PyArray_Type, &a_lambda, &coord, &obj_weight, &spHess ) )
     return NULL;
     if( a_x->descr->type_num != NPY_FLOAT64 ) return NULL;
     if( a_lambda->descr->type_num != NPY_FLOAT64 ) return NULL;
@@ -1063,7 +1064,7 @@ static PyObject *AmplPy_Eval_H( PyObject *self, PyObject *args ) {
 
     /* Determine room for Hessian and multiplier sign. */
     nnzh   = (int)sphsetup( 0, 1, 1, 1 );
-    OW[0]  = objtype[0] ? -ONE : ONE;   /* Indicates max/min-imization */
+    OW[0]  = objtype[0] ? -obj_weight : obj_weight;  /* Indicates max/min */
 
     if( coord ) { /* Return Hessian in coordinate format */
 

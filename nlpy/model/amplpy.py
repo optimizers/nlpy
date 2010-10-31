@@ -769,7 +769,7 @@ class AmplModel(NLPModel):
         return J
 
 
-    def hess(self, x, z, *args):
+    def hess(self, x, z, *args, **kwargs):
         """
         Evaluate sparse lower triangular Hessian at (x, z).
         Returns a sparse matrix in format self.mformat
@@ -778,14 +778,15 @@ class AmplModel(NLPModel):
         Note that the sign of the Hessian matrix of the objective function
         appears as if the problem were a minimization problem.
         """
+        obj_weight = kwargs.get('obj_weight', 1.0)
         if len(args) > 0:
             if type(args[0]).__name__ == 'll_mat':
-                return _amplpy.eval_H(x, z, self.mformat, args[0])
+                return _amplpy.eval_H(x, z, self.mformat, obj_weight, args[0])
             else:
                 return None
         else:
             self.Heval += 1
-            return _amplpy.eval_H(x, z, self.mformat)
+            return _amplpy.eval_H(x, z, self.mformat, obj_weight)
 
     def hprod(self, z, v, **kwargs):
         """
