@@ -274,7 +274,7 @@ static PyObject *AmplPy_Get_nnzh( PyObject *self, PyObject *args ) {
     int nnzh;
 
     /* sphsetup( ) returns the #nonzeros in the Hessian of the Lagrangian */
-    nnzh = (int)sphsetup( 0, 1, 1, 1 );
+    nnzh = (int)sphsetup( -1, 1, 1, 1 );
     return Py_BuildValue( "i", nnzh );
 
 }
@@ -1063,7 +1063,7 @@ static PyObject *AmplPy_Eval_H( PyObject *self, PyObject *args ) {
     if( !spHess ) PassedH = 0;
 
     /* Determine room for Hessian and multiplier sign. */
-    nnzh   = (int)sphsetup( 0, 1, 1, 1 );
+    nnzh   = (int)sphsetup( -1, 1, 1, 1 );
     OW[0]  = objtype[0] ? -obj_weight : obj_weight;  /* Indicates max/min */
 
     if( coord ) { /* Return Hessian in coordinate format */
@@ -1072,7 +1072,7 @@ static PyObject *AmplPy_Eval_H( PyObject *self, PyObject *args ) {
         a_H = (PyArrayObject *)PyArray_SimpleNew( 1, dH, NPY_FLOAT64 );
         if( a_H == NULL ) return NULL;
         /* Evaluate Hessian */
-        sphes( (real *)a_H->data, 0, OW, (real *)a_lambda->data );
+        sphes( (real *)a_H->data, -1, OW, (real *)a_lambda->data );
 
         /* Obtain row and column indices */
         a_irow = (PyArrayObject *)PyArray_SimpleNew( 1, dH, NPY_INT );
@@ -1101,7 +1101,7 @@ static PyObject *AmplPy_Eval_H( PyObject *self, PyObject *args ) {
 
         H = (real *)Malloc( nnzh * sizeof( real ) );
         if( !H ) return NULL;
-        sphes( H, 0, OW, (real *)a_lambda->data );
+        sphes( H, -1, OW, (real *)a_lambda->data );
 
         /* Allocate sparse symmetric Hessian data structure */
         if( !PassedH ) {
@@ -1161,7 +1161,7 @@ static PyObject *AmplPy_Prod_Hv( PyObject *self, PyObject *args ) {
     PyArray_XDECREF( a_lambda );
 
     /* Determine room for Hessian and multiplier sign. */
-    nnzh   = (int)sphsetup( 0, 1, 1, 1 );
+    nnzh   = (int)sphsetup( -1, 1, 1, 1 );
 
     /* Indicates weight on the objective function */
     /* Set to 1 by defaut in the Python wrapper.  */
