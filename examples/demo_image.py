@@ -17,7 +17,7 @@ import numpy as np
 class Image1D:
 
     def __init__(self, n=80, sig=.05, err=2, **kwargs):
-        self.n = n                # Number of grid points
+        self.n = n                 # Number of grid points
         self.sig = float(sig)      # Gaussian kernel width
         self.err = float(err)/100  # Percent error in data
 
@@ -44,19 +44,11 @@ class Image1D:
 
     def setsolver(self):
         n = self.n
-        #self.solver = LSQRFramework(n, n, self.matvec)
         op = SimpleLinearOperator(n, n,
                                   lambda u: np.asarray(u * self.K)[0],
                                   matvec_transp=lambda u: np.asarray(u * self.K.T)[0],
                                   symmetric=False)
         self.solver = LSQRFramework(op)
-
-    #def matvec(self, mode, m, n, u):
-    #    if mode == 1:
-    #        v = u * self.K
-    #    elif mode == 2:
-    #        v = u * self.K.T
-    #    return np.asarray(v)[0]
 
     def deblur(self, **kwargs):
         "Deblur image with specified solver"
@@ -73,11 +65,6 @@ class Image1DMinres(Image1D):
         n = self.n
         op = SimpleLinearOperator(n, n, lambda u: u * self.K, symmetric=True)
         self.solver = Minres(op, check=True, show=True, shift=9.94334578e-01)
-
-    #def matvec(self, x, y):
-    #    "y <- Ax"
-    #    y = x * self.K
-    #    return
 
 
 class Image1DMinresAug(Image1D):
