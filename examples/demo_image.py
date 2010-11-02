@@ -8,6 +8,7 @@ try:
 except:
     raise ImportError, 'SciPy is required for this demo.'
 
+from nlpy.krylov.linop import SimpleLinearOperator
 from nlpy.optimize.solvers import LSQRFramework
 from nlpy.krylov.minres import Minres
 from math import sqrt
@@ -43,14 +44,19 @@ class Image1D:
 
     def setsolver(self):
         n = self.n
-        self.solver = LSQRFramework(n, n, self.matvec)
+        #self.solver = LSQRFramework(n, n, self.matvec)
+        op = SimpleLinearOperator(n, n,
+                                  lambda u: np.asarray(u * self.K)[0],
+                                  matvec_transp=lambda u: np.asarray(u * self.K.T)[0],
+                                  symmetric=False)
+        self.solver = LSQRFramework(op)
 
-    def matvec(self, mode, m, n, u):
-        if mode == 1:
-            v = u * self.K
-        elif mode == 2:
-            v = u * self.K.T
-        return np.asarray(v)[0]
+    #def matvec(self, mode, m, n, u):
+    #    if mode == 1:
+    #        v = u * self.K
+    #    elif mode == 2:
+    #        v = u * self.K.T
+    #    return np.asarray(v)[0]
 
     def deblur(self, **kwargs):
         "Deblur image with specified solver"
@@ -64,12 +70,14 @@ class Image1DMinres(Image1D):
         Image1D.__init__(self, n, sig, err, **kwargs)
 
     def setsolver(self):
-        self.solver = Minres(self.matvec, check=True, show=True, shift=9.94334578e-01)
+        n = self.n
+        op = SimpleLinearOperator(n, n, lambda u: u * self.K, symmetric=True)
+        self.solver = Minres(op, check=True, show=True, shift=9.94334578e-01)
 
-    def matvec(self, x, y):
-        "y <- Ax"
-        y = x * self.K
-        return
+    #def matvec(self, x, y):
+    #    "y <- Ax"
+    #    y = x * self.K
+    #    return
 
 
 class Image1DMinresAug(Image1D):
@@ -79,14 +87,16 @@ class Image1DMinresAug(Image1D):
         self.reg = kwargs.get('reg',1.0e-3)
 
     def setsolver(self):
-        self.solver = Minres(self.matvec, check=True, show=True)
+        n = self.n
+        op = SimpleLinearOperator(n, n, self.matvec, symmetric=True)
+        self.solver = Minres(op, check=True, show=True)
 
-    def matvec(self, x, y):
+    def matvec(self, x):
         "y <- Ax"
-        (m,n) = self.K.shape
+        (m,n) = self.K.shape ; y = np.empty(n+m)
         y[:m] = x[:m] + np.asarray(x[m:] * self.K)[0]
         y[m:] = np.asarray(x[:m] * self.K.T)[0] - self.reg * x[m:]
-        return
+        return y
 
     def deblur(self, **kwargs):
         "Deblur image with specified solver"
