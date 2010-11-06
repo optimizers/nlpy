@@ -46,8 +46,8 @@ class PyMa27Context( Sils ):
            sqd  Flag indicating symmetric quasi-definite matrix (default: False)
 
         Example:
-            import pyma27
-            import norms
+            from nlpy.linalg import pyma27
+            from nlpy.tools import norms
             P = pyma27.PyMa27Context( A )
             P.solve( rhs, get_resid = True )
             print norms.norm2( P.residual )
@@ -141,7 +141,7 @@ if __name__ == '__main__':
     import sys
     from pysparse.sparse import spmatrix
     import numpy
-    import norms
+    from nlpy.tools import norms
 
     M = spmatrix.ll_mat_from_mtx( sys.argv[1] )
     (m,n) = M.shape

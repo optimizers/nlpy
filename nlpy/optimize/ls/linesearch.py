@@ -114,7 +114,7 @@ if __name__ == '__main__':
     #    steepest descent method
     #    with Armijo backtracking
     from numpy import array, dot
-    from norms import norm_infty
+    from nlpy.tools.norms import norm_infty
     
     def rosenbrock(x):
         return 10.0 * (x[1]-x[0]**2)**2 + (1-x[0])**2
