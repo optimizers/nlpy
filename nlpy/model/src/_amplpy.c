@@ -1140,6 +1140,8 @@ static PyObject *AmplPy_Prod_Hv( PyObject *self, PyObject *args ) {
     real           OW[1], obj_weight;
     int            nnzh;
     npy_intp       dHv[1];
+    int i;
+    real *y, *v, *hv;
 
     /* We read the vector v and the multipliers lambda */
     if( !PyArg_ParseTuple( args, "O!O!d",
@@ -1160,19 +1162,33 @@ static PyObject *AmplPy_Prod_Hv( PyObject *self, PyObject *args ) {
     PyArray_XDECREF( a_v );
     PyArray_XDECREF( a_lambda );
 
+    y = (real *)a_lambda->data;
+    // printf(" lambda = [");
+    // for( i=0; i < n_con; i++) printf("%f, ", y[i]);
+    // printf("]\n");
+
     /* Determine room for Hessian and multiplier sign. */
-    nnzh   = (int)sphsetup( -1, 1, 1, 1 );
+    // nnzh   = (int)sphsetup( -1, 1, 1, 1 );
 
     /* Indicates weight on the objective function */
     /* Set to 1 by defaut in the Python wrapper.  */
     OW[0]  = objtype[0] ? -obj_weight : obj_weight;
+    // printf(" hvcomp sets OW[0] to: %f\n", OW[0]);
 
     dHv[0]  = n_var;
     a_Hv = (PyArrayObject *)PyArray_SimpleNew( 1, dHv, NPY_FLOAT64 );
     if( a_Hv == NULL ) return NULL;
+    hv = (real *)a_Hv->data;
+    v = (real *)a_v->data;
 
     /* Evaluate matrix-vector product Hv */
-    hvcomp((real *)a_Hv->data, (real *)a_v->data, 0, OW, (real *)a_lambda->data);
+    // hvcomp((real *)a_Hv->data, (real *)a_v->data, 0, OW,
+    //       (real *)a_lambda->data);
+    hvcomp(hv, v, -1, OW, y);
+    // printf(" hv = [");
+    // for( i=0; i < n_var ; i++) printf("%f, ", hv[i]);
+    // printf("]\n");
+
     /* Return Hv */
     return Py_BuildValue( "O", PyArray_Return( a_Hv ) );
 }
