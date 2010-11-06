@@ -150,6 +150,7 @@ class TruncatedCG:
         while sqrtry > stopTol and k < maxiter and \
                 not onBoundary and not infDescent:
 
+            k += 1
             Hp  = H * p
             pHp = np.dot(p, Hp)
 
@@ -196,7 +197,6 @@ class TruncatedCG:
                 raise ValueError, msg
 
             snorm2 = np.dot(s,s)
-            k += 1
 
         # Output info about the last iteration.
         if debug:
