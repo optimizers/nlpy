@@ -22,7 +22,7 @@ Comments pertaining to Mac OS/X users.
 
      CFLAGS='-arch x86_64 -mmacosx-version-min=10.5' \
      FFLAGS='-arch x86_64 -mmacosx-version-min=10.5' \
-     LDFLAGS='-arch x86_64 -Wall -undefined dynamic_lookup -bundle -mmacosx-version-min=10.4' \
+     LDFLAGS='-arch x86_64 -Wall -undefined dynamic_lookup -bundle -mmacosx-version-min=10.5' \
      python setup.py build config_fc --fcompiler=gfortran
 
    (all on one line). See, e.g., http://goo.gl/LNaA
