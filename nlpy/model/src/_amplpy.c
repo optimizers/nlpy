@@ -1033,7 +1033,7 @@ static PyObject *AmplPy_Eval_H( PyObject *self, PyObject *args ) {
     /* Variables corresponding to LL format */
     PyObject *spHess = NULL;                 /* The sparse, symmetric Hessian */
     real     *H;          /* Hessian of the Lagrangian as returned by sphes() */
-    int       jrow, jcol;     /* Row and col indices of nonzero Hessian elems */
+    //int       jrow, jcol;   /* Row and col indices of nonzero Hessian elems */
     int       dim[2] = {n_var, n_var};     /* Dimensions of the sparse Hessian*/
 
     /* Misc */
@@ -1138,9 +1138,7 @@ static PyObject *AmplPy_Prod_Hv( PyObject *self, PyObject *args ) {
 
     PyArrayObject *a_v, *a_lambda, *a_Hv;
     real           OW[1], obj_weight;
-    int            nnzh;
     npy_intp       dHv[1];
-    int i;
     real *y, *v, *hv;
 
     /* We read the vector v and the multipliers lambda */
@@ -1163,17 +1161,10 @@ static PyObject *AmplPy_Prod_Hv( PyObject *self, PyObject *args ) {
     PyArray_XDECREF( a_lambda );
 
     y = (real *)a_lambda->data;
-    // printf(" lambda = [");
-    // for( i=0; i < n_con; i++) printf("%f, ", y[i]);
-    // printf("]\n");
-
-    /* Determine room for Hessian and multiplier sign. */
-    // nnzh   = (int)sphsetup( -1, 1, 1, 1 );
 
     /* Indicates weight on the objective function */
     /* Set to 1 by defaut in the Python wrapper.  */
     OW[0]  = objtype[0] ? -obj_weight : obj_weight;
-    // printf(" hvcomp sets OW[0] to: %f\n", OW[0]);
 
     dHv[0]  = n_var;
     a_Hv = (PyArrayObject *)PyArray_SimpleNew( 1, dHv, NPY_FLOAT64 );
@@ -1182,12 +1173,8 @@ static PyObject *AmplPy_Prod_Hv( PyObject *self, PyObject *args ) {
     v = (real *)a_v->data;
 
     /* Evaluate matrix-vector product Hv */
-    // hvcomp((real *)a_Hv->data, (real *)a_v->data, 0, OW,
-    //       (real *)a_lambda->data);
+    hvpinit_ASL((ASL*)asl, ihd_limit, -1, OW, y);
     hvcomp(hv, v, -1, OW, y);
-    // printf(" hv = [");
-    // for( i=0; i < n_var ; i++) printf("%f, ", hv[i]);
-    // printf("]\n");
 
     /* Return Hv */
     return Py_BuildValue( "O", PyArray_Return( a_Hv ) );
