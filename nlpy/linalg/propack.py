@@ -8,7 +8,6 @@ Dominique Orban, Ecole Polytechnique de Montreal
 
 import numpy as np
 from nlpy.linalg._pypropack import dlansvd
-import pdb
 
 __docformat__ = 'restructuredtext'
 
