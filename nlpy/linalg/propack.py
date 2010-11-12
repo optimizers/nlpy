@@ -52,6 +52,7 @@ class propack:
            :kmax:     maximum dimension of Krylov subspace (default 10*`k`)
            :tol_orth: level of orthogonality to maintain among Lanczos vectors
                       (default 1.0e-8)
+           :tol_opt:  convergence tolerace of singular values (default 1e-12)
            :eta:      During reorthogonalization, all vectors with components
                       larger than `eta` along the latest Lanczos vector will be
                       purged (default 1.0e-12)
@@ -64,6 +65,7 @@ class propack:
         """
         kmax = kwargs.get('kmax',1+10*k)       # guarantees kmax >= 1
         tol_orth = kwargs.get('tol_orth',1e-8)
+        tol_opt = kwargs.get('tol_opt',1e-12)
         eta = kwargs.get('eta',1e-12)
         Anorm_est = kwargs.get('Anorm',1.0)
         cgs = kwargs.get('cgs',2)
@@ -83,7 +85,7 @@ class propack:
 
         U, self.s, self.bnd, V, self.info = \
                 dlansvd(jobv, jobu, m, n, k, kmax, \
-                        self._Aprod, doption, ioption)
+                        self._Aprod, doption, ioption, tol_opt)
 
         # U and V have kmax columns, but only the first k are useful.
         if getu: self.U = U[:m,:k]
