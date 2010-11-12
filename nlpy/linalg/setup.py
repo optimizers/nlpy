@@ -7,6 +7,10 @@ def configuration(parent_package='',top_path=None):
     from numpy.distutils.misc_util import Configuration
     from numpy.distutils.system_info import get_info, NotFoundError
 
+    # For debugging f2py extensions:
+    f2py_options = []
+    #f2py_options.append('--debug-capi')
+
     # Read relevant NLPy-specific configuration options.
     nlpy_config = ConfigParser.SafeConfigParser()
     nlpy_config.read(os.path.join(top_path, 'site.cfg'))
@@ -14,13 +18,13 @@ def configuration(parent_package='',top_path=None):
     metis_dir = nlpy_config.get('HSL', 'metis_dir')
     metis_lib = nlpy_config.get('HSL', 'metis_lib')
     galahad_dir = nlpy_config.get('GALAHAD', 'galahad_dir')
+    propack_dir = nlpy_config.get('PROPACK', 'propack_dir')
     #try:
     #    pysparse_include = nlpy_config.get('PYSPARSE', 'pysparse_include')
     #except:
     #    pysparse_include = []
 
-
-    print 'hsl_dir = ', hsl_dir
+    #print 'hsl_dir = ', hsl_dir
 
     config = Configuration('linalg', parent_package, top_path)
 
@@ -28,6 +32,10 @@ def configuration(parent_package='',top_path=None):
     blas_info = get_info('blas_opt',0)
     if not blas_info:
         print 'No blas info found'
+
+    lapack_info = get_info('lapack_opt',0)
+    if not lapack_info:
+        print 'No lapack info found'
 
     # Relevant files for building MA27 extension.
     ma27_src = ['fd05ad.f', 'ma27ad.f']
@@ -62,7 +70,7 @@ def configuration(parent_package='',top_path=None):
 
     # Build PyMA57
     ma57_sources = [os.path.join(hsl_dir,name) for name in ma57_src]
-    pyma57_sources = [os.path.join('src',name) for name in pyma57_src],
+    pyma57_sources = [os.path.join('src',name) for name in pyma57_src]
 
     config.add_library(
         name='nlpy_ma57',
@@ -81,6 +89,29 @@ def configuration(parent_package='',top_path=None):
         include_dirs=['src'],
         extra_info=blas_info,
         )
+
+    propack_src = ['dlanbpro.F', 'dreorth.F', 'dgetu0.F', 'dsafescal.F',
+                   'dblasext.F', 'dlansvd.F', 'printstat.F', 'dgemm_ovwr.F',
+                   'dlansvd_irl.F', 'dbsvd.F', 'dritzvec.F', 'dmgs.risc.F',
+                   'second.F']
+    
+    propack_sources = [os.path.join(propack_dir, 'double', f) for f in propack_src]
+    pypropack_sources = [os.path.join('src', 'propack.pyf')]
+
+    config.add_library(
+        name='nlpy_propack',
+        sources=propack_sources,
+        include_dirs=os.path.join(propack_dir, 'double'),
+        extra_info=[blas_info, lapack_info],
+        )
+
+    config.add_extension(
+        name='_pypropack',
+        sources=pypropack_sources,
+        libraries=['nlpy_propack'],
+        extra_info=[blas_info, lapack_info],
+        f2py_options=f2py_options,
+    )
 
     config.add_subpackage('scaling')
 

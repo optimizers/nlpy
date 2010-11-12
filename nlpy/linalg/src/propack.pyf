@@ -1,0 +1,64 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module __user__routines
+    interface
+      subroutine matvecmult(transa,m,n,x,y,dparm,iparm)
+        character*1, intent(in) :: transa
+        integer, intent(in,hide) :: m, n
+        integer, intent(hide) :: iparm(1)
+        double precision, intent(hide) :: dparm(1)
+        ! if transa == 'N', y = A*x, ie, len(y) = m
+!        double precision, dimension((max(m,n))), intent(in) :: x
+!       double precision, dimension((max(m,n))), intent(out) :: y
+        double precision, dimension((transa[0]=='n'?n:m),1), intent(in) :: x
+        double precision, dimension((transa[0]=='n'?m:n),1), intent(out) :: y
+      end subroutine matvecmult
+    end interface
+end python module __user__routines
+
+python module _pypropack ! in 
+    interface  ! in :dlansvd
+        subroutine dlansvd(jobu,jobv,m,n,k,kmax,aprod,u,ldu,sigma,bnd,v,ldv,tolin,work,lwork,iwork,liwork,doption,ioption,info,dparm,iparm) ! in :dlansvd:../double/dlansvd.F
+            use __user__routines, aprod=>matvecmult
+            external aprod
+            character*1, intent(in) :: jobu
+            character*1, intent(in) :: jobv
+            integer, intent(in) :: m
+            integer, intent(in) :: n
+            integer, intent(in) :: kmax
+            integer, intent(in), check(k<=kmax && k<=max(m,n)) :: k
+
+            ! Seems that u and only needs to be m-by-(k+1), but (kmax+1) seems safer.
+            double precision dimension(m,kmax+1), intent(out,hide), depend(kmax) :: u(_i[0],_i[1]) = 0.
+            integer intent(hide), depend(m) :: ldu=m
+            ! Seems that v and only needs to be m-by-(k), but (kmax) seems safer.
+            double precision dimension(n,kmax), intent(out,hide), depend(kmax) :: v(_i[0],_i[1]) = 0.
+            integer intent(hide), depend(n) :: ldv=n
+
+            double precision dimension(k), intent(out) :: sigma
+            double precision dimension(k), intent(out) :: bnd
+            double precision, intent(in) :: tolin = 1e-12
+
+            ! Below, 16 is NB, the block size needed for BLAS operations.
+            double precision dimension(lwork), intent(hide,cache) :: work
+            integer, intent(hide) :: lwork = (m + n + 9*kmax + 5*pow(kmax,2) + 4 + max(3*pow(kmax,2)+4*kmax+4, 16*max(m,n)))
+            integer dimension(liwork), intent(hide,cache) :: iwork
+            integer, intent(hide) :: liwork = (8*kmax+1)
+
+            double precision dimension(3), intent(in) :: doption
+            integer dimension(2), intent(in) :: ioption
+            integer, intent(out) :: info
+
+            ! Won't be used by matvecmult. Size 1 just to play it safe.
+            double precision dimension(1), intent(hide,cache) :: dparm
+            integer dimension(1), intent(hide,cache) :: iparm
+
+        end subroutine dlansvd
+    end interface 
+end python module _pypropack
+
+
+
+! This file was auto-generated with f2py (version:1).
+! See http://cens.ioc.ee/projects/f2py2e/
