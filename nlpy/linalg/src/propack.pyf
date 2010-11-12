@@ -9,15 +9,13 @@ python module __user__routines
         integer, intent(hide) :: iparm(1)
         double precision, intent(hide) :: dparm(1)
         ! if transa == 'N', y = A*x, ie, len(y) = m
-!        double precision, dimension((max(m,n))), intent(in) :: x
-!       double precision, dimension((max(m,n))), intent(out) :: y
         double precision, dimension((transa[0]=='n'?n:m),1), intent(in) :: x
         double precision, dimension((transa[0]=='n'?m:n),1), intent(out) :: y
       end subroutine matvecmult
     end interface
 end python module __user__routines
 
-python module _pypropack ! in 
+python module _pypropack ! in
     interface  ! in :dlansvd
         subroutine dlansvd(jobu,jobv,m,n,k,kmax,aprod,u,ldu,sigma,bnd,v,ldv,tolin,work,lwork,iwork,liwork,doption,ioption,info,dparm,iparm) ! in :dlansvd:../double/dlansvd.F
             use __user__routines, aprod=>matvecmult
@@ -55,7 +53,7 @@ python module _pypropack ! in
             integer dimension(1), intent(hide,cache) :: iparm
 
         end subroutine dlansvd
-    end interface 
+    end interface
 end python module _pypropack
 
 

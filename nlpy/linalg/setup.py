@@ -94,7 +94,7 @@ def configuration(parent_package='',top_path=None):
                    'dblasext.F', 'dlansvd.F', 'printstat.F', 'dgemm_ovwr.F',
                    'dlansvd_irl.F', 'dbsvd.F', 'dritzvec.F', 'dmgs.risc.F',
                    'second.F']
-    
+
     propack_sources = [os.path.join(propack_dir, 'double', f) for f in propack_src]
     pypropack_sources = [os.path.join('src', 'propack.pyf')]
 

@@ -7,7 +7,7 @@ Dominique Orban, Ecole Polytechnique de Montreal
 """
 
 import numpy as np
-from _pypropack import dlansvd
+from nlpy.linalg._pypropack import dlansvd
 import pdb
 
 __docformat__ = 'restructuredtext'
@@ -23,7 +23,7 @@ class propack:
            :A: is an object that represents an m-by-n linear
                operator. The object must support matrix-vector
                multiplication, ie,
-               
+
                v = A*x, where x is n-by-1;
                w = A.T*y, where y is m-by-1.
         """
@@ -36,7 +36,7 @@ class propack:
         # status =
         # 1: The k largest singular triplets were computed succesfully
         # 0<j<k: An invariant subspace of dimension j was found.
-        # -1 : k singular triplets did not converge within kmax iterations.   
+        # -1 : k singular triplets did not converge within kmax iterations.
         self.status = None
 
     def solve(self, k=6, **kwargs):
@@ -45,22 +45,22 @@ class propack:
 
         :parameters:
 
-           :k:        number of singular values/vectors to compute; default is 6.
+           :k:        number of singular values/vectors to compute (default 6)
 
         :keywords:
-        
-           :kmax:     maximum dimension of Krylov subspace; default is 10*k.
-           :tol_orth: level of orthogonality to maintain among Lanczos vectors;
-                      default is 1e-8.
-           :eta:      During reorthogonalization, all vectors with components larger
-                      than eta along the latest Lanczos vector will be purged;
-                      default is 1e-12.
-           :Anorm:    estimate of the norm of the operator; default is 1.0.
+
+           :kmax:     maximum dimension of Krylov subspace (default 10*`k`)
+           :tol_orth: level of orthogonality to maintain among Lanczos vectors
+                      (default 1.0e-8)
+           :eta:      During reorthogonalization, all vectors with components
+                      larger than `eta` along the latest Lanczos vector will be
+                      purged (default 1.0e-12)
+           :Anorm:    estimate of the norm of the operator (default 1.0)
            :cgs:      reorthogonalization option.
                       1: classical Gram-Schmidt
                       2  modified Gram-Schmidt (default)
-           :getu:     if True, compute left singular vectors; default is True.
-           :getv:     if True, compute right singular vectors; default is True.
+           :getu:     if `True`, compute left singular vectors (default `True`)
+           :getv:     if `True`, compute right singular vectors (default `True`)
         """
         kmax = kwargs.get('kmax',1+10*k)       # guarantees kmax >= 1
         tol_orth = kwargs.get('tol_orth',1e-8)
@@ -75,9 +75,8 @@ class propack:
         k = min(k, kmax)
         k = min(k,min(m, n))
 
-        jobu = jobv = 'Y'
-        if not getu: jobu = 'N'
-        if not getv: jobv = 'N'
+        jobu = 'Y' if getu else 'N'
+        jobv = 'Y' if getv else 'N'
 
         doption = np.array([tol_orth, eta, Anorm_est])
         ioption = np.array([cgs, 1],dtype=np.int) # Not sure what 2nd arg means
@@ -96,7 +95,7 @@ class propack:
             return self.A*x
         else:
             return self.A.T*x
-    
+
 if __name__ == '__main__':
 
     np.random.seed(123)
@@ -117,7 +116,7 @@ if __name__ == '__main__':
 
     print '%2s  %12s  %12s' % ('k','norm(A-USV'')','norm(s[k:])')
     for k in range(1,min(m,n)+1):
-        
+
         svd.solve(k)
         U = svd.U; V = svd.V; s = svd.s
         B = np.dot(np.dot(U, np.diag(s)), V.T)
