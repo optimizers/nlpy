@@ -38,7 +38,7 @@ def pass_to_trunk(nlp, **kwargs):
         print
 
     TRNK.Solve()
-    
+
     # Output final statistics
     if verbose:
         print
@@ -67,30 +67,43 @@ where problem1 through problemN represent unconstrained nonlinear programs."""
 
 # Define allowed command-line options
 parser = OptionParser(usage=usage_msg, version='%prog version ' + __version__)
-    
+
 parser.add_option("-a", "--abstol", action="store", type="float",
                   default=1.0e-6, dest="abstol",
                   help="Absolute stopping tolerance")
+
 parser.add_option("-m", "--npairs", action="store", type="int",
                   default=5, dest="npairs",
                   help="Number of (s,y) pairs to store")
+
 parser.add_option("-c", "--classic", action="store_true", default=False,
-                  dest="classic", help="Do not use backtracking linesearch instead of shrinking trust region")
+                  dest="classic",
+                  help="Do not use backtracking linesearch instead of shrinking trust region")
+
 parser.add_option("-i", "--iter", action="store", type="int", default=None,
                   dest="maxiter",  help="Specify maximum number of iterations")
+
 parser.add_option("-k", "--nBacktrack", action="store", type="int",
-                  default=5, dest="nbk", help="Max number of backtracking linesearch steps")
+                  default=5, dest="nbk",
+                  help="Max number of backtracking linesearch steps")
+
 parser.add_option("-M", "--monotone", action="store_true", default=False,
                   dest="monotone", help="Use monotone descent strategy")
+
 parser.add_option("-n", "--nNonMono", action="store", type="int", default=25,
-                  dest="nNonMono", help="Number of iterations for which increase is tolerable")
+                  dest="nNonMono",
+                  help="Number of iterations for which increase is tolerable")
+
 parser.add_option("-r", "--reltol", action="store", type="float",
                   default=1.0e-12, dest="reltol",
                   help="Relative stopping tolerance")
+
 parser.add_option("-v", "--verbose", action="store_true", default=False,
                   dest="verbose", help="Print iterations detail")
+
 parser.add_option("-x", "--exact", action="store_true", default=False,
                   dest="exact", help="Do not use inexact Newton framework")
+
 parser.add_option("-N", "--noisy", action="store_true", default=False,
                   dest="noisy", help="Simulate a noisy problem (watch out!)")
 
@@ -134,6 +147,7 @@ for ProblemName in args:
     if ProblemName[-3:] == '.nl':
         ProblemName = ProblemName[:-3]
     t_setup, TRNK = pass_to_trunk(nlp, **opts)
-    print fmt % (ProblemName, TRNK.iter, TRNK.f, TRNK.gnorm, t_setup, TRNK.tsolve, TRNK.status)
-    nlp.close()                               # Close connection with model
+    print fmt % (ProblemName, TRNK.iter, TRNK.f, TRNK.gnorm, t_setup,
+                 TRNK.tsolve, TRNK.status)
+    nlp.close()
 
