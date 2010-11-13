@@ -84,7 +84,7 @@ class TrunkFramework:
         self.inexact = kwargs.get('inexact', False)
         self.monotone = kwargs.get('monotone', False)
         self.nIterNonMono = kwargs.get('nIterNonMono', 25)
-    
+
         self.hformat = '%-5s  %8s  %7s  %5s  %8s  %8s  %4s\n'
         self.header  = self.hformat % ('Iter','f(x)','|g(x)|','cg','rho','Radius','Stat')
         self.hlen   = len(self.header)
@@ -92,7 +92,7 @@ class TrunkFramework:
         self.format = '%-5d  %8.1e  %7.1e  %5d  %8.1e  %8.1e  %4s\n'
         self.radii = [ TR.Delta ]
 
-    def Precon(self, v, **kwargs):
+    def precon(self, v, **kwargs):
         """
         Generic preconditioning method---must be overridden
         """
@@ -133,7 +133,7 @@ class TrunkFramework:
                 sys.stdout.write(self.hline)
                 sys.stdout.write(self.header)
                 sys.stdout.write(self.hline)
-    
+
             if not self.silent:
                 sys.stdout.write(self.format % (self.iter, self.f,
                           self.gnorm, niter, rho,
@@ -151,13 +151,13 @@ class TrunkFramework:
                 cgtol = max(1.0e-6, min(0.5 * cgtol, sqrt(self.gnorm)))
 
             H = SimpleLinearOperator(nlp.n, nlp.n,
-                                     lambda v: nlp.hprod(nlp.pi0,v,iter=self.iter),
+                                     lambda v: nlp.hprod(nlp.pi0, v),
                                      symmetric=True)
 
             self.solver = self.TrSolver(self.g, H)
-            self.solver.Solve(prec = self.Precon,
-                              radius = self.TR.Delta,
-                              reltol = cgtol,
+            self.solver.Solve(prec=self.precon,
+                              radius=self.TR.Delta,
+                              reltol=cgtol,
                               #debug=True
                               )
 
@@ -203,7 +203,7 @@ class TrunkFramework:
                         l = 0
                     else:
                         l = l + 1
-                        
+
                     if f_trial > fCan:
                         fCan = f_trial
                         sigCan = 0
@@ -260,20 +260,20 @@ class TrunkLbfgsFramework(TrunkFramework):
     """
 
     from nlpy.optimize.solvers import lbfgs    # For preconditioning
-    
+
     def __init__(self, nlp, TR, TrSolver, **kwargs):
-    
+
         TrunkFramework.__init__(self, nlp, TR, TrSolver, **kwargs)
         self.npairs = kwargs.get('npairs', 5)
-        self.lbfgs = lbfgs_class.LbfgsUpdate(nlp.n, npairs = self.npairs)
+        self.lbfgs = lbfgs_class.LbfgsUpdate(nlp.n, npairs=self.npairs)
         self.save_g = True
 
-    def Precon(self, v, **kwargs):
+    def precon(self, v, **kwargs):
         """
         This method implements limited-memory BFGS preconditioning. It
-        overrides the default Precon() of class TrunkFramework.
+        overrides the default precon() of class TrunkFramework.
         """
-        return self.lbfgs.solve(self.iter, v)
+        return self.lbfgs.solve(v)
 
     def PostIteration(self, **kwargs):
         """
@@ -283,4 +283,4 @@ class TrunkLbfgsFramework(TrunkFramework):
         """
         s = self.alpha * self.solver.step
         y = self.g - self.g_old
-        self.lbfgs.store(self.iter, s, y)
+        self.lbfgs.store(s, y)
