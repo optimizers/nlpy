@@ -2,6 +2,7 @@ from nlpy.optimize.ls.pymswolfe import StrongWolfeLineSearch
 from nlpy.tools import norms
 from nlpy.tools.timing import cputime
 import numpy
+import sys
 
 __docformat__ = 'restructuredtext'
 
@@ -43,6 +44,8 @@ class InverseLBFGS:
         # Mandatory arguments
         self.n = n
         self.npairs = npairs
+        self.insert = 0
+        self.nstored = 0
 
         # Optional arguments
         self.scaling = kwargs.get('scaling', False)
@@ -57,16 +60,22 @@ class InverseLBFGS:
         # Only the relevant portion of each array is used
         # in the two-loop recursion.
         self.alpha = numpy.empty(self.npairs, 'd')
-        self.ys = numpy.empty(self.npairs, 'd')
+        #self.ys = numpy.empty(self.npairs, 'd')
+        self.ys = [None] * self.npairs
         self.gamma = 1.0
 
     def store(self, iter, new_s, new_y):
         """
         Store the new pair (new_s,new_y) computed at iteration iter.
         """
-        position = iter % self.npairs  # Indices are zero-based
-        self.s[:,position] = new_s.copy()
-        self.y[:,position] = new_y.copy()
+        ys = numpy.dot(new_s, new_y)
+        if ys > 1.0e-12:
+            insert = self.insert #iter % self.npairs  # Indices are zero-based
+            self.s[:,insert] = new_s.copy()
+            self.y[:,insert] = new_y.copy()
+            self.ys[insert] = ys
+            self.insert += 1
+            self.insert = self.insert % self.npairs
         return
 
     def matvec(self, iter, v):
@@ -81,23 +90,32 @@ class InverseLBFGS:
         In this case, a safeguarding step should probably be taken.
         """
         q = v.copy()
-        for i in range(min(self.npairs, iter)):
-            k = (iter-1-i) % self.npairs
-            self.ys[k] = numpy.dot(self.y[:,k], self.s[:,k])
-            if abs(self.ys[k]) < 1.0e-12: return v
-            self.alpha[k] = numpy.dot(self.s[:,k], q)/self.ys[k]
-            q -= self.alpha[k] * self.y[:,k]
-            
+        #iter = self.insert
+        print
+        print 'Forward sweep:'
+        for i in range(self.npairs): #min(self.npairs, iter)):
+            k = (self.insert - 1 - i) % self.npairs # k = (iter-1-i) % self.npairs
+            #self.ys[k] = numpy.dot(self.y[:,k], self.s[:,k])
+            if self.ys[k] is not None:
+                sys.stdout.write('%d ' % k)
+                self.alpha[k] = numpy.dot(self.s[:,k], q)/self.ys[k]
+                q -= self.alpha[k] * self.y[:,k]
+
         r = q
-        if self.scaling and iter > 0:
-            last = (iter-1) % self.npairs
-            self.gamma = self.ys[last]/numpy.dot(self.y[:,last],self.y[:,last])
-            r *= self.gamma
-            
-        for i in range(min(self.npairs-1,iter-1), -1, -1):
-            k = (iter-1-i) % self.npairs
-            beta = numpy.dot(self.y[:,k], r)/self.ys[k]
-            r += (self.alpha[k] - beta) * self.s[:,k]
+        print ; print 'Hk0'
+        if self.scaling: # and iter > 0:
+            last = (self.insert -1) % self.npairs  # (iter-1) % self.npairs
+            if self.ys[last] is not None:
+                self.gamma = self.ys[last]/numpy.dot(self.y[:,last],self.y[:,last])
+                r *= self.gamma
+
+        print 'Backward sweep:'
+        for i in range(self.npairs):  #min(self.npairs-1,iter-1), -1, -1):
+            k = (self.insert + i) % self.npairs  #(iter-1-i) % self.npairs
+            if self.ys[k] is not None:
+                sys.stdout.write('%d ' % k)
+                beta = numpy.dot(self.y[:,k], r)/self.ys[k]
+                r += (self.alpha[k] - beta) * self.s[:,k]
         return r
 
     def solve(self, iter, v):
