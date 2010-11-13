@@ -3,7 +3,8 @@
 from nlpy.model import amplpy
 from nlpy.optimize.tr.trustregion import TrustRegionFramework as TR
 from nlpy.optimize.tr.trustregion import TrustRegionCG as TRSolver
-from nlpy.optimize.solvers import TrunkFramework as solver  # TrunkLbfgsFramework
+from nlpy.optimize.solvers import TrunkFramework as solver
+#from nlpy.optimize.solvers import TrunkLbfgsFramework as solver
 from nlpy.tools.timing import cputime
 import numpy
 import sys
