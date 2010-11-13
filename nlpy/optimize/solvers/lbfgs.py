@@ -97,27 +97,22 @@ class InverseLBFGS:
         """
         q = v.copy()
         s = self.s ; y = self.y ; ys = self.ys ; alpha = self.alpha
-        #print ; print 'Forward sweep:'
         for i in range(self.npairs):
             k = (self.insert - 1 - i) % self.npairs
             if ys[k] is not None:
-                #sys.stdout.write('%d ' % k)
                 alpha[k] = numpy.dot(s[:,k], q)/ys[k]
                 q -= alpha[k] * y[:,k]
 
         r = q
-        #print ; print 'Hk0'
         if self.scaling:
             last = (self.insert - 1) % self.npairs
             if ys[last] is not None:
                 self.gamma = ys[last]/numpy.dot(y[:,last],y[:,last])
                 r *= self.gamma
 
-        #print 'Backward sweep:'
         for i in range(self.npairs):
             k = (self.insert + i) % self.npairs
             if ys[k] is not None:
-                #sys.stdout.write('%d ' % k)
                 beta = numpy.dot(y[:,k], r)/ys[k]
                 r += (alpha[k] - beta) * s[:,k]
         return r
