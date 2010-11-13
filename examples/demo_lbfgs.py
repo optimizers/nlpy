@@ -19,7 +19,7 @@ for ProblemName in sys.argv[1:]:
     nlp = amplpy.AmplModel( ProblemName )
 
     for m in [1,2,3,4,5,10,15,20]:
-        lbfgs = LBFGSFramework(nlp, npairs=m, scaling=False, silent=True)
+        lbfgs = LBFGSFramework(nlp, npairs=m, scaling=True, silent=True)
         lbfgs.solve()
 
         # Output final statistics
@@ -27,5 +27,5 @@ for ProblemName in sys.argv[1:]:
         if probname[-3:] == '.nl': probname = probname[:-3]
         sys.stdout.write(format % (probname, nlp.n, lbfgs.npairs, lbfgs.f,
                                    lbfgs.gnorm, lbfgs.iter, lbfgs.tsolve))
-        
+
     nlp.close()                              # Close connection with model
