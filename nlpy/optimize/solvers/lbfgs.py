@@ -68,9 +68,9 @@ class InverseLBFGS:
         self.ys = [None] * self.npairs
         self.gamma = 1.0
 
-    def store(self, iter, new_s, new_y):
+    def store(self, new_s, new_y):
         """
-        Store the new pair (new_s,new_y) computed at iteration iter. A new pair
+        Store the new pair (new_s,new_y). A new pair
         is only accepted if the dot product <new_s, new_y> is over a certain
         threshold given by `self.accept_threshold`.
         """
@@ -84,7 +84,7 @@ class InverseLBFGS:
             self.insert = self.insert % self.npairs
         return
 
-    def matvec(self, iter, v):
+    def matvec(self, v):
         """
         Compute a matrix-vector product between the current limited-memory
         positive-definite approximation to the inverse Hessian matrix and the
@@ -122,11 +122,23 @@ class InverseLBFGS:
                 r += (alpha[k] - beta) * s[:,k]
         return r
 
-    def solve(self, iter, v):
+    def solve(self, v):
         """
         This is an alias for matvec used for preconditioning.
         """
-        return self.matvec(iter, v)
+        return self.matvec(v)
+
+    def __call__(self, v):
+        """
+        This is an alias for matvec.
+        """
+        return self.matvec(v)
+
+    def __mult__(self, v):
+        """
+        This is an alias for matvec.
+        """
+        return self.matvec(v)
 
 
 class LBFGSFramework:
@@ -187,7 +199,7 @@ class LBFGSFramework:
         tstart = cputime()
 
         # Initial LBFGS matrix is the identity. In other words,
-        # the initial search direction is the steepest descent direction
+        # the initial search direction is the steepest descent direction.
 
         # This is the original L-BFGS stopping condition.
         #stoptol = self.nlp.stop_d * max(1.0, norms.norm2(self.x))
@@ -199,7 +211,7 @@ class LBFGSFramework:
                 print '%-5d  %-12g  %-12g' % (self.iter, self.f, self.gnorm)
 
             # Obtain search direction
-            d = self.lbfgs.matvec(self.iter, -self.g)
+            d = self.lbfgs.matvec(-self.g)
 
             # Prepare for modified More-Thuente linesearch
             if self.iter == 0:
@@ -228,7 +240,7 @@ class LBFGSFramework:
             #stoptol = self.nlp.stop_d * max(1.0, norms.norm2(self.x))
 
             # Update inverse Hessian approximation using the most recent pair
-            self.lbfgs.store(self.iter, s, y)
+            self.lbfgs.store(s, y)
             self.iter += 1
 
         self.tsolve = cputime() - tstart
