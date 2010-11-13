@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 from nlpy import __version__
-from ldfp import LDFPModel
+from nlpy.optimize.solvers.ldfp import LDFPModel
 #from noisyldfp import LDFPNoisyModel
 from nlpy.optimize.tr.trustregion import TrustRegionFramework as TR
 from nlpy.optimize.tr.trustregion import TrustRegionCG as TRSolver
-from ldfp import LDFPTrunkFramework as solver
+from nlpy.optimize.solvers.ldfp import LDFPTrunkFramework as solver
 from nlpy.tools.timing import cputime
 from optparse import OptionParser
 import numpy
