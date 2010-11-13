@@ -33,7 +33,7 @@ def pass_to_trunk(nlp, showbanner=True):
         print
 
     TRNK.Solve()
-    
+
     # Output final statistics
     print
     print 'Final variables:', TRNK.x
