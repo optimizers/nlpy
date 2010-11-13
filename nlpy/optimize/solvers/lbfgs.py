@@ -52,6 +52,9 @@ class InverseLBFGS:
         # is to be inserted in self.s and self.y.
         self.insert = 0
 
+        # Threshold on dot product s'y to accept a new pair (s,y).
+        self.accept_threshold = 1.0e-12
+
         # Storage of the (s,y) pairs
         self.s = numpy.empty((self.n, self.npairs), 'd')
         self.y = numpy.empty((self.n, self.npairs), 'd')
@@ -67,10 +70,12 @@ class InverseLBFGS:
 
     def store(self, iter, new_s, new_y):
         """
-        Store the new pair (new_s,new_y) computed at iteration iter.
+        Store the new pair (new_s,new_y) computed at iteration iter. A new pair
+        is only accepted if the dot product <new_s, new_y> is over a certain
+        threshold given by `self.accept_threshold`.
         """
         ys = numpy.dot(new_s, new_y)
-        if ys > 1.0e-12:
+        if ys > self.accept_threshold:
             insert = self.insert
             self.s[:,insert] = new_s.copy()
             self.y[:,insert] = new_y.copy()
@@ -91,30 +96,30 @@ class InverseLBFGS:
         In this case, a safeguarding step should probably be taken.
         """
         q = v.copy()
-        print
-        print 'Forward sweep:'
+        s = self.s ; y = self.y ; ys = self.ys ; alpha = self.alpha
+        #print ; print 'Forward sweep:'
         for i in range(self.npairs):
             k = (self.insert - 1 - i) % self.npairs
-            if self.ys[k] is not None:
-                sys.stdout.write('%d ' % k)
-                self.alpha[k] = numpy.dot(self.s[:,k], q)/self.ys[k]
-                q -= self.alpha[k] * self.y[:,k]
+            if ys[k] is not None:
+                #sys.stdout.write('%d ' % k)
+                alpha[k] = numpy.dot(s[:,k], q)/ys[k]
+                q -= alpha[k] * y[:,k]
 
         r = q
-        print ; print 'Hk0'
+        #print ; print 'Hk0'
         if self.scaling:
             last = (self.insert - 1) % self.npairs
-            if self.ys[last] is not None:
-                self.gamma = self.ys[last]/numpy.dot(self.y[:,last],self.y[:,last])
+            if ys[last] is not None:
+                self.gamma = ys[last]/numpy.dot(y[:,last],y[:,last])
                 r *= self.gamma
 
-        print 'Backward sweep:'
+        #print 'Backward sweep:'
         for i in range(self.npairs):
             k = (self.insert + i) % self.npairs
-            if self.ys[k] is not None:
-                sys.stdout.write('%d ' % k)
-                beta = numpy.dot(self.y[:,k], r)/self.ys[k]
-                r += (self.alpha[k] - beta) * self.s[:,k]
+            if ys[k] is not None:
+                #sys.stdout.write('%d ' % k)
+                beta = numpy.dot(y[:,k], r)/ys[k]
+                r += (alpha[k] - beta) * s[:,k]
         return r
 
     def solve(self, iter, v):
