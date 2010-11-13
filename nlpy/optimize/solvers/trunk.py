@@ -7,6 +7,7 @@
  The Python version of the celebrated  F90/95 solver
  D. Orban                        Montreal Sept. 2003
 """
+from nlpy.optimize.solvers import lbfgs    # For preconditioning
 from nlpy.krylov.linop import SimpleLinearOperator
 from nlpy.tools import norms
 from nlpy.tools.timing import cputime
@@ -259,13 +260,11 @@ class TrunkLbfgsFramework(TrunkFramework):
     information.
     """
 
-    from nlpy.optimize.solvers import lbfgs    # For preconditioning
-
     def __init__(self, nlp, TR, TrSolver, **kwargs):
 
         TrunkFramework.__init__(self, nlp, TR, TrSolver, **kwargs)
         self.npairs = kwargs.get('npairs', 5)
-        self.lbfgs = lbfgs_class.LbfgsUpdate(nlp.n, npairs=self.npairs)
+        self.lbfgs = lbfgs.InverseLBFGS(nlp.n, npairs=self.npairs)
         self.save_g = True
 
     def precon(self, v, **kwargs):
