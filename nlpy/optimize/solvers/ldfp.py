@@ -21,13 +21,17 @@ __docformat__ = 'restructuredtext'
 # Subclass InverseLBFGS to update a LDFP approximation to the Hessian
 # (as opposed to a LBFGS approximation to its inverse).
 class LDFP(InverseLBFGS):
+    """
+    A limited-memory DFP framework for quasi-Newton methods. See the
+    documentation of `InverseLBFGS`.
+    """
 
     def __init__(self, n, npairs=5, **kwargs):
         InverseLBFGS.__init__(self, n, npairs, **kwargs)
 
-    def store(self, iter, new_s, new_y):
+    def store(self, new_s, new_y):
         # Simply swap s and y.
-        InverseLBFGS.store(self, iter, new_y, new_s)
+        InverseLBFGS.store(self, new_y, new_s)
 
 
 # Subclass AmplModel to define a problem in which the Hessian matrix
@@ -49,16 +53,13 @@ class LDFPModel(AmplModel):
         `hprod`.
         """
         self.Hprod += 1
-        iter = kwargs.get('iter', None)
-        if iter is None:
-            raise ValueError, 'Please specify iteration number.'
-        Hv = self.ldfp.matvec(iter, v)
+        Hv = self.ldfp.matvec(v)
         return Hv
 
 # Subclass solver TRUNK so the LDFP matrix update is performed at the
 # end of each iteration.
 class LDFPTrunkFramework(TrunkFramework):
-    
+
     def __init__(self, nlp, TR, TrSolver, **kwargs):
         TrunkFramework.__init__(self, nlp, TR, TrSolver, **kwargs)
         self.save_g = True
@@ -72,6 +73,6 @@ class LDFPTrunkFramework(TrunkFramework):
         if self.status != 'Rej':
             s = self.alpha * self.solver.step
             y = self.g - self.g_old
-            self.nlp.ldfp.store(self.iter, s, y)
+            self.nlp.ldfp.store(s, y)
         return None
 
