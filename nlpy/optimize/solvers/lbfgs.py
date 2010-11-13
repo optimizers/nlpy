@@ -21,7 +21,7 @@ class InverseLBFGS:
     lbfgsupdate = InverseLBFGS(n)
 
     where n is the number of variables of the problem.
-    
+
     :keywords:
 
         :npairs:        the number of (s,y) pairs stored (default: 5)
@@ -29,7 +29,7 @@ class InverseLBFGS:
                       done as 'method M3' in the LBFGS paper by Zhou and
                       Nocedal; the scaling factor is <sk,yk>/<yk,yk>
                       (default: False).
-        
+
     Member functions are
 
     * store         to store a new (s,y) pair and discard the oldest one
@@ -44,11 +44,13 @@ class InverseLBFGS:
         # Mandatory arguments
         self.n = n
         self.npairs = npairs
-        self.insert = 0
-        self.nstored = 0
 
         # Optional arguments
         self.scaling = kwargs.get('scaling', False)
+
+        # insert to points to the location where the *next* (s,y) pair
+        # is to be inserted in self.s and self.y.
+        self.insert = 0
 
         # Storage of the (s,y) pairs
         self.s = numpy.empty((self.n, self.npairs), 'd')
@@ -60,7 +62,6 @@ class InverseLBFGS:
         # Only the relevant portion of each array is used
         # in the two-loop recursion.
         self.alpha = numpy.empty(self.npairs, 'd')
-        #self.ys = numpy.empty(self.npairs, 'd')
         self.ys = [None] * self.npairs
         self.gamma = 1.0
 
@@ -70,7 +71,7 @@ class InverseLBFGS:
         """
         ys = numpy.dot(new_s, new_y)
         if ys > 1.0e-12:
-            insert = self.insert #iter % self.npairs  # Indices are zero-based
+            insert = self.insert
             self.s[:,insert] = new_s.copy()
             self.y[:,insert] = new_y.copy()
             self.ys[insert] = ys
@@ -84,18 +85,16 @@ class InverseLBFGS:
         positive-definite approximation to the inverse Hessian matrix and the
         vector v using the LBFGS two-loop recursion formula. The 'iter'
         argument is the current iteration number.
-        
+
         When the inner product <y,s> of one of the pairs is nearly zero, the
         function returns the input vector v, i.e., no preconditioning occurs.
         In this case, a safeguarding step should probably be taken.
         """
         q = v.copy()
-        #iter = self.insert
         print
         print 'Forward sweep:'
-        for i in range(self.npairs): #min(self.npairs, iter)):
-            k = (self.insert - 1 - i) % self.npairs # k = (iter-1-i) % self.npairs
-            #self.ys[k] = numpy.dot(self.y[:,k], self.s[:,k])
+        for i in range(self.npairs):
+            k = (self.insert - 1 - i) % self.npairs
             if self.ys[k] is not None:
                 sys.stdout.write('%d ' % k)
                 self.alpha[k] = numpy.dot(self.s[:,k], q)/self.ys[k]
@@ -103,15 +102,15 @@ class InverseLBFGS:
 
         r = q
         print ; print 'Hk0'
-        if self.scaling: # and iter > 0:
-            last = (self.insert -1) % self.npairs  # (iter-1) % self.npairs
+        if self.scaling:
+            last = (self.insert - 1) % self.npairs
             if self.ys[last] is not None:
                 self.gamma = self.ys[last]/numpy.dot(self.y[:,last],self.y[:,last])
                 r *= self.gamma
 
         print 'Backward sweep:'
-        for i in range(self.npairs):  #min(self.npairs-1,iter-1), -1, -1):
-            k = (self.insert + i) % self.npairs  #(iter-1-i) % self.npairs
+        for i in range(self.npairs):
+            k = (self.insert + i) % self.npairs
             if self.ys[k] is not None:
                 sys.stdout.write('%d ' % k)
                 beta = numpy.dot(self.y[:,k], r)/self.ys[k]
@@ -148,7 +147,7 @@ class LBFGSFramework:
         :reltol:    relative stopping tolerance (default: `nlp.stop_d`)
 
     Other keyword arguments will be passed to InverseLBFGS.
-        
+
     The linesearch used in this version is Jorge Nocedal's modified More and
     Thuente linesearch, attempting to ensure satisfaction of the strong Wolfe
     conditions. The modifications attempt to limit the effects of rounding
@@ -164,7 +163,7 @@ class LBFGSFramework:
         self.iter   = 0
         self.nresets = 0
         self.converged = False
-        
+
         self.lbfgs = InverseLBFGS(self.nlp.n, **kwargs)
 
         self.x = kwargs.get('x0', self.nlp.x0)
