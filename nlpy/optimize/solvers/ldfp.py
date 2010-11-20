@@ -59,6 +59,6 @@ class LDFPTrunkFramework(TrunkFramework):
         if self.status != 'Rej':
             s = self.alpha * self.solver.step
             y = self.g - self.g_old
-            self.nlp.ldfp.store(s, y)
+            self.ldfp.store(s, y)
         return None
 

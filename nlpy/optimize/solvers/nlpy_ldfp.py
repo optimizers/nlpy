@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 from nlpy import __version__
-from nlpy.optimize.solvers.ldfp import LDFPModel
-#from noisyldfp import LDFPNoisyModel
+from nlpy.model import AmplModel
+#from nlpy.optimize.solvers.ldfp import LDFPModel
 from nlpy.optimize.tr.trustregion import TrustRegionFramework as TR
 from nlpy.optimize.tr.trustregion import TrustRegionCG as TRSolver
 from nlpy.optimize.solvers.ldfp import LDFPTrunkFramework as solver
@@ -104,9 +104,6 @@ parser.add_option("-v", "--verbose", action="store_true", default=False,
 parser.add_option("-x", "--exact", action="store_true", default=False,
                   dest="exact", help="Do not use inexact Newton framework")
 
-parser.add_option("-N", "--noisy", action="store_true", default=False,
-                  dest="noisy", help="Simulate a noisy problem (watch out!)")
-
 # Parse command-line options
 (options, args) = parser.parse_args()
 
@@ -140,10 +137,7 @@ print '-' * lhdr
 
 for ProblemName in args:
     # Create model
-    if options.noisy:
-        nlp = LDFPNoisyModel(ProblemName, npairs=options.npairs)
-    else:
-        nlp = LDFPModel(ProblemName, npairs=options.npairs)
+    nlp = AmplModel(ProblemName, npairs=options.npairs)
     if ProblemName[-3:] == '.nl':
         ProblemName = ProblemName[:-3]
     t_setup, TRNK = pass_to_trunk(nlp, **opts)
