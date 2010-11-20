@@ -68,6 +68,9 @@ class InverseLBFGS:
         self.ys = [None] * self.npairs
         self.gamma = 1.0
 
+        # Keep track of number of matrix-vector products.
+        self.numMatVecs = 0
+
     def store(self, new_s, new_y):
         """
         Store the new pair (new_s,new_y). A new pair
@@ -95,6 +98,8 @@ class InverseLBFGS:
         function returns the input vector v, i.e., no preconditioning occurs.
         In this case, a safeguarding step should probably be taken.
         """
+        self.numMatVecs += 1
+        
         q = v.copy()
         s = self.s ; y = self.y ; ys = self.ys ; alpha = self.alpha
         for i in range(self.npairs):

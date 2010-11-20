@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
  TRUNK
  Trust-Region Method for Unconstrained Programming.
@@ -63,7 +62,7 @@ class TrunkFramework:
         self.TR     = TR
         self.TrSolver = TrSolver
         self.solver   = None    # Will point to solver data in Solve()
-        self.iter   = 0
+        self.iter   = 0         # Iteration counter
         self.cgiter = 0
         self.x      = kwargs.get('x0', self.nlp.x0)
         self.f      = self.nlp.obj(self.x)
@@ -92,6 +91,13 @@ class TrunkFramework:
         self.hline  = '-' * self.hlen + '\n'
         self.format = '%-5d  %8.1e  %7.1e  %5d  %8.1e  %8.1e  %4s\n'
         self.radii = [ TR.Delta ]
+
+    def hprod(self, v, **kwargs):
+        """
+        Default hprod based on nlp's hprod. User should overload to
+        provide a custom routine, e.g., a quasi-Newton approximation.
+        """
+        return self.nlp.hprod(self.nlp.pi0, v)
 
     def precon(self, v, **kwargs):
         """
@@ -152,7 +158,7 @@ class TrunkFramework:
                 cgtol = max(1.0e-6, min(0.5 * cgtol, sqrt(self.gnorm)))
 
             H = SimpleLinearOperator(nlp.n, nlp.n,
-                                     lambda v: nlp.hprod(nlp.pi0, v),
+                                     lambda v: self.hprod(v),
                                      symmetric=True)
 
             self.solver = self.TrSolver(self.g, H)

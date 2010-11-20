@@ -34,35 +34,21 @@ class LDFP(InverseLBFGS):
         InverseLBFGS.store(self, new_y, new_s)
 
 
-# Subclass AmplModel to define a problem in which the Hessian matrix
-# is a limited-memory DFP approximation.
-class LDFPModel(AmplModel):
-
-    def __init__(self, model, **kwargs):
-        AmplModel.__init__(self, model, **kwargs)
-        self.ldfp = LDFP(self.n, **kwargs)
-
-    def hess(self, x, z):
-        raise NotImplementedError, 'Only matrix-vector products are available.'
-
-    def hprod(self, z, v, **kwargs):
-        """
-        Compute the matrix-vector product between the limited-memory DFP
-        approximation kept in storage and the vector `v`. The argument `z`
-        is ignored and is only present for compatibility with the original
-        `hprod`.
-        """
-        self.Hprod += 1
-        Hv = self.ldfp.matvec(v)
-        return Hv
-
 # Subclass solver TRUNK so the LDFP matrix update is performed at the
 # end of each iteration.
 class LDFPTrunkFramework(TrunkFramework):
 
     def __init__(self, nlp, TR, TrSolver, **kwargs):
         TrunkFramework.__init__(self, nlp, TR, TrSolver, **kwargs)
+        self.ldfp = LDFP(self.nlp.n, **kwargs)
         self.save_g = True
+
+    def hprod(self, v, **kwargs):
+        """
+        Compute the matrix-vector product between the limited-memory DFP
+        approximation kept in storage and the vector `v`.
+        """
+        return self.ldfp.matvec(v)
 
     def PostIteration(self, **kwargs):
         """
