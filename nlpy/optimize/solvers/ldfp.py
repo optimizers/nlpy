@@ -34,8 +34,8 @@ class LDFP(InverseLBFGS):
         InverseLBFGS.store(self, new_y, new_s)
 
 
-# Subclass solver TRUNK so the LDFP matrix update is performed at the
-# end of each iteration.
+# Subclass solver TRUNK to maintain an LDFP approximation to the Hessian and
+# perform the LDFP matrix update at the end of each iteration.
 class LDFPTrunkFramework(TrunkFramework):
 
     def __init__(self, nlp, TR, TrSolver, **kwargs):

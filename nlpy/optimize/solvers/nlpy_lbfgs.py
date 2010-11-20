@@ -13,7 +13,7 @@ where problem1 through problemN represent unconstrained nonlinear programs."""
 
 # Define allowed command-line options
 parser = OptionParser(usage=usage_msg, version='%prog version ' + __version__)
-    
+
 parser.add_option("-a", "--abstol", action="store", type="float",
                   default=1.0e-6, dest="abstol",
                   help="Absolute stopping tolerance")
