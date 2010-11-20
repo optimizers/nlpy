@@ -99,7 +99,7 @@ class InverseLBFGS:
         In this case, a safeguarding step should probably be taken.
         """
         self.numMatVecs += 1
-        
+
         q = v.copy()
         s = self.s ; y = self.y ; ys = self.ys ; alpha = self.alpha
         for i in range(self.npairs):
