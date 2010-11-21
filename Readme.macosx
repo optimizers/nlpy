@@ -1,9 +1,6 @@
 Comments pertaining to Mac OS/X users.
 
-1) If LIBBLAS_LOC *and* LIBLAPACK_LOC are left blank in ~/.nlpy, the option
-   -framework Accelerate is used (requires Xcode).
-
-2) If compiling on Leopard (10.5.*), you may receive the error message
+1) If compiling on Leopard (10.5.*), you may receive the error message
 
      undefined symbol: _strtod_ASL
 
@@ -15,7 +12,7 @@ Comments pertaining to Mac OS/X users.
    to the compiler options and to rebuild LibAmpl, i.e., switch to $LIBAMPL and
    issue the command 'make mrclean ; make' at the command line.
 
-3) If compiling on Snow Leopard (10.6.*), you may receive error messages
+2) If compiling on Snow Leopard (10.6.*), you may receive error messages
    related to the architecture being linked (and the build might fail).  One
    solution seems to be to set the environment variables CFLAGS, FFLAGS and
    LDFLAGS appropriately before building. For example:
