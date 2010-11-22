@@ -19,12 +19,6 @@ def configuration(parent_package='',top_path=None):
     metis_lib = nlpy_config.get('HSL', 'metis_lib')
     galahad_dir = nlpy_config.get('GALAHAD', 'galahad_dir')
     propack_dir = nlpy_config.get('PROPACK', 'propack_dir')
-    #try:
-    #    pysparse_include = nlpy_config.get('PYSPARSE', 'pysparse_include')
-    #except:
-    #    pysparse_include = []
-
-    #print 'hsl_dir = ', hsl_dir
 
     config = Configuration('linalg', parent_package, top_path)
 
@@ -43,9 +37,10 @@ def configuration(parent_package='',top_path=None):
     pyma27_src = ['ma27_lib.c','nlpy_alloc.c','_pyma27.c']
 
     # Relevant files for building MA57 extension.
-    ma57_src = ['fd05ad.f', 'ma57ad.f', 'mc47ad.f',
-                'mc71ad.f', 'fd15ad.f',
-                'mc21ad.f', 'mc59ad.f', 'mc34ad.f', 'mc64ad.f']
+    #ma57_src = ['fd05ad.f', 'ma57ad.f', 'mc47ad.f',
+    #            'mc71ad.f', 'fd15ad.f',
+    #            'mc21ad.f', 'mc59ad.f', 'mc34ad.f', 'mc64ad.f']
+    ma57_src = ['ddeps.f', 'ma57d.f']
     pyma57_src = ['ma57_lib.c','nlpy_alloc.c','_pyma57.c']
 
     # Build PyMA27
@@ -69,7 +64,7 @@ def configuration(parent_package='',top_path=None):
         )
 
     # Build PyMA57
-    ma57_sources = [os.path.join(hsl_dir,name) for name in ma57_src]
+    ma57_sources = [os.path.join(hsl_dir,'ma57d',name) for name in ma57_src]
     pyma57_sources = [os.path.join('src',name) for name in pyma57_src]
 
     config.add_library(

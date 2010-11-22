@@ -13,7 +13,7 @@ def configuration(parent_package='',top_path=None):
 
     config = Configuration('scaling', parent_package, top_path)
 
-    mc29_sources = [os.path.join(hsl_dir,'mc29ad.f'),
+    mc29_sources = [os.path.join(hsl_dir,'mc29d','mc29d.f'),
                     os.path.join('src','mc29.pyf')]
 
     config.add_extension(
