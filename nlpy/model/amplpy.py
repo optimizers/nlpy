@@ -806,6 +806,15 @@ class AmplModel(NLPModel):
         self.Hprod += 1
         return _amplpy.H_prod(z, v, obj_weight)
 
+    def hiprod(self, i, v, **kwargs):
+        """
+        Evaluate matrix-vector product Hi(x) * v.
+        Returns a Numpy array.
+        """
+        z = np.zeros(self.m) ; z[i] = 1
+        self.Hprod += 1
+        return _amplpy.H_prod(z, v, 0.)
+
     def islp(self):
         """
         Determines whether problem is a linear programming problem.
