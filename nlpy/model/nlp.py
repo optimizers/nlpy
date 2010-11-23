@@ -269,3 +269,8 @@ class NLPModel:
     # the Hessian of the Lagrangian and a vector
     def hprod(self, x, z, p, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
+
+    # Evaluate matrix-vector product between
+    # the Hessian of the i-th constraint and a vector
+    def hiprod(self, i, x, p, **kwargs):
+        raise NotImplementedError, 'This method must be subclassed.'
