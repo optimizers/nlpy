@@ -45,6 +45,8 @@ class TrunkFramework:
         :monotone:     use monotone descent strategy     (default False)
         :nIterNonMono: number of iterations for which non-strict descent can
                        be tolerated if monotone=False    (default 25)
+        :logger:       a logger object that can be used in the post
+                       iteration                         (default None)
         :silent:       verbosity level                   (default False)
 
     Once a `TrunkFramework` object has been instantiated and the problem is
@@ -84,6 +86,7 @@ class TrunkFramework:
         self.inexact = kwargs.get('inexact', False)
         self.monotone = kwargs.get('monotone', False)
         self.nIterNonMono = kwargs.get('nIterNonMono', 25)
+        self.logger = kwargs.get('logger', None)
 
         self.hformat = '%-5s  %8s  %7s  %5s  %8s  %8s  %4s\n'
         self.header  = self.hformat % ('Iter','f(x)','|g(x)|','cg','rho','Radius','Stat')
