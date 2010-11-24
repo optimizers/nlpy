@@ -39,6 +39,28 @@ class LinearOperator:
         return self.shape
 
 
+    def check_symmetric(self):
+        """
+        Make sure this linear operator is indeed symmetric. The check is
+        performed without using the transpose operator self.T.
+        """
+        n = self.nargin
+        y = np.random.random(n)
+        w = self * y      # = A*y
+        v = self * w      # = A*(A*y)
+        s = np.dot(w,w)   # = y'*A'*A*y
+        t = np.dot(y,v)   # = y'*(A*(A*y))
+        self.logger.debug("y'*A'*A*y = %g" % s)
+        self.logger.debug("y'*(A*(A*y)) = %g" % t)
+        z = abs(s - t)
+        eps = np.finfo(np.double).eps
+        epsa = (s + eps) * eps**(1.0/3)
+        self.logger.debug('z = %g, epsa = %g' % (z,epsa))
+        if z > epsa:
+            return False
+        return True
+
+
     def __call__(self, *args, **kwargs):
         # An alias for __mul__.
         return self.__mul__(*args, **kwargs)
@@ -121,7 +143,7 @@ class PysparseLinearOperator(LinearOperator):
                 self.__mul__ = self._mul
 
         if self.log:
-            self.logger.info('New linop has transposed = ' + str(self.transposed))
+            self.logger.info('New linop has transposed='+str(self.transposed))
 
         if symmetric:
             self.T = self
@@ -187,22 +209,24 @@ class SquaredLinearOperator(LinearOperator):
     """
 
     def __init__(self, A, **kwargs):
-        m, n = A.shape
-        LinearOperator.__init__(self, n, m, **kwargs)
-        self.transposed = kwargs.get('transposed', False)
+        transposed = kwargs.get('transposed', False)
+        nargout, nargin = A.shape
+        if transposed:
+            LinearOperator.__init__(self, nargout, nargout, **kwargs)
+        else:
+            LinearOperator.__init__(self, nargin, nargin, **kwargs)
+        self.transposed = transposed
         if isinstance(A, LinearOperator):
             self.A = A
         else:
             self.A = PysparseLinearOperator(A, transposed=False)
         self.symmetric = True
         if self.transposed:
-            self.shape = (m, m)
             self.__mul__ = self._rmul
         else:
-            self.shape = (n, n)
             self.__mul__ = self._mul
         if self.log:
-            self.logger.info('New squared operator with shape ' + str(self.shape))
+            self.logger.info('New squared operator with shape '+str(self.shape))
         self.T = self
 
 
@@ -272,3 +296,4 @@ if __name__ == '__main__':
     op3 = SquaredLinearOperator(J, transposed=True, log=True)
     print 'op3 * e1 = ', op3 * e1
     print 'op * (op.T * e1) = ', op * (op.T * e1)
+    print 'op3 is symmetric: ', op3.check_symmetric()
