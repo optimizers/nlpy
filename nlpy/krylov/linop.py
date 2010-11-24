@@ -5,6 +5,13 @@ import logging.handlers
 
 __docformat__ = 'restructuredtext'
 
+# Generic configuration for logger objects.
+logging.basicConfig(filename='linop.log',
+                    filemode='w',
+                    format='%(asctime)s-%(name)s-%(levelname)s %(message)s',
+                    level=logging.DEBUG)
+
+
 class LinearOperator:
     """
     A linear operator is a linear mapping x -> A(x) such that the size of the
@@ -21,13 +28,7 @@ class LinearOperator:
         self.log = kwargs.get('log', False)
         if self.log:
             self.logger = logging.getLogger('LINOP')
-            self.logger.setLevel(logging.DEBUG)
-            ch = logging.handlers.RotatingFileHandler('linop.log')
-            ch.setLevel(logging.DEBUG)
-            fmtr = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s %(message)s')
-            ch.setFormatter(fmtr)
-            self.logger.addHandler(ch)
-            self.logger.info('New linear operator with shape ' + str(self.shape))
+            self.logger.info('New linear operator with shape '+str(self.shape))
         else:
             self.logger = None
 
@@ -166,7 +167,8 @@ class PysparseLinearOperator(LinearOperator):
         return ATy
 
 
-
+# It would be much better if we could add and multiply linear operators.
+# In the meantime, here is a patch.
 class SquaredLinearOperator(LinearOperator):
     """
     Given a linear operator ``A``, build the linear operator ``A.T * A``. If
@@ -267,6 +269,6 @@ if __name__ == '__main__':
     op2 = SquaredLinearOperator(J, log=True)
     print 'op2 * e2 = ', op2 * e2
     print 'op.T * (op * e2) = ', op.T * (op * e2)
-    op3 = SquaredLinearOperator(J, transpose=True, log=True)
+    op3 = SquaredLinearOperator(J, transposed=True, log=True)
     print 'op3 * e1 = ', op3 * e1
     print 'op * (op.T * e1) = ', op * (op.T * e1)
