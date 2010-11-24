@@ -50,12 +50,13 @@ class LinearOperator:
         v = self * w      # = A*(A*y)
         s = np.dot(w,w)   # = y'*A'*A*y
         t = np.dot(y,v)   # = y'*(A*(A*y))
-        self.logger.debug("y'*A'*A*y = %g" % s)
-        self.logger.debug("y'*(A*(A*y)) = %g" % t)
         z = abs(s - t)
         eps = np.finfo(np.double).eps
         epsa = (s + eps) * eps**(1.0/3)
-        self.logger.debug('z = %g, epsa = %g' % (z,epsa))
+        if self.logger is not None:
+            self.logger.debug("y'*A'*A*y = %g" % s)
+            self.logger.debug("y'*(A*(A*y)) = %g" % t)
+            self.logger.debug('z = %g, epsa = %g' % (z,epsa))
         if z > epsa:
             return False
         return True
