@@ -811,7 +811,7 @@ class AmplModel(NLPModel):
         Evaluate matrix-vector product Hi(x) * v.
         Returns a Numpy array.
         """
-        z = np.zeros(self.m) ; z[i] = 1
+        z = np.zeros(self.m) ; z[i] = -1
         self.Hprod += 1
         return _amplpy.H_prod(z, v, 0.)
 
