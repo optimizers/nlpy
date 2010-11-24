@@ -25,11 +25,11 @@ class Minres:
     or the least squares problem           min ||Ax - b||_2^2,
     where A is a symmetric matrix (possibly indefinite or singular)
     and b is a given vector.
-   
+
     ``A`` should be given as a ``LinearOperator`` or as an explicit matrix such
     that ``y = A * x`` returns in ``y`` the result of applying the linear
     operator ``A`` to the vector ``x``.
- 
+
     Optional keyword arguments are:
 
         precon    optional preconditioner, given as an operator        (None)
@@ -45,7 +45,7 @@ class Minres:
         `x = precon(y)`
 
     returns the solution x to the linear system M*x = y, for any given y.
- 
+
     If shift != 0, minres really solves (A - shift*I)x = b
     or the corresponding least squares problem if shift is an eigenvalue of A.
 
@@ -65,11 +65,11 @@ class Minres:
     See also http://www.stanford.edu/group/SOL/software/minres.html
     """
 
-#    02 Sep 2003: Date of Fortran 77 version, based on 
+#    02 Sep 2003: Date of Fortran 77 version, based on
 #                 C. C. Paige and M. A. Saunders (1975),
 #                 Solution of sparse indefinite systems of linear equations,
 #                 SIAM J. Numer. Anal. 12(4), pp. 617-629.
-# 
+#
 #    02 Sep 2003: ||Ar|| now estimated as Arnorm.
 #    17 Oct 2003: f77 version converted to MATLAB.
 #    11 Jan 2008: MATLAB version converted to Python.
@@ -94,7 +94,7 @@ class Minres:
                     ' Aname  does not define a symmetric matrix         ',  # 7
                     ' Mname  does not define a symmetric matrix         ',  # 8
                     ' Mname  does not define a pos-def preconditioner   ' ] # 9
- 
+
         self.eps = self._Epsilon()
 
 
@@ -168,8 +168,6 @@ class Minres:
 
         # See if A is symmetric.
         if check:
-            w  = empty(n)
-            r2 = empty(n)
             w  = A * y
             r2 = A * w
             s  = dot(w,w)
@@ -277,7 +275,7 @@ class Minres:
                 dbar   =            -  cs * beta  # dbar 2 = beta2     dbar k+1
                 root   = self.normof2(gbar, dbar)
                 Arnorm = phibar * root
-                
+
                 # Compute the next plane rotation Qk
 
                 gamma  = self.normof2(gbar, beta)       # gammak
@@ -335,7 +333,7 @@ class Minres:
                     t2 = 1 + test2
                     if t2 <= 1: istop = 2
                     if t1 <= 1: istop = 1
-      
+
                     if itn >= itnlim: istop = 6
                     if Acond >= 0.1/eps: istop = 4
                     if epsx >= beta1: istop = 3
