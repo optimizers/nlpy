@@ -10,7 +10,7 @@ from nlpy.optimize.solvers import lbfgs    # For preconditioning
 from nlpy.krylov.linop import SimpleLinearOperator
 from nlpy.tools import norms
 from nlpy.tools.timing import cputime
-
+import pdb
 import numpy
 import sys
 from math import sqrt
@@ -93,6 +93,7 @@ class TrunkFramework:
         self.hlen   = len(self.header)
         self.hline  = '-' * self.hlen + '\n'
         self.format = '%-5d  %8.1e  %7.1e  %5d  %8.1e  %8.1e  %4s\n'
+        self.format0= '%-5d  %8.1e  %7.1e  %5s  %8s  %8.1e  %4s\n'
         self.radii = [ TR.Delta ]
 
     def hprod(self, v, **kwargs):
@@ -119,14 +120,13 @@ class TrunkFramework:
     def Solve(self, **kwargs):
 
         nlp = self.nlp
-        rho = 1                  # Dummy initial value for rho
-        niter = 0                # Dummy initial value for number of inners
-        status = ''              # Dummy initial step status
         if self.inexact:
             cgtol = 1.0
         else:
             cgtol = -1.0
         stoptol = max(self.abstol, self.reltol * self.g0)
+        status = None
+        exitOptimal = exitIter = exitUser = False
 
         # Initialize non-monotonicity parameters.
         if not self.monotone:
@@ -136,18 +136,19 @@ class TrunkFramework:
 
         t = cputime()
 
-        while self.gnorm > stoptol and self.iter <= self.maxiter:
+        # Print out header and initial log.
+        if not self.silent:
+            sys.stdout.write(self.hline)
+            sys.stdout.write(self.header)
+            sys.stdout.write(self.hline)
+            sys.stdout.write(self.format0 % (self.iter, self.f,
+                                             self.gnorm, '', '',
+                                             self.TR.Delta, ''))
 
-            # Print out header, say, every 20 iterations
-            if self.iter % 20 == 0 and not self.silent:
-                sys.stdout.write(self.hline)
-                sys.stdout.write(self.header)
-                sys.stdout.write(self.hline)
+        while not (exitUser or exitOptimal or exitIter):
 
-            if not self.silent:
-                sys.stdout.write(self.format % (self.iter, self.f,
-                          self.gnorm, niter, rho,
-                          self.TR.Delta, status))
+            self.iter += 1
+            self.alpha = 1.0
 
             # Save current gradient
             if self.save_g:
@@ -246,19 +247,37 @@ class TrunkFramework:
 
             self.status = status
             self.radii.append(self.TR.Delta)
-            self.PostIteration()
-            self.iter += 1
-            self.alpha = 1.0     # For the next iteration
+            try:
+                self.PostIteration()
+            except UserExitRequest:
+                status = 'usr'
+
+            # Print out header, say, every 20 iterations
+            if self.iter % 20 == 0 and not self.silent:
+                sys.stdout.write(self.hline)
+                sys.stdout.write(self.header)
+                sys.stdout.write(self.hline)
+
+            if not self.silent:
+                pstatus = status if status != 'Acc' else ''
+                sys.stdout.write(self.format % (self.iter, self.f,
+                          self.gnorm, niter, rho,
+                          self.TR.Delta, pstatus))
+
+            exitOptimal = self.gnorm < stoptol
+            exitIter    = self.iter > self.maxiter
+            exitUser    = status == 'usr'
 
         self.tsolve = cputime() - t    # Solve time
 
         # Set final solver status.
-        if self.gnorm <= stoptol:
-            self.status = 'opt'
+        if status == 'usr':
+            pass
+        elif self.gnorm <= stoptol:
+            status = 'opt'
         else: # self.iter > self.maxiter:
-            self.status = 'itr'
-
-
+            status = 'itr'
+        self.status = status
 
 class TrunkLbfgsFramework(TrunkFramework):
     """
@@ -292,3 +311,10 @@ class TrunkLbfgsFramework(TrunkFramework):
         s = self.alpha * self.solver.step
         y = self.g - self.g_old
         self.lbfgs.store(s, y)
+
+class UserExitRequest(Exception):
+    """
+    Exception that the caller can use to request clean exit.
+    """
+    def __init__(self):
+        pass
