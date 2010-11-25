@@ -1,15 +1,6 @@
 import numpy as np
 
-import logging
-import logging.handlers
-
 __docformat__ = 'restructuredtext'
-
-# Generic configuration for logger objects.
-logging.basicConfig(filename='linop.log',
-                    filemode='w',
-                    format='%(asctime)s-%(name)s-%(levelname)s %(message)s',
-                    level=logging.DEBUG)
 
 
 class LinearOperator:
@@ -25,13 +16,9 @@ class LinearOperator:
         self.shape = (nargout, nargin)
 
         # Log activity.
-        self.log = kwargs.get('log', False)
-        if self.log:
-            self.logger = logging.getLogger('LINOP')
-            self.logger.info('New linear operator with shape '+str(self.shape))
-        else:
-            self.logger = None
-
+        self.logger = kwargs.get('logger', None)
+        if self.logger is not None:
+            self.logger.info('New linear operator with shape ' + str(self.shape))
         return
 
 
@@ -39,25 +26,41 @@ class LinearOperator:
         return self.shape
 
 
-    def check_symmetric(self):
+    def check_symmetric(self, loop=10, explicit=False):
         """
         Make sure this linear operator is indeed symmetric. The check is
         performed without using the transpose operator self.T.
         """
         n = self.nargin
-        y = np.random.random(n)
-        w = self * y      # = A*y
-        v = self * w      # = A*(A*y)
-        s = np.dot(w,w)   # = y'*A'*A*y
-        t = np.dot(y,v)   # = y'*(A*(A*y))
-        self.logger.debug("y'*A'*A*y = %g" % s)
-        self.logger.debug("y'*(A*(A*y)) = %g" % t)
-        z = abs(s - t)
         eps = np.finfo(np.double).eps
-        epsa = (s + eps) * eps**(1.0/3)
-        self.logger.debug('z = %g, epsa = %g' % (z,epsa))
-        if z > epsa:
-            return False
+        
+        if explicit:
+            H = np.empty((n,n))
+            for i in xrange(n):
+                ei = np.zeros(n) ; ei[i] = 1.0
+                H[:,i] = self * ei
+            if np.linalg.norm(H - H.T) > (eps + np.linalg.norm(H)) * eps**(1.0/3):
+                print 'Faulty H:'
+                print H
+                return False
+        else:
+            np.random.seed(1)
+            for i in xrange(loop):                
+                y = 10*np.random.random(n)
+                w = self * y      # = A*y
+                v = self * w      # = A*(A*y)
+                s = np.dot(w,w)   # = y'*A'*A*y
+                t = np.dot(y,v)   # = y'*(A*(A*y))
+                z = abs(s - t)
+                epsa = (s + eps) * eps**(1.0/3)
+
+                if self.logger is not None:
+                    self.logger.debug("y'*A'*A*y    = %g" % s)
+                    self.logger.debug("y'*(A*(A*y)) = %g" % t)
+                    self.logger.debug('z = %g, epsa = %g' % (z,epsa))
+                    
+                if z > epsa:
+                    return False
         return True
 
 
@@ -97,7 +100,7 @@ class SimpleLinearOperator(LinearOperator):
                                                   matvec_transp=matvec,
                                                   transposed=not self.transposed,
                                                   transpose_of=self,
-                                                  log=self.log)
+                                                  logger=kwargs.get('logger',None))
                 else:
                     self.T = None
             else:
@@ -142,7 +145,7 @@ class PysparseLinearOperator(LinearOperator):
             else:
                 self.__mul__ = self._mul
 
-        if self.log:
+        if self.logger is not None:
             self.logger.info('New linop has transposed='+str(self.transposed))
 
         if symmetric:
@@ -153,7 +156,7 @@ class PysparseLinearOperator(LinearOperator):
                 self.T = PysparseLinearOperator(self.A,
                                                 transposed=not self.transposed,
                                                 transpose_of=self,
-                                                log=self.log)
+                                                logger=self.logger)
             else:
                 # Use operator supplied as transpose operator.
                 if isinstance(transpose_of, LinearOperator):
@@ -225,7 +228,7 @@ class SquaredLinearOperator(LinearOperator):
             self.__mul__ = self._rmul
         else:
             self.__mul__ = self._mul
-        if self.log:
+        if self.logger is not None:
             self.logger.info('New squared operator with shape '+str(self.shape))
         self.T = self
 
