@@ -71,6 +71,7 @@ class propack:
         getu = kwargs.get('getu',True)
         getv = kwargs.get('getv',True)
 
+        A = self.A
         m, n = A.shape
         k = max(1,k)
         k = min(k, kmax)

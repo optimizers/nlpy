@@ -9,8 +9,8 @@ python module __user__routines
         integer, intent(hide) :: iparm(1)
         double precision, intent(hide) :: dparm(1)
         ! if transa == 'N', y = A*x, ie, len(y) = m
-        double precision, dimension((transa[0]=='n'?n:m),1), intent(in) :: x
-        double precision, dimension((transa[0]=='n'?m:n),1), intent(out) :: y
+        double precision, dimension((transa[0]=='n'?n:m)), intent(in) :: x
+        double precision, dimension((transa[0]=='n'?m:n)), intent(out) :: y
       end subroutine matvecmult
     end interface
 end python module __user__routines

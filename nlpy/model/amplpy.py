@@ -83,11 +83,10 @@ class AmplModel(NLPModel):
 
     def __init__(self, model, **kwargs):
 
-        neednl = kwargs.get('neednl', False)
         data   = kwargs.get('data',   None)
         opts   = kwargs.get('opts',   None)
 
-        if neednl:
+        if model[-4:] == '.mod':
             # Create the nl file.
             template = GenTemplate(model, data, opts)
             writestub(template)

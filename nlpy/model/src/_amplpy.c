@@ -27,6 +27,16 @@
 #define SYMMETRIC 1    /* Symmetric SpMatrix */
 #define GENERAL   0    /* General   SpMatrix */
 
+/* Convert a possibly non-contiguous numarray to a contiguous C array. */
+#define PY2C_1DARRAY(py_obj, c_arr, dim)                          \
+  if (PyArray_AsCArray((PyObject **)&py_obj, (void *)&c_arr, dim, 1, \
+                       PyArray_DescrFromType(NPY_FLOAT64)) < 0) \
+     { \
+       PyErr_SetString( PyExc_TypeError, "unable to convert to C array"); \
+       return NULL; \
+     }
+
+
 /* ========================================================================== */
 
 /*
@@ -1138,7 +1148,7 @@ static PyObject *AmplPy_Prod_Hv( PyObject *self, PyObject *args ) {
 
     PyArrayObject *a_v, *a_lambda, *a_Hv;
     real           OW[1], obj_weight;
-    npy_intp       dHv[1];
+    npy_intp       dim[1];
     real *y, *v, *hv;
 
     /* We read the vector v and the multipliers lambda */
@@ -1160,17 +1170,20 @@ static PyObject *AmplPy_Prod_Hv( PyObject *self, PyObject *args ) {
     PyArray_XDECREF( a_v );
     PyArray_XDECREF( a_lambda );
 
-    y = (real *)a_lambda->data;
-
     /* Indicates weight on the objective function */
     /* Set to 1 by defaut in the Python wrapper.  */
     OW[0]  = objtype[0] ? -obj_weight : obj_weight;
 
-    dHv[0]  = n_var;
-    a_Hv = (PyArrayObject *)PyArray_SimpleNew( 1, dHv, NPY_FLOAT64 );
+    dim[0] = n_var;
+    a_Hv = (PyArrayObject *)PyArray_SimpleNew( 1, dim, NPY_FLOAT64 );
     if( a_Hv == NULL ) return NULL;
     hv = (real *)a_Hv->data;
-    v = (real *)a_v->data;
+
+    /* Get pointers to contiguous versions of v and lambda. */
+    dim[0] = n_var;
+    PY2C_1DARRAY(a_v, v, dim);
+    dim[0] = n_con;
+    PY2C_1DARRAY(a_lambda, y, dim);
 
     /* Evaluate matrix-vector product Hv */
     hvpinit_ASL((ASL*)asl, ihd_limit, -1, OW, y);
