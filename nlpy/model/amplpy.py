@@ -48,7 +48,7 @@ def GenTemplate(model, data = None, opts = None):
     # that can be written into the template file.
     if opts is not None:
         pass
-    
+
     # Template file body.
     if model[-4:] == '.mod': model = model[:-4]
     template.write("model %s.mod;\n"     % model)
@@ -90,7 +90,7 @@ class AmplModel(NLPModel):
             # Create the nl file.
             template = GenTemplate(model, data, opts)
             writestub(template)
-            
+
         # Initialize the ampl module
         try:
             if model[-4:] == '.mod': model = model[:-4]
@@ -143,7 +143,7 @@ class AmplModel(NLPModel):
             else:
                 # Normally, we should not get here
                 self.freeC.append(i)
-        
+
         self.nlowerC = len(self.lowerC)
         self.nrangeC = len(self.rangeC)
         self.nupperC = len(self.upperC)
@@ -226,7 +226,7 @@ class AmplModel(NLPModel):
         Write primal-dual solution and message msg to stub.sol
         """
         return _amplpy.ampl_sol(x, z, msg)
-        
+
 ###############################################################################
 
     # Compute residuals of first-order optimality conditions
@@ -303,7 +303,7 @@ class AmplModel(NLPModel):
         The sign of each `z[i]` should be as if it corresponded to a
         nonnegativity constraint (except for fixed variables), i.e., those
         `z[i]` should be nonnegative.
- 
+
         It is possible to check the Fritz-John conditions via the keyword `FJ`.
         If `FJ` is present, it should be assigned the multiplier value that
         will be applied to the gradient of the objective function.
@@ -353,7 +353,7 @@ class AmplModel(NLPModel):
         yupperC  = y[nequalC+nlowerC:nequalC+nlowerC+nupperC]
         yrangeCL = y[nequalC+nlowerC+nupperC:nequalC+nlowerC+nupperC+nrangeC]
         yrangeCU = y[nequalC+nlowerC+nupperC+nrangeC:]
-        
+
         # Make sure input multipliers have the right sign
 
         if len( np.where(ylowerC < 0)[0] ) > 0:
@@ -394,7 +394,7 @@ class AmplModel(NLPModel):
         bRes[n4:]   = np.minimum(np.zeros(nrangeB), bRes[n4:])
 
         # Initialize vector for primal feasibility
-        
+
         pFeas = np.empty(self.m + nrangeC)
         if 'c' in kwargs:
             c = kwargs['c']
@@ -487,7 +487,7 @@ class AmplModel(NLPModel):
         or not residual scalings should be applied. By default, they are.
 
         :returns:
-        
+
             :res:  `KKTresidual` instance, as returned by
                    :meth:`OptimalityResiduals`,
             :optimal:  `True` if the residuals fall below the thresholds
@@ -519,7 +519,7 @@ class AmplModel(NLPModel):
                 bfs /= res.scaling.bFeas
             cp = max(cp, bcp)
             fs = max(fs, bfs)
- 
+
         #print 'KKT resids: ', (df, cp, fs)
         opt = (df<=self.stop_d) and (cp<=self.stop_c) and (fs<=self.stop_p)
         return (res, opt)
@@ -683,7 +683,7 @@ class AmplModel(NLPModel):
             return None
         sri = sv.SparseVector(self.n, sri_dict)
         return sri
-    
+
     def A(self, *args):
         """
         Evaluate sparse Jacobian of the linear part of the
