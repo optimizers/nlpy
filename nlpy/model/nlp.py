@@ -86,9 +86,9 @@ class NLPModel:
 
     If necessary, additional arguments may be passed in kwargs.
     """
-    
+
     def __init__(self, n=0, m=0, name='Generic', **kwargs):
-    
+
         self.n = n          # Number of variables
         self.m = m          # Number of general constraints
         self.name = name    # Problem name
@@ -162,7 +162,7 @@ class NLPModel:
                 self.upperC.append(i)
             else:
                 self.freeC.append(i)
-        
+
         self.nlowerC = len(self.lowerC)   # Number of lower bound constraints
         self.nrangeC = len(self.rangeC)   # Number of range constraints
         self.nupperC = len(self.upperC)   # Number of upper bound constraints
@@ -238,7 +238,7 @@ class NLPModel:
     # Evaluate objective gradient at x
     def grad(self, x, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
-        
+
     # Evaluate vector of constraints at x
     def cons(self, x, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
