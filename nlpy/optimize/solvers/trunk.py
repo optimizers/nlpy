@@ -87,12 +87,12 @@ class TrunkFramework:
         self.nIterNonMono = kwargs.get('nIterNonMono', 25)
         self.logger = kwargs.get('logger', None)
 
-        self.hformat = '%-5s  %8s  %7s  %5s  %8s  %8s  %4s\n'
+        self.hformat = '%-5s  %8s  %7s  %5s  %8s  %8s  %4s'
         self.header  = self.hformat % ('Iter','f(x)','|g(x)|','cg','rho','Radius','Stat')
         self.hlen   = len(self.header)
-        self.hline  = '-' * self.hlen + '\n'
-        self.format = '%-5d  %8.1e  %7.1e  %5d  %8.1e  %8.1e  %4s\n'
-        self.format0= '%-5d  %8.1e  %7.1e  %5s  %8s  %8.1e  %4s\n'
+        self.hline  = '-' * self.hlen
+        self.format = '%-5d  %8.1e  %7.1e  %5d  %8.1e  %8.1e  %4s'
+        self.format0= '%-5d  %8.1e  %7.1e  %5s  %8s  %8.1e  %4s'
         self.radii = [ TR.Delta ]
 
         # Setup the logger. Install a NullHandler if no output needed.
