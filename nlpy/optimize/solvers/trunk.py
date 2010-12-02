@@ -67,13 +67,13 @@ class TrunkFramework:
         self.iter   = 0         # Iteration counter
         self.cgiter = 0
         self.x      = kwargs.get('x0', self.nlp.x0)
-        self.f      = self.nlp.obj(self.x)
-        self.f0     = self.f
-        self.g      = self.nlp.grad(self.x)  # Current  gradient
-        self.g_old  = self.g                   # Previous gradient
+        self.f      = None
+        self.f0     = None
+        self.g      = None
+        self.g_old  = None
         self.save_g = False              # For methods that need g_{k-1} and g_k
-        self.gnorm  = norms.norm2(self.g)
-        self.g0     = self.gnorm
+        self.gnorm  = None
+        self.g0     = None
         self.alpha  = 1.0       # For Nocedal-Yuan backtracking linesearch
         self.tsolve = 0.0
 
@@ -95,6 +95,13 @@ class TrunkFramework:
         self.format = '%-5d  %8.1e  %7.1e  %5d  %8.1e  %8.1e  %4s\n'
         self.format0= '%-5d  %8.1e  %7.1e  %5s  %8s  %8.1e  %4s\n'
         self.radii = [ TR.Delta ]
+
+        # Setup the logger. Install a NullHandler if no output needed.
+        logger_name = kwargs.get('logger_name', 'nlpy.trunk')
+        self.log = logging.getLogger(logger_name)
+        self.log.addHandler(logging.NullHandler())
+        if not self.verbose:
+            self.log.propagate=False
 
     def hprod(self, v, **kwargs):
         """
@@ -120,6 +127,13 @@ class TrunkFramework:
     def Solve(self, **kwargs):
 
         nlp = self.nlp
+        self.f      = self.nlp.obj(self.x)
+        self.f0     = self.f
+        self.g      = self.nlp.grad(self.x)  # Current  gradient
+        self.g_old  = self.g                   # Previous gradient
+        self.gnorm  = norms.norm2(self.g)
+        self.g0     = self.gnorm
+
         if self.inexact:
             cgtol = 1.0
         else:
