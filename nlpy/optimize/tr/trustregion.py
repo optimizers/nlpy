@@ -14,7 +14,7 @@ class TrustRegionFramework:
     Initializes an object allowing management of a trust region.
 
     :keywords:
-    
+
         :Delta:         Initial trust-region radius (default: 1.0)
         :eta1:          Step acceptance threshold   (default: 0.01)
         :eta2:          Radius increase threshold   (default: 0.99)

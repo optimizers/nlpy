@@ -31,7 +31,7 @@ class propack:
         self.U = None # left singular vectors
         self.V = None # right singular vectors
         self.s = None # singular values
-        self.its = 0
+        self.matvecs = 0
         # status =
         # 1: The k largest singular triplets were computed succesfully
         # 0<j<k: An invariant subspace of dimension j was found.
@@ -92,8 +92,8 @@ class propack:
         if getv: self.V = V[:n,:k]
 
     def _Aprod(self, transa, x):
+        self.matvecs += 1
         if transa[0] == 'n':
-            self.its += 1
             return self.A*x
         else:
             return self.A.T*x

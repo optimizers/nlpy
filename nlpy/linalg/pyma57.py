@@ -15,7 +15,7 @@ class PyMa57Context( Sils ):
         the square symmetric linear system of equations
 
             A x = b.
-    
+
         A should be given in ll_mat format and should be symmetric.
         The system will first be analyzed and factorized, for later
         solution. Residuals will be computed dynamically if requested.
@@ -27,7 +27,7 @@ class PyMa57Context( Sils ):
 
         where L is unit lower triangular, and B is symmetric and block diagonal
         with either 1x1 or 2x2 blocks.
-        
+
         A special option is available is the matrix A is known to be symmetric
         (positive or negative) definite, or symmetric quasi-definite (sqd).
         SQD matrices have the general form
@@ -80,7 +80,7 @@ class PyMa57Context( Sils ):
             thisA = A.matrix
         else:
             thisA = A
- 
+
         Sils.__init__( self, thisA, **kwargs )
 
         # Statistics on A
@@ -143,7 +143,7 @@ class PyMa57Context( Sils ):
         Make sure you have called solve() with the same right-hand
         side b before calling refine().
         The residual vector self.residual will be updated to reflect
-        the updated approximate solution. 
+        the updated approximate solution.
 
         By default, nitref = 3.
         """
@@ -158,7 +158,7 @@ class PyMa57Context( Sils ):
         fetch_perm() returns the permutation vector p used
         to compute the factorization of A. Rows and columns
         were permuted so that
-        
+
               P^T  A P = L  B  L^T
 
         where i-th row of P is the p(i)-th row of the
@@ -170,7 +170,7 @@ class PyMa57Context( Sils ):
 #     def fetch_lb( self ):
 #         """
 #         fetch_lb() returns the factors L and B of A such that
-        
+
 #               P^T  A P = L  B  L^T
 
 #         where P is as in fetch_perm(), L is unit upper
@@ -180,7 +180,7 @@ class PyMa57Context( Sils ):
 #         """
 #         self.context.fetchlb( self.L, self.B )
 #         return None
-        
+
 
 if __name__ == '__main__':
 
