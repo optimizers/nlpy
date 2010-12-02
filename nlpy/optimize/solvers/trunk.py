@@ -126,12 +126,17 @@ class TrunkFramework:
     def Solve(self, **kwargs):
 
         nlp = self.nlp
+
+        # Gather initial information.
         self.f      = self.nlp.obj(self.x)
         self.f0     = self.f
         self.g      = self.nlp.grad(self.x)  # Current  gradient
         self.g_old  = self.g                   # Previous gradient
         self.gnorm  = norms.norm2(self.g)
         self.g0     = self.gnorm
+
+        # Reset initial trust-region radius.
+        self.TR.Delta = 0.1 * self.g0
 
         if self.inexact:
             cgtol = 1.0

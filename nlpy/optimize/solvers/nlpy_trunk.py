@@ -21,7 +21,6 @@ def pass_to_trunk(nlp, showbanner=True):
     # When instantiating TrunkFramework of TrunkLbfgsFramework,
     # we select a trust-region subproblem solver of our choice.
     TRNK = solver(nlp, tr, TRSolver, silent=False, ny=True, inexact=True)
-    TRNK.TR.Delta = 0.1 * TRNK.gnorm         # Reset initial trust-region radius
     t_setup = cputime() - t                  # Setup time
 
     if showbanner:
