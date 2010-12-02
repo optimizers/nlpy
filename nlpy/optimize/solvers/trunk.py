@@ -10,9 +10,8 @@ from nlpy.optimize.solvers import lbfgs    # For preconditioning
 from nlpy.krylov.linop import SimpleLinearOperator
 from nlpy.tools import norms
 from nlpy.tools.timing import cputime
-import pdb
 import numpy
-import sys
+import logging
 from math import sqrt
 
 __docformat__ = 'restructuredtext'
@@ -47,7 +46,7 @@ class TrunkFramework:
                        be tolerated if monotone=False    (default 25)
         :logger:       a logger object that can be used in the post
                        iteration                         (default None)
-        :silent:       verbosity level                   (default False)
+        :verbose:      print log if True                 (default True)
 
     Once a `TrunkFramework` object has been instantiated and the problem is
     set up, solve problem by issuing a call to `TRNK.solve()`. The algorithm
@@ -80,7 +79,7 @@ class TrunkFramework:
         self.reltol  = kwargs.get('reltol', self.nlp.stop_d)
         self.abstol  = kwargs.get('abstol', 1.0e-6)
         self.maxiter = kwargs.get('maxiter', max(1000, 10*self.nlp.n))
-        self.silent  = kwargs.get('silent', False)
+        self.verbose = kwargs.get('verbose', True)
         self.ny      = kwargs.get('ny', False)
         self.nbk     = kwargs.get('nbk', 5)
         self.inexact = kwargs.get('inexact', False)
@@ -151,11 +150,11 @@ class TrunkFramework:
         t = cputime()
 
         # Print out header and initial log.
-        if not self.silent:
-            sys.stdout.write(self.hline)
-            sys.stdout.write(self.header)
-            sys.stdout.write(self.hline)
-            sys.stdout.write(self.format0 % (self.iter, self.f,
+        if self.iter % 20 == 0 and self.verbose:
+            self.log.info(self.hline)
+            self.log.info(self.header)
+            self.log.info(self.hline)
+            self.log.info(self.format0 % (self.iter, self.f,
                                              self.gnorm, '', '',
                                              self.TR.Delta, ''))
 
@@ -267,14 +266,14 @@ class TrunkFramework:
                 status = 'usr'
 
             # Print out header, say, every 20 iterations
-            if self.iter % 20 == 0 and not self.silent:
-                sys.stdout.write(self.hline)
-                sys.stdout.write(self.header)
-                sys.stdout.write(self.hline)
+            if self.iter % 20 == 0 and self.verbose:
+                self.log.info(self.hline)
+                self.log.info(self.header)
+                self.log.info(self.hline)
 
-            if not self.silent:
+            if self.verbose:
                 pstatus = status if status != 'Acc' else ''
-                sys.stdout.write(self.format % (self.iter, self.f,
+                self.log.info(self.format % (self.iter, self.f,
                           self.gnorm, niter, rho,
                           self.TR.Delta, pstatus))
 
