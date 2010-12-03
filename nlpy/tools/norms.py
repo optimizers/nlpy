@@ -17,6 +17,9 @@ def norm_infty(x):
 def normest(A, tol=1.0e-6, maxits=100):
     """
     Estimate the spectral norm of the matrix A.
+    The matrix should behave like a linear operator, i.e. allow for
+    matrix-vector products and transposed-matrix-vector products to
+    be performed via A*x and A.T*y.
     """
     m, n = A.shape
     itn = 0
