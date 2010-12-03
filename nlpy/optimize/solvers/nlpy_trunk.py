@@ -21,7 +21,6 @@ def pass_to_trunk(nlp, showbanner=True):
     # When instantiating TrunkFramework of TrunkLbfgsFramework,
     # we select a trust-region subproblem solver of our choice.
     TRNK = solver(nlp, tr, TRSolver, silent=False, ny=True, inexact=True)
-    TRNK.TR.Delta = 0.1 * TRNK.gnorm         # Reset initial trust-region radius
     t_setup = cputime() - t                  # Setup time
 
     if showbanner:
@@ -50,7 +49,7 @@ def pass_to_trunk(nlp, showbanner=True):
     print '  Number of gradient evals    : %-d' % TRNK.nlp.geval
     print '  Number of Hessian  evals    : %-d' % TRNK.nlp.Heval
     print '  Number of matvec products   : %-d' % TRNK.nlp.Hprod
-    print '  Total/Average Lanczos iter  : %-d/%-g' % (TRNK.cgiter, (float(TRNK.cgiter)/TRNK.iter))
+    print '  Total/Average Lanczos iter  : %-d/%-g' % (TRNK.total_cgiter, (float(TRNK.total_cgiter)/TRNK.iter))
     print '  Setup/Solve time            : %-gs/%-gs' % (t_setup, TRNK.tsolve)
     print '  Total time                  : %-gs' % (t_setup + TRNK.tsolve)
     print '-------------------------------'

@@ -59,12 +59,12 @@ class ProjectedCG( ProjectedKrylov ):
         specified. If any of the latter two cases apply, this module computes
         an initial x0 satisfying  A x0 = b, solves problem (2) with appropriate
         values of c and H and returns the final solution x+x0.
-    
+
         Unless A is explicitly specified, we assume that there are no equality
         constraints. In this case, the method reduces to the well-known
         conjugate gradient method. Similarly, unless b is explicitly specified,
         we assume that b = 0.
-    
+
         The symmetric matrix H need not be given explicitly. Instead, a
         function named 'matvec' may be provided, with prototype
 
@@ -332,7 +332,7 @@ class ProjectedCG( ProjectedKrylov ):
                 # Perform actual iterative refinement, if necessary
                 #self.Proj.refine( self.rhs, nitref=self.max_itref,
                 #                  tol=self.itref_tol )
-        
+
                 # Obtain new projected gradient
                 g = self.Proj.x[:n]
                 if self.precon is not None:
@@ -340,7 +340,7 @@ class ProjectedCG( ProjectedKrylov ):
                     self.A.matvec_transp( self.Proj.x[n:], self.v )
             else:
                 g = r
-                
+
             rg_next = numpy.dot(r,g)
             beta = rg_next/rg
             p = -g + beta * p
@@ -350,7 +350,7 @@ class ProjectedCG( ProjectedKrylov ):
             else:
                 r = g
             rg = rg_next
-                
+
             if self.radius is not None:
                 xNorm2 = numpy.dot( self.x, self.x )
             iter += 1

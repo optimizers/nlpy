@@ -64,7 +64,7 @@ class TrunkFramework:
         self.TrSolver = TrSolver
         self.solver   = None    # Will point to solver data in Solve()
         self.iter   = 0         # Iteration counter
-        self.cgiter = 0
+        self.total_cgiter = 0
         self.x      = kwargs.get('x0', self.nlp.x0)
         self.f      = None
         self.f0     = None
@@ -126,12 +126,17 @@ class TrunkFramework:
     def Solve(self, **kwargs):
 
         nlp = self.nlp
+
+        # Gather initial information.
         self.f      = self.nlp.obj(self.x)
         self.f0     = self.f
         self.g      = self.nlp.grad(self.x)  # Current  gradient
         self.g_old  = self.g                   # Previous gradient
         self.gnorm  = norms.norm2(self.g)
         self.g0     = self.gnorm
+
+        # Reset initial trust-region radius.
+        # self.TR.Delta = 0.1 * self.g0
 
         if self.inexact:
             cgtol = 1.0
@@ -188,14 +193,14 @@ class TrunkFramework:
 
             step = self.solver.step
             snorm = self.solver.stepNorm
-            niter = self.solver.niter
+            cgiter = self.solver.niter
 
             # Obtain model value at next candidate
             m = self.solver.m
             if m is None:
                 m = numpy.dot(self.g, step) + 0.5*numpy.dot(step, H * step)
 
-            self.cgiter += niter
+            self.total_cgiter += cgiter
             x_trial = self.x + step
             f_trial = nlp.obj(x_trial)
 
@@ -275,7 +280,7 @@ class TrunkFramework:
             if self.verbose:
                 pstatus = status if status != 'Acc' else ''
                 self.log.info(self.format % (self.iter, self.f,
-                          self.gnorm, niter, rho,
+                          self.gnorm, cgiter, rho,
                           self.TR.Delta, pstatus))
 
             exitOptimal = self.gnorm < stoptol
