@@ -19,7 +19,7 @@ class DerivativeChecker:
         `nlp` should be a `NLPModel` and `x` is the point about which we are
         checking the derivative.
         """
-        
+
         self.step = kwargs.get('step', sqrt(macheps))
         self.tol  = kwargs.get('tol', 100*sqrt(macheps))
 
@@ -78,7 +78,7 @@ class DerivativeChecker:
 
             for err in errs:
                 sys.stderr.write(err)
-                
+
         return
 
 
@@ -203,9 +203,6 @@ class DerivativeChecker:
         return errs
 
 
-
-
-
 if __name__ == '__main__':
 
     import sys
@@ -215,4 +212,3 @@ if __name__ == '__main__':
     derchk = DerivativeChecker(nlp, nlp.x0)
     derchk.check(verbose=True)
     nlp.close()
-    

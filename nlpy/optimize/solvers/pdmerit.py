@@ -20,7 +20,7 @@ D. Orban, Montreal
 """
 
 from nlpy.model        import NLPModel
-from pysparse.sparse   import spmatrix
+from pysparse.sparse   import PysparseMatrix as sp
 from nlpy.tools        import List
 from nlpy.tools.timing import cputime
 from nlpy.tools.norms  import norm2, norm_infty
@@ -45,16 +45,16 @@ class PrimalDualMeritFunction(NLPModel):
         self.nlp = nlp
         self.mu = kwargs.get('mu', 1.0)
 
-        # Shortcuts for convenience
-        self.lowerB  = np.array(self.nlp.lowerB, dtype=np.int)
-        self.upperB  = np.array(self.nlp.upperB, dtype=np.int)
-        self.rangeB  = np.array(self.nlp.rangeB, dtype=np.int)
-        self.nlowerB = nlp.nlowerB
-        self.nupperB = nlp.nupperB
-        self.nrangeB = nlp.nrangeB
+        # Shortcuts for convenience.
+        self.lowerB = np.array(nlp.lowerB)
+        self.upperB = np.array(nlp.upperB)
+        self.rangeB = np.array(nlp.rangeB)
+        self.rlB = np.arange(nlp.nlowerB)
+        self.ruB = np.arange(nlp.nupperB)
+        self.rrB = np.arange(nlp.nrangeB)
 
         # Number of dual variables
-        self.ndual = self.nlowerB + self.nupperB + 2 * self.nrangeB
+        self.ndual = nlp.nlowerB + nlp.nupperB + 2 * nlp.nrangeB
 
         # The multipliers z associated to bound constraints are ordered as
         # follows:
@@ -100,10 +100,10 @@ class PrimalDualMeritFunction(NLPModel):
         """
         mu = kwargs.get('mu', self.mu)
         f = kwargs.get('f', self.nlp.obj(x))
-        n = self.nlp.n
-        Lvar = self.nlp.Lvar ; Uvar = self.nlp.Uvar
-        lB = self.lowerB ; uB = self.upperB ; rB = self.rangeB
-        nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
+        nlp = self.nlp ; n = nlp.n
+        Lvar = nlp.Lvar ; Uvar = nlp.Uvar
+        lB = nlp.lowerB ; uB = nlp.upperB ; rB = nlp.rangeB
+        nlB = nlp.nlowerB ; nuB = nlp.nupperB ; nrB = nlp.nrangeB
 
         merit = f
 
@@ -134,33 +134,33 @@ class PrimalDualMeritFunction(NLPModel):
     def grad(self, x, z, **kwargs):
         """
         Evaluate the gradient of the primal-dual merit function at (x,z).
-        The gradient of the objective function at `x`, if known, can be passed via the
-        keyword argument `g`.
+        The gradient of the objective function at `x`, if known, can be passed
+        via the keyword argument `g`.
         See :meth:`PDMerit` for a description of `z`.
         """
         mu = kwargs.get('mu', self.mu)
         check_optimal = kwargs.get('check_optimal', False)
         gf = kwargs.get('g', None)
 
-        n = self.nlp.n
-        Lvar = self.nlp.Lvar ; Uvar = self.nlp.Uvar
-        lB = self.lowerB ; uB = self.upperB ; rB = self.rangeB
-        nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
+        nlp = self.nlp ; nx = nlp.n ; nz = self.ndual
+        Lvar = nlp.Lvar ; Uvar = nlp.Uvar
+        lB = nlp.lowerB ; uB = nlp.upperB ; rB = nlp.rangeB
+        nlB = nlp.nlowerB ; nuB = nlp.nupperB ; nrB = nlp.nrangeB
 
-        g = np.empty(n + self.ndual)
+        g = np.empty(nx + nz)
 
         # Gradient of the objective function.
         if gf is None:
-            g[:n] = self.nlp.grad(x)
+            g[:nx] = self.nlp.grad(x)
         else:
-            g[:n] = gf.copy()
+            g[:nx] = gf.copy()
 
         # Check optimality conditions at this point if requested.
         if check_optimal:
-            res, self.optimal = self.AtOptimality(x, z, g=g[:n])
+            res, self.optimal = self.AtOptimality(x, z, g=g[:nx])
             self.dRes = res[0] ; self.cRes = res[2] ; self.pRes = res[4]
 
-        # Segment z for conciseness.
+        # Segment s and z for conciseness.
         slB  = x[lB] - Lvar[lB] ; zlB  = z[:nlB]
         suB  = Uvar[uB] - x[uB] ; zuB  = z[nlB:nlB+nuB]
         srlB = x[rB] - Lvar[rB] ; zrlB = z[nlB+nuB:nlB+nuB+nrB]
@@ -168,18 +168,65 @@ class PrimalDualMeritFunction(NLPModel):
 
         # Assemble the gradient with respect to x.
         g[lB] += -2 * mu / slB  + zlB
-        g[uB] +=  2 * mu / suB  + zuB
+        g[uB] +=  2 * mu / suB  - zuB
         g[rB] += -2 * mu / srlB + zrlB
-        g[rB] +=  2 * mu / sruB + zruB
+        g[rB] +=  2 * mu / sruB - zruB
 
         # Assemble the gradient with respect to z.
         n1 = nlB ; n2 = n1 + nuB ; n3 = n2 + nrB
-        g[n:n+n1]    = slB  - mu/zlB
-        g[n+n1:n+n2] = suB  - mu/zuB
-        g[n+n2:n+n3] = srlB - mu/zrlB
-        g[n+n3:]     = sruB - mu/zruB
+        g[nx:nx+n1]    = slB  - mu / zlB
+        g[nx+n1:nx+n2] = suB  - mu / zuB
+        g[nx+n2:nx+n3] = srlB - mu / zrlB
+        g[nx+n3:]      = sruB - mu / zruB
 
         return g
+
+
+    def primal_hess(self, x, z, **kwargs):
+        """
+        Assemble the "primal" Hessian matrix of the merit function at (x,z).
+        The Hessian has the general form
+
+        [ H + 2 mu X^{-2}      I     ]
+        [      I           mu Z^{-2} ].
+        """
+        mu = kwargs.get('mu', self.mu)
+
+        nlp = self.nlp ; nx = nlp.n ; nz = self.ndual
+        Lvar = nlp.Lvar ; Uvar = nlp.Uvar
+        lB = nlp.lowerB ; uB = nlp.upperB ; rB = nlp.rangeB
+        nlB = nlp.nlowerB ; nuB = nlp.nupperB ; nrB = nlp.nrangeB
+        rlB = self.rlB ; ruB = self.ruB ; rrB = self.rrB
+
+        # Segment s and z for conciseness.
+        slB  = x[lB] - Lvar[lB] ; zlB  = z[:nlB]
+        suB  = Uvar[uB] - x[uB] ; zuB  = z[nlB:nlB+nuB]
+        srlB = x[rB] - Lvar[rB] ; zrlB = z[nlB+nuB:nlB+nuB+nrB]
+        sruB = Uvar[rB] - x[rB] ; zruB = z[nlB+nuB+nrB:]
+
+        H = sp(nrow=nx+nz, ncol=nx+nz,
+               sizeHint=self.nlp.nnzh+nz, symmetric=True)
+
+        # Leading block: H + 2 * mu X^{-2}.
+        H[:nx,:nx] = self.nlp.hess(x, self.nlp.pi0)
+        H.addAt(2 * mu/slB**2,  lB, lB)
+        H.addAt(2 * mu/suB**2,  uB, uB)
+        H.addAt(2 * mu/srlB**2, rB, rB)
+        H.addAt(2 * mu/sruB**2, rB, rB)
+
+        # Bottom left block: identity-ish.
+        n1 = nx + rlB                   ; H.put( 1, n1, lB)
+        n2 = nx + nlB + ruB             ; H.put(-1, n2, uB)
+        n3 = nx + nlB + nuB + rrB       ; H.put( 1, n3, rB)
+        n4 = nx + nlB + nuB + nrB + rrB ; H.put(-1, n4, rB)
+
+        # Bottom right block: mu * Z^{-2}.
+        H.put(mu/zlB**2,  n1, n1)
+        H.put(mu/zuB**2,  n2, n2)
+        H.put(mu/zrlB**2, n3, n3)
+        H.put(mu/zruB**2, n4, n4)
+
+        return H
 
 
     def primal_hprod(self, x, z, p, **kwargs):
@@ -188,16 +235,25 @@ class PrimalDualMeritFunction(NLPModel):
         primal-dual merit function at (x,z) and the vector p. See
         help(PDMerit) for a description of z. If there are b bounded variables
         and q two-sided bounds, the vector p should have length n+b+2q. The
-        Hessian matrix has the general form
+        Hessian-vector product has the general form
 
-            [ H + 2 mu X^{-2}      I     ]
-            [      I           mu Z^{-2} ].
+        [ H + 2 mu X^{-2}      I     ]   [ p1 ]   [ (H + 2 mu X^{-2}) p1 + p2 ]
+        [      I           mu Z^{-2} ] * [ p2 ] = [     p1 + mu Z^{-2} p2     ]
         """
         mu = kwargs.get('mu', self.mu)
+
         n = self.nlp.n
-        Lvar = self.nlp.Lvar
-        Uvar = self.nlp.Uvar
-        Hp = np.zeros(n + self.ndual, 'd')
+        Lvar = self.nlp.Lvar ; Uvar = self.nlp.Uvar
+        lB = self.lowerB ; uB = self.upperB ; rB = self.rangeB
+        nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
+
+        # Segment s and z for conciseness.
+        slB  = x[lB] - Lvar[lB] ; zlB  = z[:nlB]
+        suB  = Uvar[uB] - x[uB] ; zuB  = z[nlB:nlB+nuB]
+        srlB = x[rB] - Lvar[rB] ; zrlB = z[nlB+nuB:nlB+nuB+nrB]
+        sruB = Uvar[rB] - x[rB] ; zruB = z[nlB+nuB+nrB:]
+
+        Hp = np.zeros(n + self.ndual)
 
         Hp[:n] = self.nlp.hprod(self.nlp.pi0, p[:n])
         for i in self.lowerB:
@@ -346,7 +402,7 @@ class PrimalDualInteriorPointFramework:
         self.bound_rel_factor = 0.1
         self.bound_abs_factor = 0.1
 
-        self.maxiter       = kwargs.get('maxiter', max(100, 2*self.nlp.n))
+        self.maxiter       = kwargs.get('maxiter', max(100,2*self.merit.nlp.n))
         self.silent        = kwargs.get('silent',  False)
         self.ny            = kwargs.get('ny',      False)
         self.inexact       = kwargs.get('inexact', False)
@@ -356,26 +412,26 @@ class PrimalDualInteriorPointFramework:
         self.mu_min = 1.0e-09
 
         # Assemble the part of the primal-dual Hessian matrix that is constant.
-        n = self.nlp.n ; ndual = self.ndual
-        self.B = self.PDHessTemplate()
+        #self.B = self.PDHessTemplate()
 
         self.iter   = 0
         self.cgiter = 0
-        self.f      = None    # Used to record final objective function value.
-        self.psi    = None    # Used to record final merit function value.
-        self.gf     = None    # Used to record final objective function gradient.
-        self.g      = None    # Used to record final merit function gradient.
-        self.g_old  = None    # A previous gradient we may wish to keep around.
-        self.gNorm  = None    # Used to record final merit function gradient norm.
+        self.f      = None   # Objective function value.
+        self.psi    = None   # Merit function value.
+        self.gf     = None   # Objective function gradient.
+        self.g      = None   # Merit function gradient.
+        self.g_old  = None   # A previous gradient we may wish to keep around.
+        self.gNorm  = None   # Merit function gradient norm.
         self.save_g = False
 
-        self.hformat = ' %-5s  %8s  %7s  %7s  %7s  %7s  %5s  %8s  %8s  %4s\n'
-        head = ('Iter','f(x)','Resid','gPhi','mu','alpha','cg','rho','Delta','Stat')
+        self.hformat = '%-5s %8s %7s %7s %7s %7s %5s %8s %8s %4s\n'
+        head = ('Iter','f(x)','Resid','gPhi','mu','alpha',
+                'cg','rho','Delta','Stat')
         self.header  = self.hformat % head
         self.hlen    = len(self.header)
         self.hline   = '-' * self.hlen + '\n'
         self.itFormat = '%-5d  '
-        self.format='%8.1e  %7.1e  %7.1e  %7.1e  %7.1e  %5d  %8.1e  %8.1e  %4s\n'
+        self.format='%8.1e %7.1e %7.1e %7.1e %7.1e %5d %8.1e %8.1e %4s\n'
         self.printFrequency = 20
 
         # Optimality residuals, updated along the iterations
@@ -389,37 +445,38 @@ class PrimalDualInteriorPointFramework:
         return
 
 
-    def StartingPoint(self, **kwargs):
+    def get_feasible_point(self, **kwargs):
         """
         Compute a strictly feasible initial primal-dual estimate (x,z).
-        By default, x is taken as the starting point given in `nlp` and moved strictly
-        into the bounds, and z is taken as the vector of ones.
+        By default, x is taken as the starting point given in `nlp` and moved
+        strictly inside the bounds, and z is taken as the vector of ones.
         """
-        n = self.nlp.n
-        Lvar = self.nlp.Lvar ; lB = self.lowerB
-        Uvar = self.nlp.Uvar ; uB = self.upperB ; rB = self.rangeB
+        nlp = self.merit.nlp
+        n = nlp.n
+        Lvar = nlp.Lvar ; lB = nlp.lowerB
+        Uvar = nlp.Uvar ; uB = nlp.upperB ; rB = nlp.rangeB
         bnd_rel = self.bound_rel_factor ; bnd_abs = self.bound_abs_factor
 
-        x = self.nlp.x0[:]
+        x = nlp.x0[:]
 
         # Compute primal starting guess.
         x[lB] = np.maximum(x[lB],
-                           (1 + np.sign(Lvar[lB]) * bnd_rel) * Lvar[lB] + bnd_abs)
+                           (1+np.sign(Lvar[lB]) * bnd_rel)*Lvar[lB] + bnd_abs)
         x[uB] = np.maximum(x[uB],
-                           (1 - np.sign(Uvar[uB]) * bnd_rel) * Uvar[uB] + bnd_abs)
+                           (1-np.sign(Uvar[uB]) * bnd_rel)*Uvar[uB] + bnd_abs)
         x[rB] = (Lvar[rB] + Uvar[rB])/2
 
         # Compute dual starting guess.
-        z = np.ones(self.ndual)
+        z = np.ones(self.merit.ndual)
 
         return (x,z)
 
 
-    def PrimalMultipliers(self, x, **kwargs):
+    def primal_multipliers(self, x, **kwargs):
         """
-        Return the vector of primal multipliers at `x`. The value of the barrier
-        parameter used can either be supplied using the keyword argument `mu` or
-        the current value of the instance is used.
+        Return the vector of primal multipliers at `x`. The value of the
+        barrier parameter used can either be supplied using the keyword
+        argument `mu` or the current value of the instance is used.
         """
         mu = kwargs.get('mu', self.mu)
         Lvar = self.nlp.Lvar ; Uvar = self.nlp.Uvar
@@ -757,6 +814,7 @@ class _meritfunction(PrimalDualMeritFunction):
         # Not to be confused with nlp.n!
         # This is solely for the purpose of the derivative checker.
         self.n = nlp.n + self.ndual
+        self.m = 0
 
     def obj(self, xz, **kwargs):
         nx = self.nlp.n
@@ -766,12 +824,16 @@ class _meritfunction(PrimalDualMeritFunction):
         nx = self.nlp.n
         return PrimalDualMeritFunction.grad(self, xz[:nx], xz[nx:], **kwargs)
 
+    def hess(self, xz, *args, **kwargs):
+        nx = self.nlp.n
+        return PrimalDualMeritFunction.primal_hess(self, xz[:nx], xz[nx:],
+                                                   **kwargs)
 
 
 if __name__ == '__main__':
 
     from nlpy.model import AmplModel
-    # from nlpy.optimize.tr.trustregion import TrustRegionFramework, TrustRegionCG
+    from nlpy.optimize.tr.trustregion import TrustRegionFramework, TrustRegionCG
     from nlpy.tools.dercheck import DerivativeChecker
 
     # Set printing standards for arrays.
@@ -783,36 +845,38 @@ if __name__ == '__main__':
     nlp = AmplModel(prob)
     pdmerit = _meritfunction(nlp)
 
-#    # Initialize trust region framework.
-#    TR = TrustRegionFramework(Delta = 1.0,
-#                              eta1 = 0.0001,
-#                              eta2 = 0.95,
-#                              gamma1 = 1.0/3,
-#                              gamma2 = 2.5)
-#
-#    # Set up interior-point framework.
-#    TRIP = PrimalDualInteriorPointFramework(
-#                nlp,
-#                TR,
-#                TrustRegionCG,
-#                silent = False,
+    # Initialize trust region framework.
+    TR = TrustRegionFramework(Delta = 1.0,
+                              eta1 = 0.0001,
+                              eta2 = 0.95,
+                              gamma1 = 1.0/3,
+                              gamma2 = 2.5)
+
+    # Set up interior-point framework.
+    TRIP = PrimalDualInteriorPointFramework(
+                pdmerit,
+                TR,
+                TrustRegionCG,
+                silent = False,
 #                #ny = True,
 #                #inexact = True,
 #                debug = False,
 #                maxiter = 150,
 #                mu = 1.0
-#                )
+                )
 
-    (x, z) = (pdmerit.x, pdmerit.z)
+    (x, z) = TRIP.get_feasible_point()
     xz0 = np.concatenate((x,z))
     print 'Initial  x: ', x
     print 'Initial mu: ', pdmerit.mu
     print 'Initial  z: ', z
     print 'merit(x,z)= ', pdmerit.obj(xz0)
+    print 'grad(x,z) = ', pdmerit.grad(xz0)
+    print 'hess(x,z) = ' ; print pdmerit.hess(xz0)
 
     # Check derivatives at initial point.
     derchk = DerivativeChecker(pdmerit, xz0)
-    derchk.check(verbose=True, hess=False, jac=False, chess=False)
+    derchk.check(verbose=True, hess=True, jac=False, chess=False)
 
     # Solve problem
     # TRIP.SolveOuter()
