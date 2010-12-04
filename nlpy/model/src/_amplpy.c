@@ -1222,6 +1222,7 @@ static PyObject *AmplPy_Prod_Hv(PyObject *self, PyObject *args) {
     /* Indicates weight on the objective function */
     /* Set to 1 by defaut in the Python wrapper.  */
     OW[0]  = objtype[0] ? -obj_weight : obj_weight;
+    // printf("Using OW[0] = %g\n", OW[0]);
 
     dim[0] = n_var;
     a_Hv = (PyArrayObject *)PyArray_SimpleNew(1, dim, NPY_FLOAT64);
@@ -1232,12 +1233,108 @@ static PyObject *AmplPy_Prod_Hv(PyObject *self, PyObject *args) {
     PY2C_1DARRAY(a_v, v, dim);
     PY2C_1DARRAY(a_lambda, y, dim);
 
+    // int j;
+    // printf("y=[ ");
+    // for (j=0 ; j < n_con ; j++) printf("%g ", y[j]);
+    // printf("]\n");
+    // printf("v=[ ");
+    // for (j=0 ; j < n_var ; j++) printf("%g ", v[j]);
+    // printf("]\n");
+
     /* Evaluate matrix-vector product Hv */
     hvpinit_ASL((ASL*)asl, ihd_limit, -1, OW, y);
     hvcomp(hv, v, -1, OW, y);
 
+    // printf("hv=[ ");
+    // for (j=0 ; j < n_var ; j++) printf("%g ", hv[j]);
+    // printf("]\n");
+
     /* Return Hv */
     return Py_BuildValue( "N", PyArray_Return( a_Hv ) );
+}
+
+/* ========================================================================== */
+
+static char AmplPy_Prod_gHiv_Doc[] = "Compute the vector of dot products (g,Hi*v) of with the constraint Hessians.";
+
+static PyObject *AmplPy_Prod_gHiv( PyObject *self, PyObject *args ) {
+
+    PyArrayObject *a_v, *a_g, *a_gHiv;
+    npy_intp       dim[1], dims[1];
+    real          *y, *v, *g, *hv, *ghiv, prod;
+    int            i, j;
+
+    /* We read the vectors g and v and the multipliers y. */
+    if( !PyArg_ParseTuple( args, "O!O!",
+                           &PyArray_Type, &a_g, &PyArray_Type, &a_v ) )
+    return NULL;
+    if( a_g->descr->type_num != NPY_FLOAT64 ) return NULL;
+    if( a_v->descr->type_num != NPY_FLOAT64 ) return NULL;
+
+    if( !a_v ) return NULL;                            /* conversion error */
+    if( a_v->nd != 1 ) return NULL;             /* v must have 1 dimension */
+    if( a_v->dimensions[0] != n_var ) return NULL;       /* and size n_var */
+    PyArray_XDECREF( a_v );
+
+    if( !a_g ) return NULL;                            /* conversion error */
+    if( a_g->nd != 1 ) return NULL;             /* v must have 1 dimension */
+    if( a_g->dimensions[0] != n_var ) return NULL;       /* and size n_var */
+    PyArray_XDECREF( a_g );
+
+    dims[0] = n_con;
+    a_gHiv = (PyArrayObject *)PyArray_SimpleNew( 1, dims, NPY_FLOAT64 );
+    if( a_gHiv == NULL ) return NULL;
+    ghiv = (real *)a_gHiv->data;
+
+    /* Get pointers to contiguous version of v and g. */
+    PY2C_1DARRAY(a_v, v, dim);
+    PY2C_1DARRAY(a_g, g, dim);
+
+    /* Evaluate each dot-matrix-vector products (g,Hi*v) in turn. */
+    hv = (real *)malloc(n_var * sizeof(real));
+    if (hv == NULL) return NULL;
+    y = (real *)malloc(n_con * sizeof(real));
+    if (y == NULL) {
+        free(hv);
+        return NULL;
+    }
+
+    // printf("g=[ ");
+    // for (j=0 ; j < n_var ; j++) printf("%g ", g[j]);
+    // printf("]\n");
+    // printf("v=[ ");
+    // for (j=0 ; j < n_var ; j++) printf("%g ", v[j]);
+    // printf("]\n");
+
+    for (j=0 ; j < n_con ; j++) y[j] = 0.;
+
+    for (i=0 ; i < n_con ; i++) {
+        // Set vector of multipliers to (0, 0, ..., -1, ..., 0).
+        y[i] = -1.;
+
+        // printf("y=[ ");
+        // for (j=0 ; j < n_con ; j++) printf("%g ", y[j]);
+        // printf("]\n");
+
+        // Compute Hi * v by setting OW to NULL.
+        hvpinit_ASL((ASL*)asl, ihd_limit, -1, NULL, y);
+        hvcomp(hv, v, -1, NULL, y);
+
+        // printf("Hiv=[ ");
+        // for (j=0 ; j < n_var ; j++) printf("%g ", hv[j]);
+        // printf("]\n");
+
+        // Compute dot product (g, Hi*v). Should use BLAS.
+        for (j=0, prod=0 ; j < n_var ; j++) prod += (hv[j] * g[j]);
+        ghiv[i] = prod;
+        y[i] = 0.;
+    }
+    free(y);
+    free(hv);
+
+    /* Return gHiv */
+    return PyArray_Return( a_gHiv );
+>>>>>>> cc86f57... New ghivprod method to AmplModel.
 }
 
 /* ========================================================================== */
@@ -1325,13 +1422,14 @@ static PyMethodDef AmplPyMethods[] = {
   {"eval_ci",   AmplPy_Eval_ci,       METH_VARARGS, AmplPy_Eval_ci_Doc       },
   {"eval_gi",   AmplPy_Eval_gi,       METH_VARARGS, AmplPy_Eval_gi_Doc       },
   {"eval_sgi",  AmplPy_Eval_sgi,      METH_VARARGS, AmplPy_Eval_sgi_Doc      },
-  {"eval_sgrad", AmplPy_Eval_sgrad,    METH_VARARGS, AmplPy_Eval_sgrad_Doc   },
+  {"eval_sgrad",AmplPy_Eval_sgrad,    METH_VARARGS, AmplPy_Eval_sgrad_Doc    },
   {"eval_cost", AmplPy_Eval_cost,     METH_VARARGS, AmplPy_Eval_cost_Doc     },
   {"eval_row",  AmplPy_Eval_row,      METH_VARARGS, AmplPy_Eval_row_Doc      },
   {"eval_J",    AmplPy_Eval_J,        METH_VARARGS, AmplPy_Eval_J_Doc        },
   {"eval_A",    AmplPy_Eval_A,        METH_VARARGS, AmplPy_Eval_A_Doc        },
   {"eval_H",    AmplPy_Eval_H,        METH_VARARGS, AmplPy_Eval_H_Doc        },
   {"H_prod",    AmplPy_Prod_Hv,       METH_VARARGS, AmplPy_Prod_Hv_Doc       },
+  {"gHi_prod",  AmplPy_Prod_gHiv,     METH_VARARGS, AmplPy_Prod_gHiv_Doc     },
   {"is_lp",     AmplPy_IsLP,          METH_VARARGS, AmplPy_IsLP_Doc          },
   {"set_x",     AmplPy_Set_x,         METH_VARARGS, AmplPy_Set_x_Doc         },
   {"unset_x",   AmplPy_Unset_x,       METH_VARARGS, AmplPy_Unset_x_Doc       },

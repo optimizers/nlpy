@@ -814,6 +814,13 @@ class AmplModel(NLPModel):
         self.Hprod += 1
         return _amplpy.H_prod(z, v, 0.)
 
+    def ghivprod(self, g, v, **kwargs):
+        """
+        Evaluate the vector of dot products (g, Hi*v) where Hi is the Hessian
+        of the i-th constraint.
+        """
+        return _amplpy.gHi_prod(g, v)
+
     def islp(self):
         """
         Determines whether problem is a linear programming problem.
