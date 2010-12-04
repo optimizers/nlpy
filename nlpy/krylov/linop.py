@@ -14,6 +14,8 @@ class LinearOperator:
         self.nargin = nargin
         self.nargout = nargout
         self.shape = (nargout, nargin)
+        self.nMatvec = 0
+        self.nMatvecTransp = 0
 
         # Log activity.
         self.logger = kwargs.get('logger', None)
@@ -87,7 +89,7 @@ class SimpleLinearOperator(LinearOperator):
         self.transposed = kwargs.get('transposed', False)
         transpose_of = kwargs.get('transpose_of', None)
 
-        self.__mul__ = matvec
+        self.matvec = matvec
 
         if symmetric:
             self.T = self
@@ -112,6 +114,13 @@ class SimpleLinearOperator(LinearOperator):
                     msg += ' Got ' + str(transpose_of.__class__)
                     raise ValueError, msg
 
+    def __mul__(self, x):
+        if self.transposed:
+            self.nMatvecTransp += 1
+        else:
+            self.nMatvec += 1
+        return self.matvec(x)
+
 
 
 class PysparseLinearOperator(LinearOperator):
@@ -132,18 +141,18 @@ class PysparseLinearOperator(LinearOperator):
 
             LinearOperator.__init__(self, m, n, **kwargs)
             #self.shape = (self.nargin, self.nargout)
-            if hasattr(A, '__rmul__'):
-                self.__mul__ = A.__rmul__
-            else:
-                self.__mul__ = self._rmul
+            #if hasattr(A, '__rmul__'):
+            #    self.__mul__ = A.__rmul__
+            #else:
+            self.__mul__ = self._rmul
 
         else:
 
             LinearOperator.__init__(self, n, m, **kwargs)
-            if hasattr(A, '__mul__'):
-                self.__mul__ = A.__mul__
-            else:
-                self.__mul__ = self._mul
+            #if hasattr(A, '__mul__'):
+            #    self.__mul__ = A.__mul__
+            #else:
+            self.__mul__ = self._mul
 
         if self.logger is not None:
             self.logger.info('New linop has transposed='+str(self.transposed))
@@ -175,6 +184,12 @@ class PysparseLinearOperator(LinearOperator):
             msg = 'Input has shape ' + str(x.shape)
             msg += ' instead of (%d,)' % self.nargin
             raise ValueError, msg
+        if self.transposed:
+            self.nMatvecTransp += 1
+        else:
+            self.nMatvec += 1
+        if hasattr(self.A, '__mul__'):
+            return self.A.__mul__(x)
         Ax = np.empty(self.nargout)
         self.A.matvec(x, Ax)
         return Ax
@@ -187,6 +202,12 @@ class PysparseLinearOperator(LinearOperator):
             msg = 'Input has shape ' + str(y.shape)
             msg += ' instead of (%d,)' % self.nargin
             raise ValueError, msg
+        if self.transposed:
+            self.nMatvec += 1
+        else:
+            self.nMatvecTransp += 1
+        if hasattr(self.A, '__rmul__'):
+            return self.A.__rmul__(y)
         ATy = np.empty(self.nargout)   # This is the transposed op's nargin!
         self.A.matvec_transp(y, ATy)
         return ATy
@@ -234,10 +255,12 @@ class SquaredLinearOperator(LinearOperator):
 
 
     def _mul(self, x):
+        self.nMatvec += 1
         return self.A.T * (self.A * x)
 
 
     def _rmul(self, x):
+        self.nMatvecTransp += 1
         return self.A * (self.A.T * x)
 
 
