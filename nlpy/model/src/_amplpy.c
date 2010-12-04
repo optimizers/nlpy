@@ -1334,7 +1334,6 @@ static PyObject *AmplPy_Prod_gHiv( PyObject *self, PyObject *args ) {
 
     /* Return gHiv */
     return PyArray_Return( a_gHiv );
->>>>>>> cc86f57... New ghivprod method to AmplModel.
 }
 
 /* ========================================================================== */
