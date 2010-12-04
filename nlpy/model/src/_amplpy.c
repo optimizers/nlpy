@@ -367,7 +367,7 @@ static PyObject *AmplPy_Get_x0( PyObject *self, PyObject *args ) {
     for( i=0; i<n_var; i++ )
         px0[i] = X0[i];
 
-    return PyArray_Return( a_x0 );
+    return Py_BuildValue("N", PyArray_Return( a_x0 ));
 }
 
 /* ========================================================================== */
@@ -389,7 +389,7 @@ static PyObject *AmplPy_Get_pi0( PyObject *self, PyObject *args ) {
     for( i=0; i<n_con; i++ )
         ppi0[i] = pi0[i];
 
-    return PyArray_Return( a_pi0 );
+    return Py_BuildValue("N", PyArray_Return( a_pi0 ));
 }
 
 /* ========================================================================== */
@@ -411,7 +411,7 @@ static PyObject *AmplPy_Get_Lvar( PyObject *self, PyObject *args ) {
     for( i=0; i<n_var; i++ )
         pluv[i] = LUv[i];
 
-    return PyArray_Return( a_luv );
+    return Py_BuildValue("N", PyArray_Return( a_luv ));
 }
 
 /* ========================================================================== */
@@ -433,7 +433,7 @@ static PyObject *AmplPy_Get_Uvar( PyObject *self, PyObject *args ) {
     for( i=0; i<n_var; i++ )
         puvx[i] = Uvx[i];
 
-    return PyArray_Return( a_uvx );
+    return Py_BuildValue("N", PyArray_Return( a_uvx ));
 }
 
 /* ========================================================================== */
@@ -455,7 +455,7 @@ static PyObject *AmplPy_Get_Lcon( PyObject *self, PyObject *args ) {
     for( i=0; i<n_con; i++ )
         plurhs[i] = LUrhs[i];
 
-    return PyArray_Return( a_lurhs );
+    return Py_BuildValue("N",PyArray_Return( a_lurhs ));
 }
 
 /* ========================================================================== */
@@ -477,7 +477,7 @@ static PyObject *AmplPy_Get_Ucon( PyObject *self, PyObject *args ) {
     for( i=0; i<n_con; i++ )
         purhsx[i] = Urhsx[i];
 
-    return PyArray_Return( a_urhsx );
+    return Py_BuildValue("N", PyArray_Return( a_urhsx ));
 }
 
 /* ========================================================================== */
@@ -546,7 +546,7 @@ static PyObject *AmplPy_Grad_obj( PyObject *self, PyObject *args ) {
     objgrd( 0, (real *)a_x->data, (real *)a_g->data, &nerror );
     if( nerror ) return NULL;
 
-    return PyArray_Return( a_g );
+    return Py_BuildValue("N", PyArray_Return( a_g ));
 }
 
 /* ========================================================================== */
@@ -587,7 +587,7 @@ static PyObject *AmplPy_Eval_cons( PyObject *self, PyObject *args ) {
         return NULL;
     }
 
-    return PyArray_Return( a_c );
+    return Py_BuildValue("N", PyArray_Return( a_c ));
 }
 
 /* ========================================================================== */
@@ -665,7 +665,7 @@ static PyObject *AmplPy_Eval_J( PyObject *self, PyObject *args ) {
             }
 
         /* Return the triple ( J, irow, icol ) */
-        return Py_BuildValue( "OOO",
+        return Py_BuildValue( "NNN",
                               PyArray_Return( a_J ),
                               PyArray_Return( a_irow ),
                               PyArray_Return( a_icol ) );
@@ -779,7 +779,7 @@ static PyObject *AmplPy_Eval_gi( PyObject *self, PyObject *args ) {
     if( nerror ) return NULL;
 
     /* Return dense gradient */
-    return PyArray_Return( a_gi );
+    return Py_BuildValue("N",PyArray_Return( a_gi ));
 }
 
 /* ========================================================================== */
@@ -1102,7 +1102,7 @@ static PyObject *AmplPy_Eval_H( PyObject *self, PyObject *args ) {
         }
 
         /* Return the triple ( H, irow, icol ) */
-        return Py_BuildValue( "OOO",
+        return Py_BuildValue( "NNN",
                               PyArray_Return( a_H ),
                               PyArray_Return( a_irow ),
                               PyArray_Return( a_icol ) );
@@ -1180,9 +1180,7 @@ static PyObject *AmplPy_Prod_Hv( PyObject *self, PyObject *args ) {
     hv = (real *)a_Hv->data;
 
     /* Get pointers to contiguous versions of v and lambda. */
-    dim[0] = n_var;
     PY2C_1DARRAY(a_v, v, dim);
-    dim[0] = n_con;
     PY2C_1DARRAY(a_lambda, y, dim);
 
     /* Evaluate matrix-vector product Hv */
@@ -1190,7 +1188,7 @@ static PyObject *AmplPy_Prod_Hv( PyObject *self, PyObject *args ) {
     hvcomp(hv, v, -1, OW, y);
 
     /* Return Hv */
-    return Py_BuildValue( "O", PyArray_Return( a_Hv ) );
+    return Py_BuildValue( "N", PyArray_Return( a_Hv ) );
 }
 
 /* ========================================================================== */
