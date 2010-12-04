@@ -1222,7 +1222,6 @@ static PyObject *AmplPy_Prod_Hv(PyObject *self, PyObject *args) {
     /* Indicates weight on the objective function */
     /* Set to 1 by defaut in the Python wrapper.  */
     OW[0]  = objtype[0] ? -obj_weight : obj_weight;
-    // printf("Using OW[0] = %g\n", OW[0]);
 
     dim[0] = n_var;
     a_Hv = (PyArrayObject *)PyArray_SimpleNew(1, dim, NPY_FLOAT64);
@@ -1233,21 +1232,9 @@ static PyObject *AmplPy_Prod_Hv(PyObject *self, PyObject *args) {
     PY2C_1DARRAY(a_v, v, dim);
     PY2C_1DARRAY(a_lambda, y, dim);
 
-    // int j;
-    // printf("y=[ ");
-    // for (j=0 ; j < n_con ; j++) printf("%g ", y[j]);
-    // printf("]\n");
-    // printf("v=[ ");
-    // for (j=0 ; j < n_var ; j++) printf("%g ", v[j]);
-    // printf("]\n");
-
     /* Evaluate matrix-vector product Hv */
     hvpinit_ASL((ASL*)asl, ihd_limit, -1, OW, y);
     hvcomp(hv, v, -1, OW, y);
-
-    // printf("hv=[ ");
-    // for (j=0 ; j < n_var ; j++) printf("%g ", hv[j]);
-    // printf("]\n");
 
     /* Return Hv */
     return Py_BuildValue( "N", PyArray_Return( a_Hv ) );
@@ -1299,34 +1286,25 @@ static PyObject *AmplPy_Prod_gHiv( PyObject *self, PyObject *args ) {
         return NULL;
     }
 
-    // printf("g=[ ");
-    // for (j=0 ; j < n_var ; j++) printf("%g ", g[j]);
-    // printf("]\n");
-    // printf("v=[ ");
-    // for (j=0 ; j < n_var ; j++) printf("%g ", v[j]);
-    // printf("]\n");
-
     for (j=0 ; j < n_con ; j++) y[j] = 0.;
 
-    for (i=0 ; i < n_con ; i++) {
+    // Skip linear constraints.
+    for (i=nlc ; i < n_con ; i++) ghiv[i] = 0.;
+
+    // Process nonlinear constraints.
+    for (i=0 ; i < nlc ; i++) {
         // Set vector of multipliers to (0, 0, ..., -1, ..., 0).
         y[i] = -1.;
-
-        // printf("y=[ ");
-        // for (j=0 ; j < n_con ; j++) printf("%g ", y[j]);
-        // printf("]\n");
 
         // Compute Hi * v by setting OW to NULL.
         hvpinit_ASL((ASL*)asl, ihd_limit, -1, NULL, y);
         hvcomp(hv, v, -1, NULL, y);
 
-        // printf("Hiv=[ ");
-        // for (j=0 ; j < n_var ; j++) printf("%g ", hv[j]);
-        // printf("]\n");
-
         // Compute dot product (g, Hi*v). Should use BLAS.
         for (j=0, prod=0 ; j < n_var ; j++) prod += (hv[j] * g[j]);
         ghiv[i] = prod;
+
+        // Reset i-th multiplier.
         y[i] = 0.;
     }
     free(y);
