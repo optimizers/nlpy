@@ -315,7 +315,7 @@ static PyObject *AmplPy_Get_ConType(PyObject *self, PyObject *args) {
      *     [3] linear    constraints.
      */
 
-    for(i = 0; i < n_con - nlc - nlnc; i++) {
+    for (i = 0; i < n_con - nlc - nlnc; i++) {
         item = (PyObject *)PyInt_FromLong(nlc + nlnc + i);
         if (PyList_Append(lin, item)) {
             Py_DECREF(lin);
@@ -323,7 +323,7 @@ static PyObject *AmplPy_Get_ConType(PyObject *self, PyObject *args) {
         }
     }
 
-    for(i = 0; i < nlc; i++) {
+    for (i = 0; i < nlc; i++) {
         item = (PyObject *)PyInt_FromLong(i);
         if (PyList_Append(nln, item)) {
             Py_DECREF(nln);
@@ -331,7 +331,7 @@ static PyObject *AmplPy_Get_ConType(PyObject *self, PyObject *args) {
         }
     }
 
-    for(i = 0; i < nlnc; i++) {
+    for (i = 0; i < nlnc; i++) {
         item = (PyObject *)PyInt_FromLong(nlc + i);
         if (PyList_Append(net, item)) {
             Py_DECREF(net);
@@ -370,7 +370,7 @@ static PyObject *AmplPy_Get_x0(PyObject *self, PyObject *args) {
     a_x0 = (PyArrayObject *)PyArray_SimpleNew(1, dx0, NPY_FLOAT64);
     if (a_x0 == NULL) return NULL;
     px0  = (real *)a_x0->data;
-    for(i=0; i<n_var; i++)
+    for (i=0; i<n_var; i++)
         px0[i] = X0[i];
 
     return Py_BuildValue("N", PyArray_Return( a_x0 ));
@@ -392,7 +392,7 @@ static PyObject *AmplPy_Get_pi0(PyObject *self, PyObject *args) {
     a_pi0 = (PyArrayObject *)PyArray_SimpleNew(1, dpi0, NPY_FLOAT64);
     if (a_pi0 == NULL) return NULL;
     ppi0  = (real *)a_pi0->data;
-    for(i=0; i<n_con; i++)
+    for (i=0; i<n_con; i++)
         ppi0[i] = pi0[i];
 
     return Py_BuildValue("N", PyArray_Return( a_pi0 ));
@@ -414,7 +414,7 @@ static PyObject *AmplPy_Get_Lvar(PyObject *self, PyObject *args) {
     a_luv = (PyArrayObject *)PyArray_SimpleNew(1, dluv, NPY_FLOAT64);
     if (a_luv == NULL) return NULL;
     pluv  = (real *)a_luv->data;
-    for(i=0; i<n_var; i++)
+    for (i=0; i<n_var; i++)
         pluv[i] = LUv[i];
 
     return Py_BuildValue("N", PyArray_Return( a_luv ));
@@ -436,7 +436,7 @@ static PyObject *AmplPy_Get_Uvar(PyObject *self, PyObject *args) {
     a_uvx = (PyArrayObject *)PyArray_SimpleNew(1, duvx, NPY_FLOAT64);
     if (a_uvx == NULL) return NULL;
     puvx  = (real *)a_uvx->data;
-    for(i=0; i<n_var; i++)
+    for (i=0; i<n_var; i++)
         puvx[i] = Uvx[i];
 
     return Py_BuildValue("N", PyArray_Return( a_uvx ));
@@ -458,7 +458,7 @@ static PyObject *AmplPy_Get_Lcon(PyObject *self, PyObject *args) {
     a_lurhs = (PyArrayObject *)PyArray_SimpleNew(1, dlurhs, NPY_FLOAT64);
     if (a_lurhs == NULL) return NULL;
     plurhs  = (real *)a_lurhs->data;
-    for(i=0; i<n_con; i++)
+    for (i=0; i<n_con; i++)
         plurhs[i] = LUrhs[i];
 
     return Py_BuildValue("N",PyArray_Return( a_lurhs ));
@@ -480,7 +480,7 @@ static PyObject *AmplPy_Get_Ucon(PyObject *self, PyObject *args) {
     a_urhsx = (PyArrayObject *)PyArray_SimpleNew(1, durhsx, NPY_FLOAT64);
     if (a_urhsx == NULL) return NULL;
     purhsx  = (real *)a_urhsx->data;
-    for(i=0; i<n_con; i++)
+    for (i=0; i<n_con; i++)
         purhsx[i] = Urhsx[i];
 
     return Py_BuildValue("N", PyArray_Return( a_urhsx ));
@@ -682,8 +682,8 @@ static PyObject *AmplPy_Eval_J(PyObject *self, PyObject *args) {
         pirow  = (long *)a_irow->data;
         picol  = (long *)a_icol->data;
 
-        for(i=0; i<n_con; i++)
-            for(cg = Cgrad[i]; cg; cg = cg->next) {
+        for (i=0; i<n_con; i++)
+            for (cg = Cgrad[i]; cg; cg = cg->next) {
                 pirow[ cg->goff ] = (long)i;
                 picol[ cg->goff ] = (long)(cg->varno);
             }
@@ -709,8 +709,8 @@ static PyObject *AmplPy_Eval_J(PyObject *self, PyObject *args) {
         }
 
         /* Create sparse Jacobian structure. */
-        for(i=0; i<n_con; i++) {
-          for(cg = Cgrad[i]; cg; cg = cg->next) {
+        for (i=0; i<n_con; i++) {
+          for (cg = Cgrad[i]; cg; cg = cg->next) {
             irow = (long)i;
             jcol = (long)(cg->varno);
             SpMatrix_LLMatSetItem((LLMatObject *)spJac, irow, jcol, J[cg->goff]);
@@ -834,7 +834,7 @@ static PyObject *AmplPy_Eval_cost(PyObject *self, PyObject *args) {
     cost = PyDict_New();
     if (!cost) return NULL;
 
-    for(og = Ograd[0]; og; og = og->next) {
+    for (og = Ograd[0]; og; og = og->next) {
         key = (PyObject *)PyInt_FromLong(og->varno);
         val = (PyObject *)PyFloat_FromDouble(og->coef);
         PyDict_SetItem(cost, key, val);
@@ -883,7 +883,7 @@ static PyObject *AmplPy_Eval_sgrad(PyObject *self, PyObject *args) {
 
     /* Count number of nonzeros */
     nzg = 0;
-    for(og = Ograd[0]; og; og = og->next) nzg++;
+    for (og = Ograd[0]; og; og = og->next) nzg++;
 
     /* Make room and evaluate i-th constraint at x */
     grad_f = (double *)malloc(nzg * sizeof(double));
@@ -895,7 +895,7 @@ static PyObject *AmplPy_Eval_sgrad(PyObject *self, PyObject *args) {
     sg = PyDict_New();
     if (!sg) return NULL;
     j = 0;
-    for(og = Ograd[0]; og; og = og->next) {
+    for (og = Ograd[0]; og; og = og->next) {
         key = (PyObject *)PyInt_FromLong(og->varno);
         val = (PyObject *)PyFloat_FromDouble(grad_f[j]);
         PyDict_SetItem(sg, key, val);
@@ -932,7 +932,7 @@ static PyObject *AmplPy_Eval_row(PyObject *self, PyObject *args) {
     row = PyDict_New();
     if (!row) return NULL;
 
-    for(cg = Cgrad[i]; cg; cg = cg->next) {
+    for (cg = Cgrad[i]; cg; cg = cg->next) {
         key = (PyObject *)PyInt_FromLong(cg->varno);
         val = (PyObject *)PyFloat_FromDouble(cg->coef);
         PyDict_SetItem(row, key, val);
@@ -966,9 +966,9 @@ static PyObject *AmplPy_Eval_A(PyObject *self, PyObject *args) {
         spJac = SpMatrix_NewLLMatObject(dim, GENERAL, nnzj);
 
     /* Create sparse Jacobian structure. */
-    for(i=0; i<n_con; i++) {
+    for (i=0; i<n_con; i++) {
         irow = (long)i;
-        for(cg = Cgrad[i]; cg; cg = cg->next) {
+        for (cg = Cgrad[i]; cg; cg = cg->next) {
             jcol = (long)(cg->varno);
             SpMatrix_LLMatSetItem((LLMatObject *)spJac, irow, jcol, cg->coef);
         }
@@ -1030,7 +1030,7 @@ static PyObject *AmplPy_Eval_sgi(PyObject *self, PyObject *args) {
 
     /* Count number of nonzeros in gi */
     nzgi = 0;
-    for(cg = Cgrad[i]; cg; cg = cg->next) nzgi++;
+    for (cg = Cgrad[i]; cg; cg = cg->next) nzgi++;
 
     /* Make room and evaluate i-th constraint at x */
     grad_ci = (double *)malloc(nzgi * sizeof(double));
@@ -1042,7 +1042,7 @@ static PyObject *AmplPy_Eval_sgi(PyObject *self, PyObject *args) {
     sgi = PyDict_New();
     if (!sgi) return NULL;
     j = 0;
-    for(cg = Cgrad[i]; cg; cg = cg->next) {
+    for (cg = Cgrad[i]; cg; cg = cg->next) {
         key = (PyObject *)PyInt_FromLong(cg->varno);
         val = (PyObject *)PyFloat_FromDouble(grad_ci[j]);
         PyDict_SetItem(sgi, key, val);
@@ -1142,8 +1142,8 @@ static PyObject *AmplPy_Eval_H(PyObject *self, PyObject *args) {
         picol  = (long *)a_icol->data;
 
         k = 0;
-        for(i=0; i<n_var; i++) {
-            for(j=sputinfo->hcolstarts[i]; j<sputinfo->hcolstarts[i+1]; j++) {
+        for (i=0; i<n_var; i++) {
+            for (j=sputinfo->hcolstarts[i]; j<sputinfo->hcolstarts[i+1]; j++) {
                 pirow[k] = sputinfo->hrownos[j];
                 picol[k] = i;
                 k++;
@@ -1172,8 +1172,8 @@ static PyObject *AmplPy_Eval_H(PyObject *self, PyObject *args) {
          * Ampl returns the upper triangle of H. PySparse wants the
          * lower triangle. Accommodate by reversing indices.
          */
-        for(i=0; i<n_var; i++)
-          for(j=sputinfo->hcolstarts[i]; j<sputinfo->hcolstarts[i+1]; j++)
+        for (i=0; i<n_var; i++)
+          for (j=sputinfo->hcolstarts[i]; j<sputinfo->hcolstarts[i+1]; j++)
             SpMatrix_LLMatSetItem((LLMatObject *)spHess,
                                   i,
                                   sputinfo->hrownos[j],
