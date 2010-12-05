@@ -684,20 +684,22 @@ class AmplModel(NLPModel):
         sri = sv.SparseVector(self.n, sri_dict)
         return sri
 
-    def A(self, *args):
+    def A(self, *args, **kwargs):
         """
         Evaluate sparse Jacobian of the linear part of the
         constraints. Useful to obtain constraint matrix
         when problem is a linear programming problem.
         """
+        store_zeros = kwargs.get('store_zeros', False)
+        store_zeros = 1 if store_zeros else 0
         if len(args) == 1:
             if type(args[0]).__name__ == 'll_mat':
-                return _amplpy.eval_A(args[0])
+                return _amplpy.eval_A(store_zeros,args[0])
             else:
                 return None
-        return _amplpy.eval_A()
+        return _amplpy.eval_A(store_zeros)
 
-    def jac(self, x, *args):
+    def jac(self, x, *args, **kwargs):
         """
         Evaluate sparse Jacobian of constraints at x.
         Returns a sparse matrix in format self.mformat
@@ -705,26 +707,24 @@ class AmplModel(NLPModel):
 
         The constraints appear in the following order:
 
-        1) equalities
-
-        2) lower bound only
-
-        3) upper bound only
-
-        4) range constraints.
+        1. equalities
+        2. lower bound only
+        3. upper bound only
+        4. range constraints.
         """
+        store_zeros = kwargs.get('store_zeros', False)
+        store_zeros = 1 if store_zeros else 0
         if len(args) > 0:
             if type(args[0]).__name__ == 'll_mat':
-                self.Jeval += 1
-                J = _amplpy.eval_J(x, self.mformat, args[0])
+                J = _amplpy.eval_J(x, self.mformat, args[0], store_zeros)
             else:
                 return None
         else:
-            self.Jeval += 1
-            J = _amplpy.eval_J(x, self.mformat)
+            J = _amplpy.eval_J(x, self.mformat, store_zeros)
+        self.Jeval += 1
         return J #[self.permC,:]
 
-    def jacPos(self, x):
+    def jacPos(self, x, **kwargs):
         """
         Convenience function to evaluate the Jacobian matrix of the constraints
         reformulated as
@@ -755,14 +755,17 @@ class AmplModel(NLPModel):
         than' constraints is flipped, and `JR` is the Jacobian of the 'less
         than' side of range constraints.
         """
+        store_zeros = kwargs.get('store_zeros', False)
+        store_zeros = 1 if store_zeros else 0
         n = self.n ; m = self.m ; nrangeC = self.nrangeC
         upperC = self.upperC ; rangeC = self.rangeC
 
         # Initialize sparse Jacobian
-        J = sp(nrow=m + nrangeC, ncol=n, sizeHint=self.nnzj+10*nrangeC)
+        J = sp(nrow=m + nrangeC, ncol=n, sizeHint=self.nnzj+10*nrangeC,
+               storeZeros=store_zeros)
 
         # Insert contribution of general constraints
-        J[:m,:n] = self.jac(x) #[self.permC,:]
+        J[:m,:n] = self.jac(x, store_zeros=store_zeros) #[self.permC,:]
         J[upperC,:n] *= -1                 # Flip sign of 'upper' gradients
         J[m:,:n] = -J[rangeC,:n]           # Append 'upper' side of range const.
         return J
@@ -778,14 +781,19 @@ class AmplModel(NLPModel):
         appears as if the problem were a minimization problem.
         """
         obj_weight = kwargs.get('obj_weight', 1.0)
+        store_zeros = kwargs.get('store_zeros', False)
+        store_zeros = 1 if store_zeros else 0
         if len(args) > 0:
             if type(args[0]).__name__ == 'll_mat':
-                return _amplpy.eval_H(x, z, self.mformat, obj_weight, args[0])
+                H = _amplpy.eval_H(x, z, self.mformat, obj_weight, args[0],
+                                      store_zeros)
             else:
                 return None
         else:
-            self.Heval += 1
-            return _amplpy.eval_H(x, z, self.mformat, obj_weight)
+            H = _amplpy.eval_H(x, z, self.mformat, obj_weight, store_zeros)
+        self.Heval += 1
+        return H
+
 
     def hprod(self, z, v, **kwargs):
         """

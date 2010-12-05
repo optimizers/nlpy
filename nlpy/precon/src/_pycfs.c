@@ -247,7 +247,7 @@ static PyObject *Pycfs_pcg( PycfsObject *self, PyObject *args ) {
     pb = (double *)a_b->data;
     x  = (double *)a_x->data;
     d  = (double *)a_d->data;
-    
+
     /* Set max number of iterations */
     if( maxiter <= 0 ) maxiter = self->n;
     if( maxiter < 100 ) maxiter = 100;
@@ -321,8 +321,8 @@ static PyObject *Pycfs_fetch( PycfsObject *self, PyObject *args ) {
     nnzL = self->lcolptr[ self->n ] - 1;
     //printf( " dim = [%-d, %-d], nnzL = %-d\n", dim[0], dim[1], nnzL );
     /* L is a lower triangular matrix */
-    L = (LLMatObject *)SpMatrix_NewLLMatObject( dim, GENERAL, nnzL + self->n );
-    
+    L = (LLMatObject *)SpMatrix_NewLLMatObject( dim, GENERAL, nnzL + self->n, 0 );
+
     // debug
     //printf( " lcolptr = [ " );
     //for( i = 0; i < self->n + 1; i++ )
