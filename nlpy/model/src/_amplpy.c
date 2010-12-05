@@ -622,6 +622,7 @@ static PyObject *AmplPy_Eval_J(PyObject *self, PyObject *args) {
     /* ----------------------------- */
     PyArrayObject *a_x;                   /* Current point as a Numeric Array */
     int    coord;     /* Determine whether coordinate or LL format is desired */
+    int    store_zeros;
     npy_intp dim[1];
     real *x;
 
@@ -647,7 +648,8 @@ static PyObject *AmplPy_Eval_J(PyObject *self, PyObject *args) {
 
     /* Read an array and an integer, and possibly a Jacobian matrix */
 
-    if (!PyArg_ParseTuple(args, "O!i|O", &PyArray_Type, &a_x, &coord, &spJac))
+    if (!PyArg_ParseTuple(args, "O!ii|O", &PyArray_Type, &a_x, &coord,
+                                          &store_zeros, &spJac))
       return NULL;
     if (a_x->descr->type_num != NPY_FLOAT64) return NULL;
 
@@ -697,7 +699,7 @@ static PyObject *AmplPy_Eval_J(PyObject *self, PyObject *args) {
     } else {  /* Return Jacobian in LL format */
 
         if (!PassedJ)
-            spJac = SpMatrix_NewLLMatObject(dimJ, GENERAL, nnzj);
+            spJac = SpMatrix_NewLLMatObject(dimJ, GENERAL, nnzj, store_zeros);
 
         J = (real *)Malloc(nnzj * sizeof(real));
 
@@ -948,12 +950,12 @@ static char AmplPy_Eval_A_Doc[] = "Evaluate Jacobian for LPs.";
 static PyObject *AmplPy_Eval_A(PyObject *self, PyObject *args) {
 
     long      irow, jcol;
-    int       PassedJ = 1, nnzj, i;
+    int       PassedJ = 1, store_zeros, nnzj, i;
     cgrad    *cg;
     PyObject *spJac = NULL;
     int       dim[2] = {n_con, n_var};
 
-    if (!PyArg_ParseTuple(args, "|O", &spJac))
+    if (!PyArg_ParseTuple(args, "i|O", &store_zeros, &spJac))
         return NULL;
 
     /* See if sparse matrix was passed as argument */
@@ -963,7 +965,7 @@ static PyObject *AmplPy_Eval_A(PyObject *self, PyObject *args) {
     nnzj = n_con ? nzc : 1;
 
     if (!PassedJ)
-        spJac = SpMatrix_NewLLMatObject(dim, GENERAL, nnzj);
+        spJac = SpMatrix_NewLLMatObject(dim, GENERAL, nnzj, store_zeros);
 
     /* Create sparse Jacobian structure. */
     for (i=0; i<n_con; i++) {
@@ -1077,6 +1079,7 @@ static PyObject *AmplPy_Eval_H(PyObject *self, PyObject *args) {
     /* ----------------------------- */
     PyArrayObject *a_x, *a_lambda;       /* Current points as a Numeric Array */
     int            coord;  /* Determine whether coord or LL format is desired */
+    int            store_zeros;
     npy_intp dim[1];
     real *y;
 
@@ -1102,9 +1105,10 @@ static PyObject *AmplPy_Eval_H(PyObject *self, PyObject *args) {
 
     /* Read two arrays and an integer */
 
-    if (!PyArg_ParseTuple(args, "O!O!id|O",
+    if (!PyArg_ParseTuple(args, "O!O!idi|O",
                &PyArray_Type, &a_x,
-               &PyArray_Type, &a_lambda, &coord, &obj_weight, &spHess))
+               &PyArray_Type, &a_lambda, &coord, &obj_weight,
+               &store_zeros, &spHess))
     return NULL;
     if (a_x->descr->type_num != NPY_FLOAT64) return NULL;
     if (a_lambda->descr->type_num != NPY_FLOAT64) return NULL;
@@ -1164,7 +1168,7 @@ static PyObject *AmplPy_Eval_H(PyObject *self, PyObject *args) {
 
         /* Allocate sparse symmetric Hessian data structure */
         if (!PassedH) {
-          spHess = SpMatrix_NewLLMatObject(dimH, SYMMETRIC, nnzh);
+          spHess = SpMatrix_NewLLMatObject(dimH, SYMMETRIC, nnzh, store_zeros);
           if (!spHess) return NULL;
         }
 

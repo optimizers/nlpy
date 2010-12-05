@@ -16,7 +16,7 @@ if __name__ == '__main__':
     n = 10  # Must have n > 4.
     A = SimpleLinearOperator(n, n, lambda v: np.arange(1,n+1)*v, symmetric=True)
     b = np.ones(n)
-    
+
     M = DiagonalPreconditioner(np.arange(1,n+1))
     for i in range(1,4): M[i] = 1.0
 
