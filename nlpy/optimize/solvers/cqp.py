@@ -530,7 +530,7 @@ class RegQPInteriorPointSolver:
                 rhs[n:]    = -pFeas
 
                 (step, nres, neig) = self.solveSystem(rhs)
-                
+
                 # Recover dx and dz.
                 dx = step[:n]
                 ds = dx[on:]
@@ -807,7 +807,7 @@ class RegQPInteriorPointSolver29(RegQPInteriorPointSolver):
 
         # Overwrite A with scaled matrix.
         self.A.put(values,irow,jcol)
-        
+
         # Apply row scaling to right-hand side b.
         self.b *= row_scale
 
@@ -819,7 +819,7 @@ class RegQPInteriorPointSolver29(RegQPInteriorPointSolver):
         self.col_scale = col_scale
 
         self.prob_scaled = True
-        
+
         return
 
     def unscale(self, **kwargs):

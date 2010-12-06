@@ -622,6 +622,7 @@ static PyObject *AmplPy_Eval_J(PyObject *self, PyObject *args) {
     /* ----------------------------- */
     PyArrayObject *a_x;                   /* Current point as a Numeric Array */
     int    coord;     /* Determine whether coordinate or LL format is desired */
+    int    store_zeros;
     npy_intp dim[1];
     real *x;
 
@@ -647,7 +648,8 @@ static PyObject *AmplPy_Eval_J(PyObject *self, PyObject *args) {
 
     /* Read an array and an integer, and possibly a Jacobian matrix */
 
-    if (!PyArg_ParseTuple(args, "O!i|O", &PyArray_Type, &a_x, &coord, &spJac))
+    if (!PyArg_ParseTuple(args, "O!ii|O", &PyArray_Type, &a_x, &coord,
+                                          &store_zeros, &spJac))
       return NULL;
     if (a_x->descr->type_num != NPY_FLOAT64) return NULL;
 
@@ -697,7 +699,7 @@ static PyObject *AmplPy_Eval_J(PyObject *self, PyObject *args) {
     } else {  /* Return Jacobian in LL format */
 
         if (!PassedJ)
-            spJac = SpMatrix_NewLLMatObject(dimJ, GENERAL, nnzj);
+            spJac = SpMatrix_NewLLMatObject(dimJ, GENERAL, nnzj, store_zeros);
 
         J = (real *)Malloc(nnzj * sizeof(real));
 
@@ -948,12 +950,12 @@ static char AmplPy_Eval_A_Doc[] = "Evaluate Jacobian for LPs.";
 static PyObject *AmplPy_Eval_A(PyObject *self, PyObject *args) {
 
     long      irow, jcol;
-    int       PassedJ = 1, nnzj, i;
+    int       PassedJ = 1, store_zeros, nnzj, i;
     cgrad    *cg;
     PyObject *spJac = NULL;
     int       dim[2] = {n_con, n_var};
 
-    if (!PyArg_ParseTuple(args, "|O", &spJac))
+    if (!PyArg_ParseTuple(args, "i|O", &store_zeros, &spJac))
         return NULL;
 
     /* See if sparse matrix was passed as argument */
@@ -963,7 +965,7 @@ static PyObject *AmplPy_Eval_A(PyObject *self, PyObject *args) {
     nnzj = n_con ? nzc : 1;
 
     if (!PassedJ)
-        spJac = SpMatrix_NewLLMatObject(dim, GENERAL, nnzj);
+        spJac = SpMatrix_NewLLMatObject(dim, GENERAL, nnzj, store_zeros);
 
     /* Create sparse Jacobian structure. */
     for (i=0; i<n_con; i++) {
@@ -1077,6 +1079,7 @@ static PyObject *AmplPy_Eval_H(PyObject *self, PyObject *args) {
     /* ----------------------------- */
     PyArrayObject *a_x, *a_lambda;       /* Current points as a Numeric Array */
     int            coord;  /* Determine whether coord or LL format is desired */
+    int            store_zeros;
     npy_intp dim[1];
     real *y;
 
@@ -1102,9 +1105,10 @@ static PyObject *AmplPy_Eval_H(PyObject *self, PyObject *args) {
 
     /* Read two arrays and an integer */
 
-    if (!PyArg_ParseTuple(args, "O!O!id|O",
+    if (!PyArg_ParseTuple(args, "O!O!idi|O",
                &PyArray_Type, &a_x,
-               &PyArray_Type, &a_lambda, &coord, &obj_weight, &spHess))
+               &PyArray_Type, &a_lambda, &coord, &obj_weight,
+               &store_zeros, &spHess))
     return NULL;
     if (a_x->descr->type_num != NPY_FLOAT64) return NULL;
     if (a_lambda->descr->type_num != NPY_FLOAT64) return NULL;
@@ -1164,7 +1168,7 @@ static PyObject *AmplPy_Eval_H(PyObject *self, PyObject *args) {
 
         /* Allocate sparse symmetric Hessian data structure */
         if (!PassedH) {
-          spHess = SpMatrix_NewLLMatObject(dimH, SYMMETRIC, nnzh);
+          spHess = SpMatrix_NewLLMatObject(dimH, SYMMETRIC, nnzh, store_zeros);
           if (!spHess) return NULL;
         }
 
@@ -1222,7 +1226,6 @@ static PyObject *AmplPy_Prod_Hv(PyObject *self, PyObject *args) {
     /* Indicates weight on the objective function */
     /* Set to 1 by defaut in the Python wrapper.  */
     OW[0]  = objtype[0] ? -obj_weight : obj_weight;
-    // printf("Using OW[0] = %g\n", OW[0]);
 
     dim[0] = n_var;
     a_Hv = (PyArrayObject *)PyArray_SimpleNew(1, dim, NPY_FLOAT64);
@@ -1233,24 +1236,86 @@ static PyObject *AmplPy_Prod_Hv(PyObject *self, PyObject *args) {
     PY2C_1DARRAY(a_v, v, dim);
     PY2C_1DARRAY(a_lambda, y, dim);
 
-    // int j;
-    // printf("y=[ ");
-    // for (j=0 ; j < n_con ; j++) printf("%g ", y[j]);
-    // printf("]\n");
-    // printf("v=[ ");
-    // for (j=0 ; j < n_var ; j++) printf("%g ", v[j]);
-    // printf("]\n");
-
     /* Evaluate matrix-vector product Hv */
     hvpinit_ASL((ASL*)asl, ihd_limit, -1, OW, y);
     hvcomp(hv, v, -1, OW, y);
 
-    // printf("hv=[ ");
-    // for (j=0 ; j < n_var ; j++) printf("%g ", hv[j]);
-    // printf("]\n");
-
     /* Return Hv */
     return Py_BuildValue( "N", PyArray_Return( a_Hv ) );
+}
+
+/* ========================================================================== */
+
+static char AmplPy_Prod_gHiv_Doc[] = "Compute the vector of dot products (g,Hi*v) of with the constraint Hessians.";
+
+static PyObject *AmplPy_Prod_gHiv( PyObject *self, PyObject *args ) {
+
+    PyArrayObject *a_v, *a_g, *a_gHiv;
+    npy_intp       dim[1], dims[1];
+    real          *y, *v, *g, *hv, *ghiv, prod;
+    int            i, j;
+
+    /* We read the vectors g and v and the multipliers y. */
+    if( !PyArg_ParseTuple( args, "O!O!",
+                           &PyArray_Type, &a_g, &PyArray_Type, &a_v ) )
+    return NULL;
+    if( a_g->descr->type_num != NPY_FLOAT64 ) return NULL;
+    if( a_v->descr->type_num != NPY_FLOAT64 ) return NULL;
+
+    if( !a_v ) return NULL;                            /* conversion error */
+    if( a_v->nd != 1 ) return NULL;             /* v must have 1 dimension */
+    if( a_v->dimensions[0] != n_var ) return NULL;       /* and size n_var */
+    PyArray_XDECREF( a_v );
+
+    if( !a_g ) return NULL;                            /* conversion error */
+    if( a_g->nd != 1 ) return NULL;             /* v must have 1 dimension */
+    if( a_g->dimensions[0] != n_var ) return NULL;       /* and size n_var */
+    PyArray_XDECREF( a_g );
+
+    dims[0] = n_con;
+    a_gHiv = (PyArrayObject *)PyArray_SimpleNew( 1, dims, NPY_FLOAT64 );
+    if( a_gHiv == NULL ) return NULL;
+    ghiv = (real *)a_gHiv->data;
+
+    /* Get pointers to contiguous version of v and g. */
+    PY2C_1DARRAY(a_v, v, dim);
+    PY2C_1DARRAY(a_g, g, dim);
+
+    /* Evaluate each dot-matrix-vector products (g,Hi*v) in turn. */
+    hv = (real *)malloc(n_var * sizeof(real));
+    if (hv == NULL) return NULL;
+    y = (real *)malloc(n_con * sizeof(real));
+    if (y == NULL) {
+        free(hv);
+        return NULL;
+    }
+
+    for (j=0 ; j < n_con ; j++) y[j] = 0.;
+
+    // Skip linear constraints.
+    for (i=nlc ; i < n_con ; i++) ghiv[i] = 0.;
+
+    // Process nonlinear constraints.
+    for (i=0 ; i < nlc ; i++) {
+        // Set vector of multipliers to (0, 0, ..., -1, ..., 0).
+        y[i] = -1.;
+
+        // Compute Hi * v by setting OW to NULL.
+        hvpinit_ASL((ASL*)asl, ihd_limit, -1, NULL, y);
+        hvcomp(hv, v, -1, NULL, y);
+
+        // Compute dot product (g, Hi*v). Should use BLAS.
+        for (j=0, prod=0 ; j < n_var ; j++) prod += (hv[j] * g[j]);
+        ghiv[i] = prod;
+
+        // Reset i-th multiplier.
+        y[i] = 0.;
+    }
+    free(y);
+    free(hv);
+
+    /* Return gHiv */
+    return PyArray_Return( a_gHiv );
 }
 
 /* ========================================================================== */
