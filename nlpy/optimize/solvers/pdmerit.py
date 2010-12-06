@@ -50,8 +50,8 @@ class PrimalDualMeritFunction(NLPModel):
         self.upperB = np.array(nlp.upperB)
         self.rangeB = np.array(nlp.rangeB)
         self.rlB = np.arange(nlp.nlowerB)
-        self.ruB = np.arange(nlp.nupperB)
-        self.rrB = np.arange(nlp.nrangeB)
+        self.ruB = nlp.nlowerB + np.arange(nlp.nupperB)
+        self.rrB = nlp.nlowerB + nlp.nupperB + np.arange(nlp.nrangeB)
 
         # Number of dual variables
         self.ndual = nlp.nlowerB + nlp.nupperB + 2 * nlp.nrangeB
@@ -184,8 +184,7 @@ class PrimalDualMeritFunction(NLPModel):
 
     def primal_hess(self, x, z, **kwargs):
         """
-        Assemble the "primal" Hessian matrix of the merit function at (x,z).
-        The Hessian has the general form
+        Assemble the "primal" Hessian matrix of the merit function at (x,z):
 
         [ H + 2 mu X^{-2}      I     ]
         [      I           mu Z^{-2} ].
@@ -215,10 +214,10 @@ class PrimalDualMeritFunction(NLPModel):
         H.addAt(2 * mu/sruB**2, rB, rB)
 
         # Bottom left block: identity-ish.
-        n1 = nx + rlB                   ; H.put( 1, n1, lB)
-        n2 = nx + nlB + ruB             ; H.put(-1, n2, uB)
-        n3 = nx + nlB + nuB + rrB       ; H.put( 1, n3, rB)
-        n4 = nx + nlB + nuB + nrB + rrB ; H.put(-1, n4, rB)
+        n1 = nx + rlB       ; H.put( 1, n1, lB)
+        n2 = nx + ruB       ; H.put(-1, n2, uB)
+        n3 = nx + rrB       ; H.put( 1, n3, rB)
+        n4 = nx + nrB + rrB ; H.put(-1, n4, rB)
 
         # Bottom right block: mu * Z^{-2}.
         H.put(mu/zlB**2,  n1, n1)
@@ -242,10 +241,13 @@ class PrimalDualMeritFunction(NLPModel):
         """
         mu = kwargs.get('mu', self.mu)
 
-        n = self.nlp.n
-        Lvar = self.nlp.Lvar ; Uvar = self.nlp.Uvar
-        lB = self.lowerB ; uB = self.upperB ; rB = self.rangeB
-        nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
+        nlp = self.nlp
+        nx = nlp.n ; nz = self.ndual
+        Lvar = nlp.Lvar ; Uvar = nlp.Uvar
+        lB = nlp.lowerB   ; uB = nlp.upperB   ; rB = nlp.rangeB
+        nlB = nlp.nlowerB ; nuB = nlp.nupperB ; nrB = nlp.nrangeB
+        rlB = self.rlB ; ruB = self.ruB ; rrB = self.rrB
+        rrB2 = nlB + nuB + nrB + rrB
 
         # Segment s and z for conciseness.
         slB  = x[lB] - Lvar[lB] ; zlB  = z[:nlB]
@@ -253,24 +255,19 @@ class PrimalDualMeritFunction(NLPModel):
         srlB = x[rB] - Lvar[rB] ; zrlB = z[nlB+nuB:nlB+nuB+nrB]
         sruB = Uvar[rB] - x[rB] ; zruB = z[nlB+nuB+nrB:]
 
-        Hp = np.zeros(n + self.ndual)
+        Hp = np.empty(nx + nz) ; p1 = p[:nx] ; p2 = p[nx:]
 
-        Hp[:n] = self.nlp.hprod(self.nlp.pi0, p[:n])
-        for i in self.lowerB:
-            k = self.lowerB.index(i)
-            Hp[i] += 2.0 * mu/(x[i] - Lvar[i])**2 * p[i] + p[n+k]
-            Hp[n+k] += p[i] + mu/z[k]**2 * p[n+k]
-        for i in self.upperB:
-            k = self.nlowerB + self.upperB.index(i)
-            Hp[i] += 2.0 * mu/(Uvar[i] - x[i])**2 * p[i] - p[n+k]
-            Hp[n+k] += -p[i] - mu/z[k]**2 * p[n+k]
-        for i in self.rangeB:
-            k = self.nlowerB + self.nupperB + self.rangeB.index(i)
-            Hp[i] += 2.0 * mu/(x[i] - Lvar[i])**2 * p[i] + p[n+k]
-            Hp[n+k] += p[i] + mu/z[k]**2 * p[n+k]
-            k += self.nrangeB
-            Hp[i] += 2.0 * mu/(Uvar[i] - x[i])**2 * p[i] - p[n+k]
-            Hp[n+k] += -p[i] + mu/z[k]**2 * p[n+k]
+        # Contributions from first block row.
+        Hp[:nx] = self.nlp.hprod(self.nlp.pi0, p1)
+        Hp[lB] += 2 * mu/slB**2 * p1[lB] + p2[rlB]
+        Hp[uB] += 2 * mu/suB**2 * p1[uB] - p2[nlB+ruB]
+        Hp[rB] += 2 * (mu/srlB**2 + mu/sruB**2) * p1[rB] + p2[rrB] - p2[rrB2]
+
+        # Contributsions from second block row.
+        Hp[nx+rlB]             =  p1[lB] + mu/zlB**2  * p2[rlB]
+        Hp[nx+nlB+ruB]         = -p1[uB] + mu/zuB**2  * p2[ruB]
+        Hp[nx+nlB+nuB+rrB]     =  p1[rB] + mu/zrlB**2 * p2[rrB]
+        Hp[nx+nlB+nuB+nrB+rrB] = -p1[rB] + mu/zruB**2 * p2[rrB2]
 
         return Hp
 
@@ -829,10 +826,16 @@ class _meritfunction(PrimalDualMeritFunction):
         return PrimalDualMeritFunction.primal_hess(self, xz[:nx], xz[nx:],
                                                    **kwargs)
 
+    def hprod(self, xz, *args, **kwargs):
+        nx = self.nlp.n
+        return PrimalDualMeritFunction.primal_hprod(self, xz[:nx], xz[nx:],
+                                                    p, **kwargs)
+
 
 if __name__ == '__main__':
 
     from nlpy.model import AmplModel
+    from nlpy.krylov.linop import PysparseLinearOperator
     from nlpy.optimize.tr.trustregion import TrustRegionFramework, TrustRegionCG
     from nlpy.tools.dercheck import DerivativeChecker
 
@@ -844,6 +847,7 @@ if __name__ == '__main__':
     # Initialize problem.
     nlp = AmplModel(prob)
     pdmerit = _meritfunction(nlp)
+    (nx, nz) = (pdmerit.nlp.n, pdmerit.ndual)
 
     # Initialize trust region framework.
     TR = TrustRegionFramework(Delta = 1.0,
@@ -872,11 +876,28 @@ if __name__ == '__main__':
     print 'Initial  z: ', z
     print 'merit(x,z)= ', pdmerit.obj(xz0)
     print 'grad(x,z) = ', pdmerit.grad(xz0)
-    print 'hess(x,z) = ' ; print pdmerit.hess(xz0)
+    H = pdmerit.hess(xz0)
+    print 'hess(x,z) = ' ; print H
 
     # Check derivatives at initial point.
     derchk = DerivativeChecker(pdmerit, xz0)
     derchk.check(verbose=True, hess=True, jac=False, chess=False)
+
+    # Test Hessian-vector products.
+    err_matvec = 0
+    Hop = PysparseLinearOperator(H)
+    for i in range(10):
+        p = np.random.randn(nx+nz)
+        hp1 = Hop*p
+        hp2 = pdmerit.hprod(xz0, p)
+        err = np.linalg.norm(hp1-hp2)/(1 + np.linalg.norm(hp1))
+        if err > 1.0e-12:
+            err_matvec += 1
+            print 'Inaccurate matvec:'
+            print hp1
+            print hp2
+
+    print 'Found %d inaccurate matvecs.' % err_matvec
 
     # Solve problem
     # TRIP.SolveOuter()
