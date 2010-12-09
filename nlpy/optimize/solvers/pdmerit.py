@@ -54,7 +54,10 @@ class PrimalDualMeritFunction(NLPModel):
         self.rrB = nlp.nlowerB + nlp.nupperB + np.arange(nlp.nrangeB)
 
         # Number of dual variables
-        self.ndual = nlp.nlowerB + nlp.nupperB + 2 * nlp.nrangeB
+        self.nz = nlp.nlowerB + nlp.nupperB + 2 * nlp.nrangeB
+
+        # Total number of variables.
+        self.n = self.nlp.n + self.nz
 
         # The multipliers z associated to bound constraints are ordered as
         # follows:
@@ -65,7 +68,7 @@ class PrimalDualMeritFunction(NLPModel):
         #  xi <= Ui (i in rangeB) : z[nlowerB+nupper+nrangeB:]
 
         # Set appropriate primal-dual starting point
-        (self.x, self.z) = (nlp.x0, np.ones(self.ndual))
+        (self.x, self.z) = (nlp.x0, np.ones(self.nz))
         assert np.all(self.z > 0)
 
 
@@ -142,7 +145,7 @@ class PrimalDualMeritFunction(NLPModel):
         check_optimal = kwargs.get('check_optimal', False)
         gf = kwargs.get('g', None)
 
-        nlp = self.nlp ; nx = nlp.n ; nz = self.ndual
+        nlp = self.nlp ; nx = nlp.n ; nz = self.nz
         Lvar = nlp.Lvar ; Uvar = nlp.Uvar
         lB = nlp.lowerB ; uB = nlp.upperB ; rB = nlp.rangeB
         nlB = nlp.nlowerB ; nuB = nlp.nupperB ; nrB = nlp.nrangeB
@@ -191,7 +194,7 @@ class PrimalDualMeritFunction(NLPModel):
         """
         mu = kwargs.get('mu', self.mu)
 
-        nlp = self.nlp ; nx = nlp.n ; nz = self.ndual
+        nlp = self.nlp ; nx = nlp.n ; nz = self.nz
         Lvar = nlp.Lvar ; Uvar = nlp.Uvar
         lB = nlp.lowerB ; uB = nlp.upperB ; rB = nlp.rangeB
         nlB = nlp.nlowerB ; nuB = nlp.nupperB ; nrB = nlp.nrangeB
@@ -204,7 +207,7 @@ class PrimalDualMeritFunction(NLPModel):
         sruB = Uvar[rB] - x[rB] ; zruB = z[nlB+nuB+nrB:]
 
         H = sp(nrow=nx+nz, ncol=nx+nz,
-               sizeHint=self.nlp.nnzh+nz, symmetric=True)
+               sizeHint=self.nlp.nnzh+3*nz, symmetric=True)
 
         # Leading block: H + 2 * mu X^{-2}.
         H[:nx,:nx] = self.nlp.hess(x, self.nlp.pi0)
@@ -236,13 +239,12 @@ class PrimalDualMeritFunction(NLPModel):
         and q two-sided bounds, the vector p should have length n+b+2q. The
         Hessian-vector product has the general form
 
-        [ H + 2 mu X^{-2}      I     ]   [ p1 ]   [ (H + 2 mu X^{-2}) p1 + p2 ]
-        [      I           mu Z^{-2} ] * [ p2 ] = [     p1 + mu Z^{-2} p2     ]
+        [ H + 2 mu X^{-2}      I     ] [ p1 ]   [ (H + 2 mu X^{-2}) p1 + p2 ]
+        [      I           mu Z^{-2} ] [ p2 ] = [     p1 + mu Z^{-2} p2     ].
         """
         mu = kwargs.get('mu', self.mu)
 
-        nlp = self.nlp
-        nx = nlp.n ; nz = self.ndual
+        nlp = self.nlp ; nx = nlp.n ; nz = self.nz
         Lvar = nlp.Lvar ; Uvar = nlp.Uvar
         lB = nlp.lowerB   ; uB = nlp.upperB   ; rB = nlp.rangeB
         nlB = nlp.nlowerB ; nuB = nlp.nupperB ; nrB = nlp.nrangeB
@@ -272,6 +274,53 @@ class PrimalDualMeritFunction(NLPModel):
         return Hp
 
 
+    def primal_dual_hess(self, x, z, **kwargs):
+        """
+        Assemble the "primal-dual" Hessian matrix of the merit function
+        at (x,z):
+
+        [ H + 2 X^{-1} Z     I     ]
+        [      I          Z^{-1} X ].
+        """
+        mu = kwargs.get('mu', self.mu)
+
+        nlp = self.nlp ; nx = nlp.n ; nz = self.nz
+        Lvar = nlp.Lvar ; Uvar = nlp.Uvar
+        lB = nlp.lowerB ; uB = nlp.upperB ; rB = nlp.rangeB
+        nlB = nlp.nlowerB ; nuB = nlp.nupperB ; nrB = nlp.nrangeB
+        rlB = self.rlB ; ruB = self.ruB ; rrB = self.rrB
+
+        # Segment s and z for conciseness.
+        slB  = x[lB] - Lvar[lB] ; zlB  = z[:nlB]
+        suB  = Uvar[uB] - x[uB] ; zuB  = z[nlB:nlB+nuB]
+        srlB = x[rB] - Lvar[rB] ; zrlB = z[nlB+nuB:nlB+nuB+nrB]
+        sruB = Uvar[rB] - x[rB] ; zruB = z[nlB+nuB+nrB:]
+
+        H = sp(nrow=nx+nz, ncol=nx+nz,
+               sizeHint=self.nlp.nnzh+3*nz, symmetric=True)
+
+        # Leading block: H + 2 * mu X^{-2}.
+        H[:nx,:nx] = self.nlp.hess(x, self.nlp.pi0)
+        H.addAt(2 * zlB / slB, lB, lB)
+        H.addAt(2 * zuB / suB, uB, uB)
+        H.addAt(2 * zrlB/srlB, rB, rB)
+        H.addAt(2 * zruB/sruB, rB, rB)
+
+        # Bottom left block: identity-ish.
+        n1 = nx + rlB       ; H.put( 1, n1, lB)
+        n2 = nx + ruB       ; H.put(-1, n2, uB)
+        n3 = nx + rrB       ; H.put( 1, n3, rB)
+        n4 = nx + nrB + rrB ; H.put(-1, n4, rB)
+
+        # Bottom right block: mu * Z^{-2}.
+        H.put(slB / zlB, n1, n1)
+        H.put(suB / zuB, n2, n2)
+        H.put(srlB/zrlB, n3, n3)
+        H.put(sruB/zruB, n4, n4)
+
+        return H
+
+
     def primal_dual_hprod(self, x, z, p, **kwargs):
         """
         Compute the matrix-vector product between the modified Hessian matrix of
@@ -280,102 +329,64 @@ class PrimalDualMeritFunction(NLPModel):
         and q two-sided bounds, the vector p should have length n+b+2q.
         The Hessian matrix has the general form
 
-            [ H + 2 X^{-1} Z      I     ]
-            [      I           Z^{-1} X ].
+        [ H + 2 X^{-1} Z      I     ] [ p1 ]   [ (H + 2 X^{-1} Z) * p1 + p2 ]
+        [      I           Z^{-1} X ] [ p2 ] = [     p1 + Z^{-1} X p3       ].
         """
         mu = kwargs.get('mu', self.mu)
-        n = self.nlp.n
-        ndual = self.ndual
-        N = self.nlowerB + self.nupperB + self.nrangeB
-        Lvar = self.nlp.Lvar
-        Uvar = self.nlp.Uvar
-        Hp = np.zeros(n + self.ndual, 'd')
 
-        Hp[:n] = self.nlp.hprod(self.nlp.pi0, p[:n])
-        for i in self.lowerB:
-            k = self.lowerB.index(i)
-            Hp[i] += 2.0 * z[k]/(x[i]-Lvar[i]) * p[i] + p[n+k]
-            Hp[n+k] += p[i] + (x[i]-Lvar[i])/z[k] * p[n+k]
-        for i in self.upperB:
-            k = self.nlowerB + self.upperB.index(i)
-            Hp[i] += 2.0 * z[k]/(Uvar[i]-x[i]) * p[i] - p[n+k]
-            Hp[n+k] += -p[i] - (Uvar[i]-x[i])/z[k] * p[n+k]
-        for i in self.rangeB:
-            k = self.nlowerB + self.nupperB + self.rangeB.index(i)
-            Hp[i] += 2.0 * z[k]/(x[i]-Lvar[i]) * p[i] + p[n+k]
-            Hp[n+k] += p[i] + (x[i]-Lvar[i])/z[k] * p[n+k]
-            k += self.nrangeB
-            Hp[i] += 2.0 * z[k]/(Uvar[i]-x[i]) * p[i] - p[n+k]
-            Hp[n+k] += -p[i] + (Uvar[i]-x[i])/z[k] * p[n+k]
+        nlp = self.nlp ; nx = nlp.n ; nz = self.nz
+        Lvar = nlp.Lvar ; Uvar = nlp.Uvar
+        lB = nlp.lowerB   ; uB = nlp.upperB   ; rB = nlp.rangeB
+        nlB = nlp.nlowerB ; nuB = nlp.nupperB ; nrB = nlp.nrangeB
+        rlB = self.rlB ; ruB = self.ruB ; rrB = self.rrB
+        rrB2 = nlB + nuB + nrB + rrB
+
+        # Segment s and z for conciseness.
+        slB  = x[lB] - Lvar[lB] ; zlB  = z[:nlB]
+        suB  = Uvar[uB] - x[uB] ; zuB  = z[nlB:nlB+nuB]
+        srlB = x[rB] - Lvar[rB] ; zrlB = z[nlB+nuB:nlB+nuB+nrB]
+        sruB = Uvar[rB] - x[rB] ; zruB = z[nlB+nuB+nrB:]
+
+        Hp = np.empty(nx + nz) ; p1 = p[:nx] ; p2 = p[nx:]
+
+        # Contributions from first block row.
+        Hp[:nx] = self.nlp.hprod(self.nlp.pi0, p1)
+        Hp[lB] += 2 * zlB/slB * p1[lB] + p2[rlB]
+        Hp[uB] += 2 * zuB/suB * p1[uB] - p2[nlB+ruB]
+        Hp[rB] += 2 * (zrlB/srlB + zruB/sruB) * p1[rB] + p2[rrB] - p2[rrB2]
+
+        # Contributsions from second block row.
+        Hp[nx+rlB]             =  p1[lB] + slB/zlB   * p2[rlB]
+        Hp[nx+nlB+ruB]         = -p1[uB] + suB/zuB   * p2[ruB]
+        Hp[nx+nlB+nuB+rrB]     =  p1[rB] + srlB/zrlB * p2[rrB]
+        Hp[nx+nlB+nuB+nrB+rrB] = -p1[rB] + sruB/zruB * p2[rrB2]
 
         return Hp
 
 
-    def PDHessTemplate(self, **kwargs):
+    def _hess_template(self, **kwargs):
         """
         Assemble the part of the modified Hessian matrix of the primal-dual
-        merit function that is iteration independent. The function PDHess()
-        fills in the blanks by updating the rest of the matrix.
+        merit function that is iteration independent.
         """
-        n = self.nlp.n ; ndual = self.ndual
-        Lvar = self.nlp.Lvar ; Uvar = self.nlp.Uvar
-        lowerB = self.lowerB ; upperB = self.upperB ; rangeB = self.rangeB
-        nlowerB = self.nlowerB ; rlowerB = List(range(nlowerB))
-        nupperB = self.nupperB ; rupperB = List(range(nupperB))
-        nrangeB = self.nrangeB ; rrangeB = List(range(nrangeB))
+        nlp = self.nlp ; nx = nlp.n ; nz = self.nz
+        Lvar = nlp.Lvar ; Uvar = nlp.Uvar
+        lB = nlp.lowerB ; uB = nlp.upperB ; rB = nlp.rangeB
+        nlB = nlp.nlowerB ; rlB = self.rlB
+        nuB = nlp.nupperB ; ruB = self.ruB
+        nrB = nlp.nrangeB ; rrB = self.rrB
 
-        B = spmatrix.ll_mat_sym(n+ndual, self.nlp.nnzh + 3 * ndual)
+        B = sp(nrow=nx+nz, ncol=nx+nz,
+               sizeHint=self.nlp.nnzh+3*nz, symmetric=True)
 
-        B.put( 1.0, n + rlowerB, lowerB)
-        B.put(-1.0, n + nlowerB + rupperB, upperB)
-        B.put( 1.0, n + nlowerB + nupperB + rrangeB, rangeB)
-        B.put(-1.0, n + nlowerB + nupperB + nrangeB + rrangeB, rangeB)
+        # Bottom left block: identity-ish.
+        n1 = nx + rlB       ; B.put( 1, n1, lB)
+        n2 = nx + ruB       ; B.put(-1, n2, uB)
+        n3 = nx + rrB       ; B.put( 1, n3, rB)
+        n4 = nx + nrB + rrB ; B.put(-1, n4, rB)
 
         return B
 
-
-    def hess(self, x, z, **kwargs):
-        """
-        Assemble the modified Hessian matrix of the primal-dual merit function
-        at (x,z). See :meth:`PDMerit` for a description of `z`.
-        The Hessian matrix has the general form
-
-            [ H + 2 X^{-1} Z      I     ]
-            [      I           Z^{-1} X ].
-        """
-        mu = kwargs.get('mu', self.mu)
-        n = self.nlp.n
-        ndual = self.ndual
-        Lvar = self.nlp.Lvar ; Uvar = self.nlp.Uvar
-        lowerB = self.lowerB ; upperB = self.upperB ; rangeB = self.rangeB
-        nlowerB = self.nlowerB ; rlowerB = List(range(nlowerB))
-        nupperB = self.nupperB ; rupperB = List(range(nupperB))
-        nrangeB = self.nrangeB ; rrangeB = List(range(nrangeB))
-
-        # Segment z for conciseness.
-        n1 = nlowerB ; n2 = n1 + nupperB ; n3 = n2 + nrangeB
-
-        B = self.B
-
-        # Update (1,1) block.
-        B[:n,:n] = self.nlp.hess(x, self.nlp.pi0)
-        B.update_add_at(2*z[:n1]/(x[lowerB]-Lvar[lowerB]),   lowerB, lowerB)
-        B.update_add_at(2*z[n1:n2]/(Uvar[upperB]-x[upperB]), upperB, upperB)
-        B.update_add_at(2*z[n2:n3]/(x[rangeB]-Lvar[rangeB]), rangeB, rangeB)
-        B.update_add_at(2*z[n3:]/(Uvar[rangeB]-x[rangeB]),   rangeB, rangeB)
-
-        # Update (2,2) block.
-        B.put((x[lowerB]-Lvar[lowerB])/z[:n1], n+rlowerB)
-        B.put((Uvar[upperB]-x[upperB])/z[n1:n2], n+nlowerB+rupperB)
-        B.put((x[rangeB]-Lvar[rangeB])/z[n2:n3], n+nlowerB+nupperB+rrangeB)
-        B.put((Uvar[rangeB]-x[rangeB])/z[n3:], n+nlowerB+nupperB+nrangeB+rrangeB)
-
-        # Store diagonal of B for diagonal preconditioning.
-        self.diagB = np.empty(n+ndual)
-        B.take(self.diagB, range(n+ndual))
-        self.diagB = np.maximum(1, np.abs(self.diagB))
-
-        return None
 
 
 class PrimalDualInteriorPointFramework:
@@ -384,7 +395,7 @@ class PrimalDualInteriorPointFramework:
         """
         Solve the bound-constrained problem
 
-          minimize f(x)  subject to  x >= 0.
+          minimize f(x)  subject to  l <= x <= u.
 
         The method is based on the primal-dual merit function of
         Forsgren and Gill (1998). For now, only bound-constrained problems are
@@ -395,12 +406,12 @@ class PrimalDualInteriorPointFramework:
         self.TR = TR
         self.TrSolver = TrSolver
 
-        self.explicit = kwargs.get('explicit', False)  # Form Hessian or not
         self.bound_rel_factor = 0.1
         self.bound_abs_factor = 0.1
 
+        self.verbose       = kwargs.get('verbose',  False)
+        self.explicit      = kwargs.get('explicit', False)  # Form Hessian or not.
         self.maxiter       = kwargs.get('maxiter', max(100,2*self.merit.nlp.n))
-        self.silent        = kwargs.get('silent',  False)
         self.ny            = kwargs.get('ny',      False)
         self.inexact       = kwargs.get('inexact', False)
         self.nyMax         = kwargs.get('nyMax',   5)
@@ -409,7 +420,9 @@ class PrimalDualInteriorPointFramework:
         self.mu_min = 1.0e-09
 
         # Assemble the part of the primal-dual Hessian matrix that is constant.
-        #self.B = self.PDHessTemplate()
+        self.B = None
+        if explicit:
+            self.B = merit.hess_template()
 
         self.iter   = 0
         self.cgiter = 0
@@ -432,13 +445,8 @@ class PrimalDualInteriorPointFramework:
         self.printFrequency = 20
 
         # Optimality residuals, updated along the iterations
-        self.dRes = None
-        self.cRes = None
-        self.pRes = None
-
+        self.kktRes = None
         self.optimal = False
-        self.debug = kwargs.get('debug', False)
-
         return
 
 
@@ -464,7 +472,7 @@ class PrimalDualInteriorPointFramework:
         x[rB] = (Lvar[rB] + Uvar[rB])/2
 
         # Compute dual starting guess.
-        z = np.ones(self.merit.ndual)
+        z = np.ones(self.merit.nz)
 
         return (x,z)
 
@@ -480,7 +488,7 @@ class PrimalDualInteriorPointFramework:
         lB = self.lowerB ; uB = self.upperB ; rB = self.rangeB
         nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
 
-        z = np.empty(self.ndual)
+        z = np.empty(self.nz)
         z[:nlB] = mu/(x[lB]-Lvar[lB])
         z[nlB:nlB+nuB] = mu/(Uvar[uB]-x[uB])
         z[nlB+nuB:nlB+nuB+nrB] = mu/(x[rB]-Lvar[rB])
@@ -540,7 +548,7 @@ class PrimalDualInteriorPointFramework:
         """
         Generic preconditioning method---must be overridden.
         """
-        return v #/self.diagB
+        return v
 
 
     def UpdatePrecon(self, **kwargs):
@@ -560,8 +568,7 @@ class PrimalDualInteriorPointFramework:
             stopTol     stopping tolerance (default: muerrfact * mu).
         """
 
-        nlp = self.nlp
-        n = nlp.n ; ndual = self.ndual
+        merit = self.merit ; nx = merit.nlp.n ; nz = merit.nz
         rho = 1                  # Dummy initial value for rho
         niter = 0                # Dummy initial value for number of inners
         status = ''              # Dummy initial step status
@@ -569,25 +576,25 @@ class PrimalDualInteriorPointFramework:
         if self.inexact:
             cgtol = 1.0
         else:
-            cgtol = -1.0 #1.0e-6
+            cgtol = -1.0
         inner_iter = 0           # Inner iteration counter
 
-        # Obtain starting point
+        # Obtain starting point.
         (x,z) = (self.x, self.z)
 
-        # Obtain first-order data at starting point
+        # Obtain first-order data at starting point.
         if self.iter == 0:
             f = nlp.obj(x) ; gf = nlp.grad(x)
         else:
             f = self.f ; gf = self.gf
 
-        psi = self.PDMerit(x, z, f=f)
-        g = self.GradPDMerit(x, z, g=gf, check_optimal=True)
+        psi = merit.obj(x, z, f=f)
+        g = merit.grad(x, z, g=gf, check_optimal=True)
         gNorm = norm2(g)
         if self.optimal: return
 
         # Reset initial trust-region radius
-        self.TR.Delta = 0.1*gNorm #max(10, 0.1 * gNorm) #max(10.0, gNorm)
+        self.TR.Delta = 0.1*gNorm
 
         # Set inner iteration stopping tolerance
         stopTol = kwargs.get('stopTol', self.muerrfact * self.mu)
@@ -596,7 +603,7 @@ class PrimalDualInteriorPointFramework:
         while not finished:
 
             # Print out header every so many iterations
-            if not self.silent:
+            if self.verbose:
                 if self.iter % self.printFrequency == 0:
                     sys.stdout.write(self.hline)
                     sys.stdout.write(self.header)
@@ -621,10 +628,9 @@ class PrimalDualInteriorPointFramework:
                 if self.debug: self._debugMsg('cgtol = ' + str(cgtol))
 
             # Update Hessian matrix with current iteration information.
-            self.PDHess(x,z)
+            # self.PDHess(x,z)
 
             if self.debug:
-                #self._debugMsg('H = ') ; print self.B
                 self._debugMsg('g = ' + np.str(g))
                 self._debugMsg('gNorm = ' + str(gNorm))
                 self._debugMsg('stopTol = ' + str(stopTol))
@@ -639,19 +645,19 @@ class PrimalDualInteriorPointFramework:
             # Iteratively minimize the quadratic model in the trust region
             # m(s) = <g, s> + 1/2 <s, Hs>
             # Note that m(s) does not include f(x): m(0) = 0.
-            solver = self.TrSolver(g,
-                                   #matvec=lambda v: self.PDHessProd(x,z,v),
-                                   H = self.B,
+            H = SimpleLinearOperator(nx+nz, nx+nz, lambda v: merit.hprod(v),
+                                     symmetric=True)
+            subsolver = self.TrSolver(g, H,
                                    prec = self.Precon,
                                    radius = self.TR.Delta,
                                    reltol = cgtol,
                                    #fraction = 0.5,
-                                   itmax = 2*(n+ndual),
+                                   itmax = 2*(n+nz),
                                    #debug=True,
                                    #btol=.9,
                                    #cur_iter=np.concatenate((x,z))
                                    )
-            solver.Solve()
+            subsolver.Solve()
 
             if self.debug:
                 self._debugMsg('x = ' + np.str(x))
@@ -660,20 +666,20 @@ class PrimalDualInteriorPointFramework:
                 self._debugMsg('step norm = ' + str(solver.stepNorm))
 
             # Record total number of CG iterations.
-            niter = solver.niter
-            self.cgiter += solver.niter
+            niter = subsolver.niter
+            self.cgiter += subsolver.niter
 
             # Compute maximal step to the boundary and next candidate.
             alphax, alphaz = self.ftb(x, z, solver.step)
             alpha = min(alphax, alphaz)
-            dx = solver.step[:n] ; dz = solver.step[n:]
+            dx = subsolver.step[:n] ; dz = subsolver.step[n:]
             x_trial = x + alphax * dx
             z_trial = z + alphaz * dz
-            f_trial = nlp.obj(x_trial)
-            psi_trial = self.PDMerit(x_trial, z_trial, f=f_trial)
+            f_trial = merit.nlp.obj(x_trial)
+            psi_trial = merit.obj(x_trial, z_trial, f=f_trial)
 
             # Compute ratio of predicted versus achieved reduction.
-            rho  = self.TR.Rho(psi, psi_trial, solver.m)
+            rho  = self.TR.Rho(psi, psi_trial, subsolver.m)
 
             if self.debug:
                 self._debugMsg('m = ' + str(solver.m))
@@ -753,7 +759,6 @@ class PrimalDualInteriorPointFramework:
 
         nlp = self.nlp
         n = nlp.n
-        print self.x
 
         err = min(nlp.stop_d, nlp.stop_c, nlp.stop_p)
         self.mu_min = min(self.mu_min, (err/(1 + self.muerrfact))/2)
@@ -810,7 +815,7 @@ class _meritfunction(PrimalDualMeritFunction):
         # Number of variables of the merit function.
         # Not to be confused with nlp.n!
         # This is solely for the purpose of the derivative checker.
-        self.n = nlp.n + self.ndual
+        self.n = nlp.n + self.nz
         self.m = 0
 
     def obj(self, xz, **kwargs):
@@ -847,7 +852,7 @@ if __name__ == '__main__':
     # Initialize problem.
     nlp = AmplModel(prob)
     pdmerit = _meritfunction(nlp)
-    (nx, nz) = (pdmerit.nlp.n, pdmerit.ndual)
+    (nx, nz) = (pdmerit.nlp.n, pdmerit.nz)
 
     # Initialize trust region framework.
     TR = TrustRegionFramework(Delta = 1.0,
