@@ -24,17 +24,21 @@ AMPL_GET(nzc);
 AMPL_GET(nzo);
 AMPL_GET(maxrownamelen);
 AMPL_GET(maxcolnamelen);
-AMPL_GET(n_conjac0);
-AMPL_GET(n_conjac1);
 
+void ampl_set_n_conjac(ASL* asl, int val0, int val1) {
+  n_conjac[0] = val0;
+  n_conjac[1] = val1;
+}
+void ampl_get_n_conjac(ASL* asl, int *val0, int *val1) {
+  *val0 = n_conjac[0];
+  *val1 = n_conjac[1];
+}
 void ampl_set_want_xpi0(ASL* asl, int val) {
   want_xpi0 = val;
 }
-
 int ampl_get_objtype(ASL* asl, int nobj) {
   return objtype[nobj];
 }
-
 int ampl_sphsetup(ASL* asl, int no, int ow, int y, int b) {
   return (int)sphsetup(no, ow, y, b);
 }

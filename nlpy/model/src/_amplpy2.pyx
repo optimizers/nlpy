@@ -20,19 +20,38 @@ cdef extern from "amplutils.h":
     libc.stdio.FILE* jac0dim_ASL(ASL*, char*, int)
     int pfgh_read_ASL(ASL*, libc.stdio.FILE*, int)
 
-    int  ampl_get_n_var(ASL*)
-    int  ampl_get_n_con(ASL*)
-    void ampl_set_want_xpi0(ASL*, int)
-    int  ampl_get_objtype(ASL*, int)
-    int  ampl_get_nnzj(ASL*)
-    void  ampl_get_dims(ASL*, int*, int*)
+    int ampl_get_n_var(ASL*)
+    int ampl_get_nbv(ASL*)
+    int ampl_get_niv(ASL*)
+    int ampl_get_n_con(ASL*)
+    int ampl_get_n_obj(ASL*)
+    int ampl_get_nlo(ASL*)
+    int ampl_get_nranges(ASL*)
+    int ampl_get_nlc(ASL*)
+    int ampl_get_nlnc(ASL*)
+    int ampl_get_nlvb(ASL*)
+    int ampl_get_nlvbi(ASL*)
+    int ampl_get_nlvc(ASL*)
+    int ampl_get_nlvci(ASL*)
+    int ampl_get_nlvo(ASL*)
+    int ampl_get_nlvoi(ASL*)
+    int ampl_get_lnc(ASL*)
+    int ampl_get_nzc(ASL*)
+    int ampl_get_nzo(ASL*)
+    int ampl_get_maxrownamelen(ASL*)
+    int ampl_get_maxcolnamelen(ASL*)
+
+    void ampl_set_n_conjac(ASL* asl, int val0, int val1)
+    void ampl_get_n_conjac(ASL* asl, int *val0, int *val1)
+    void ampl_set_want_xpi0(ASL* asl, int val)
+    int ampl_get_objtype(ASL* asl, int nobj)
+    int ampl_sphsetup(ASL* asl, int no, int ow, int y, int b)
 
 cdef class ampl:
 
     cdef ASL* asl
     cdef libc.stdio.FILE* ampl_file
-    cdef public int m, n
-    
+
     def __cinit__(self):
         self.asl = ASL_alloc(ASL_read_pfgh)
         if self.asl is NULL:
@@ -56,25 +75,31 @@ cdef class ampl:
         ampl_set_want_xpi0(asl, want_xpi0)     # get initial x and pi
         pfgh_read_ASL(asl, self.ampl_file, 0)  # read the stub
 
-        # Save the problem dimensions.
-        ampl_get_dims(asl, &self.n, &self.m)
+    def set_want_xpi0(self, val): ampl_set_want_xpi0(self.asl, val)
 
-    def get_m_con(self):
-        """Get the number of constraints."""
-        return ampl_get_n_con(self.asl)
+    cdef get_n_var(self):
+    cdef get_nbv(self):
+    cdef get_niv(self):
+    cdef get_n_con(self):
+    cdef get_n_obj(self):
+    cdef get_nlo(self):
+    cdef get_nranges(self):
+    cdef get_nlc(self):
+    cdef get_nlnc(self):
+    cdef get_nlvb(self):
+    cdef get_nlvbi(self):
+    cdef get_nlvc(self):
+    cdef get_nlvci(self):
+    cdef get_nlvo(self):
+    cdef get_nlvoi(self):
+    cdef get_lnc(self):
+    cdef get_nzc(self):
+    cdef get_nzo(self):
+    cdef get_maxrownamelen(self):
+    cdef get_maxcolnamelen(self):
 
-    def set_want_xpi0(self, val):
-        ampl_set_want_xpi0(self.asl, val)
-
-    def get_objtype(self, nobj):
-        """Determine whether a problem is minimization or
-        maximization."""
-        return ampl_get_objtype(self.asl, nobj)
+    def get_objtype(self, nobj): return ampl_get_objtype(self.asl, nobj)
     
-    def get_nnzj(self):
-        """Get the number of nonzeros in the Jacobian."""
-        return ampl_get_nnzj(self.asl)
-
     ## def get_nnzh(self):
     ##     """Get the number of nonzeros in the Lagrangian Hessian."""
     ##     cdef int nnzh, nnzj
