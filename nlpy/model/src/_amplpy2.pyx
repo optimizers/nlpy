@@ -1,4 +1,5 @@
 #import numpy as np
+import os.path
 cimport cpython
 cimport libc.stdio
 cimport numpy as np
@@ -53,11 +54,13 @@ cdef class ampl:
     cdef libc.stdio.FILE* ampl_file
 
     def __cinit__(self):
+        """cinit is called before init; allocates the ASL structure."""
         self.asl = ASL_alloc(ASL_read_pfgh)
         if self.asl is NULL:
             cpython.PyErr_NoMemory()
 
     def __dealloc__(self):
+        """Free the ASL structure."""
         if self.asl is not NULL:
             ASL_free(&self.asl)
 
@@ -65,40 +68,47 @@ cdef class ampl:
         """Initialize an ampl object."""
         asl = self.asl
 
-        # Check that the file is readable before giving it to ampl.
-        try:
-            open(stub,'r')
-        except IOError:
-            print 'Could not open file %s' % stub
+        # Let Python try to open the file before giving it to
+        # Ampl. Any exception should be caught by the caller.
+        basename, extension = os.path.splitext(stub)
+        if len(extension) == 0:
+            stub += '.nl' # add the nl extension
+        f = open(stub,'r'); f.close()
         
         self.ampl_file = jac0dim_ASL(asl, stub, len(stub)) # open stub
-        ampl_set_want_xpi0(asl, want_xpi0)     # get initial x and pi
+        ampl_set_want_xpi0(asl, want_xpi0)     # ask for initial x and pi
         pfgh_read_ASL(asl, self.ampl_file, 0)  # read the stub
 
-    def set_want_xpi0(self, val): ampl_set_want_xpi0(self.asl, val)
+    # These simple routines allow us to access complicated ASL
+    # structure elements via AMPL's macros.
+    def get_n_var(self): return ampl_get_n_var(self.asl)
+    def get_nbv(self): return ampl_get_nbv(self.asl)
+    def get_niv(self): return ampl_get_niv(self.asl)
+    def get_n_con(self): return ampl_get_n_con(self.asl)
+    def get_n_obj(self): return ampl_get_n_obj(self.asl)
+    def get_nlo(self): return ampl_get_nlo(self.asl)
+    def get_nranges(self): return ampl_get_nranges(self.asl)
+    def get_nlc(self): return ampl_get_nlc(self.asl)
+    def get_nlnc(self): return ampl_get_nlnc(self.asl)
+    def get_nlvb(self): return ampl_get_nlvb(self.asl)
+    def get_nlvbi(self): return ampl_get_nlvbi(self.asl)
+    def get_nlvc(self): return ampl_get_nlvc(self.asl)
+    def get_nlvci(self): return ampl_get_nlvci(self.asl)
+    def get_nlvo(self): return ampl_get_nlvo(self.asl)
+    def get_nlvoi(self): return ampl_get_nlvoi(self.asl)
+    def get_lnc(self): return ampl_get_lnc(self.asl)
+    def get_nzc(self): return ampl_get_nzc(self.asl)
+    def get_nzo(self): return ampl_get_nzo(self.asl)
+    def get_maxrownamelen(self): return ampl_get_maxrownamelen(self.asl)
+    def get_maxcolnamelen(self): return ampl_get_maxcolnamelen(self.asl)
 
-    cdef get_n_var(self):
-    cdef get_nbv(self):
-    cdef get_niv(self):
-    cdef get_n_con(self):
-    cdef get_n_obj(self):
-    cdef get_nlo(self):
-    cdef get_nranges(self):
-    cdef get_nlc(self):
-    cdef get_nlnc(self):
-    cdef get_nlvb(self):
-    cdef get_nlvbi(self):
-    cdef get_nlvc(self):
-    cdef get_nlvci(self):
-    cdef get_nlvo(self):
-    cdef get_nlvoi(self):
-    cdef get_lnc(self):
-    cdef get_nzc(self):
-    cdef get_nzo(self):
-    cdef get_maxrownamelen(self):
-    cdef get_maxcolnamelen(self):
+    def get_objtype(self, nobj):
+        """Determine if a problem is maximization or minimization."""
+        return ampl_get_objtype(self.asl, nobj)
 
-    def get_objtype(self, nobj): return ampl_get_objtype(self.asl, nobj)
+    def get_dim(self):
+        """Obtain n and m."""
+        return (self.get_n_var(), self.get_n_con())
     
     ## def get_nnzh(self):
     ##     """Get the number of nonzeros in the Lagrangian Hessian."""
