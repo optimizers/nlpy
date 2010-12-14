@@ -1,8 +1,9 @@
-#import numpy as np
 import os.path
+import numpy as np
+cimport numpy as np
 cimport cpython
 cimport libc.stdio
-cimport numpy as np
+cimport libc.stdlib
 
 #@cython.boundscheck(False)
 cdef enum:
@@ -11,47 +12,51 @@ cdef enum:
     ASL_read_fgh  = 3
     ASL_read_pfg  = 4
     ASL_read_pfgh = 5
-    want_xpi0     = 3
+
+cdef extern from "stdlib.h":
+    ctypedef unsigned long size_t
+    void free(void *ptr)
+    void *malloc(size_t size)
 
 cdef extern from "amplutils.h":
+    
+    ctypedef struct Edaginfo:
+        int n_var_
+        int n_con_
+        int nlc_
+        int nlnc_
+        int want_xpi0_
+        char* objtype_
+        double* X0_
+        double* pi0_
+        double* LUv_
+        double* Uvx_
+        double* LUrhs_
+        double* Urhsx_
     ctypedef struct ASL:
-        pass
+        Edaginfo i
+
     ASL* ASL_alloc(int)
     void* ASL_free(ASL**)
     libc.stdio.FILE* jac0dim_ASL(ASL*, char*, int)
     int pfgh_read_ASL(ASL*, libc.stdio.FILE*, int)
-
-    int ampl_get_n_var(ASL*)
-    int ampl_get_nbv(ASL*)
-    int ampl_get_niv(ASL*)
-    int ampl_get_n_con(ASL*)
-    int ampl_get_n_obj(ASL*)
-    int ampl_get_nlo(ASL*)
-    int ampl_get_nranges(ASL*)
-    int ampl_get_nlc(ASL*)
-    int ampl_get_nlnc(ASL*)
-    int ampl_get_nlvb(ASL*)
-    int ampl_get_nlvbi(ASL*)
-    int ampl_get_nlvc(ASL*)
-    int ampl_get_nlvci(ASL*)
-    int ampl_get_nlvo(ASL*)
-    int ampl_get_nlvoi(ASL*)
-    int ampl_get_lnc(ASL*)
-    int ampl_get_nzc(ASL*)
-    int ampl_get_nzo(ASL*)
-    int ampl_get_maxrownamelen(ASL*)
-    int ampl_get_maxcolnamelen(ASL*)
-
-    void ampl_set_n_conjac(ASL* asl, int val0, int val1)
-    void ampl_get_n_conjac(ASL* asl, int *val0, int *val1)
-    void ampl_set_want_xpi0(ASL* asl, int val)
-    int ampl_get_objtype(ASL* asl, int nobj)
     int ampl_sphsetup(ASL* asl, int no, int ow, int y, int b)
+
+cdef np.ndarray[np.double_t, ndim=1] carray_to_numpy(double *x, int lenx):
+    """Utility to copy C array of doubles to numpy array."""
+    cdef np.ndarray[np.double_t, ndim=1] \
+         v = np.empty(lenx, dtype=np.double)
+    cdef int i
+    for i in range(lenx):
+        v[i] = x[i]
+    return v
 
 cdef class ampl:
 
     cdef ASL* asl
     cdef libc.stdio.FILE* ampl_file
+    cdef public int _objtype
+    cdef public int _n_var, _n_con, _nlc, _nlnc
 
     def __cinit__(self):
         """cinit is called before init; allocates the ASL structure."""
@@ -60,7 +65,13 @@ cdef class ampl:
             cpython.PyErr_NoMemory()
 
     def __dealloc__(self):
-        """Free the ASL structure."""
+        """Free the allocated memory and ASL structure."""
+        free(self.asl.i.X0_)
+        free(self.asl.i.LUv_)
+        free(self.asl.i.Uvx_)
+        free(self.asl.i.pi0_)
+        free(self.asl.i.LUrhs_)
+        free(self.asl.i.Urhsx_)
         if self.asl is not NULL:
             ASL_free(&self.asl)
 
@@ -74,45 +85,35 @@ cdef class ampl:
         if len(extension) == 0:
             stub += '.nl' # add the nl extension
         f = open(stub,'r'); f.close()
-        
-        self.ampl_file = jac0dim_ASL(asl, stub, len(stub)) # open stub
-        ampl_set_want_xpi0(asl, want_xpi0)     # ask for initial x and pi
-        pfgh_read_ASL(asl, self.ampl_file, 0)  # read the stub
 
-    # These simple routines allow us to access complicated ASL
-    # structure elements via AMPL's macros.
-    def get_n_var(self): return ampl_get_n_var(self.asl)
-    def get_nbv(self): return ampl_get_nbv(self.asl)
-    def get_niv(self): return ampl_get_niv(self.asl)
-    def get_n_con(self): return ampl_get_n_con(self.asl)
-    def get_n_obj(self): return ampl_get_n_obj(self.asl)
-    def get_nlo(self): return ampl_get_nlo(self.asl)
-    def get_nranges(self): return ampl_get_nranges(self.asl)
-    def get_nlc(self): return ampl_get_nlc(self.asl)
-    def get_nlnc(self): return ampl_get_nlnc(self.asl)
-    def get_nlvb(self): return ampl_get_nlvb(self.asl)
-    def get_nlvbi(self): return ampl_get_nlvbi(self.asl)
-    def get_nlvc(self): return ampl_get_nlvc(self.asl)
-    def get_nlvci(self): return ampl_get_nlvci(self.asl)
-    def get_nlvo(self): return ampl_get_nlvo(self.asl)
-    def get_nlvoi(self): return ampl_get_nlvoi(self.asl)
-    def get_lnc(self): return ampl_get_lnc(self.asl)
-    def get_nzc(self): return ampl_get_nzc(self.asl)
-    def get_nzo(self): return ampl_get_nzo(self.asl)
-    def get_maxrownamelen(self): return ampl_get_maxrownamelen(self.asl)
-    def get_maxcolnamelen(self): return ampl_get_maxcolnamelen(self.asl)
+        # Open stub and get problem dimensions.
+        self.ampl_file = jac0dim_ASL(asl, stub, len(stub))
+        self._n_var = asl.i.n_var_
+        self._n_con = asl.i.n_con_
+        self._nlc = asl.i.nlc_
+        self._nlnc = asl.i.nlnc_
 
-    def get_objtype(self, nobj):
-        """Determine if a problem is maximization or minimization."""
-        return ampl_get_objtype(self.asl, nobj)
+        # Ask for initial x and pi, and allocate storage for problem data.
+        asl.i.want_xpi0_ = 3
+        asl.i.X0_    = <double *>malloc(self._n_var * sizeof(double))
+        asl.i.LUv_   = <double *>malloc(self._n_var * sizeof(double))
+        asl.i.Uvx_   = <double *>malloc(self._n_var * sizeof(double))
+        asl.i.pi0_   = <double *>malloc(self._n_con * sizeof(double))
+        asl.i.LUrhs_ = <double *>malloc(self._n_con * sizeof(double))
+        asl.i.Urhsx_ = <double *>malloc(self._n_con * sizeof(double))
 
-    def get_dim(self):
-        """Obtain n and m."""
-        return (self.get_n_var(), self.get_n_con())
-    
-    ## def get_nnzh(self):
-    ##     """Get the number of nonzeros in the Lagrangian Hessian."""
-    ##     cdef int nnzh, nnzj
-    ##     ampl_get_dims(self.asl, &nnzj, &nnzh)
-    ##     return (nnzh, nnzj)
-    
+        # Read in the problem.
+        pfgh_read_ASL(asl, self.ampl_file, 0)
+
+        self._objtype = asl.i.objtype_[0]
+
+    def get_x0(self): return carray_to_numpy(self.asl.i.X0_, self._n_var) 
+    def get_Lvar(self): return carray_to_numpy(self.asl.i.LUv_, self._n_var)
+    def get_Uvar(self): return carray_to_numpy(self.asl.i.Uvx_, self._n_var)
+    def get_pi0(self): return carray_to_numpy(self.asl.i.pi0_, self._n_con)
+    def get_Lcon(self): return carray_to_numpy(self.asl.i.LUrhs_, self._n_con)
+    def get_Ucon(self): return carray_to_numpy(self.asl.i.Urhsx_, self._n_con)
+
+    def get_CType(self):
+        nln = range(self._nlc)
+        return nln
