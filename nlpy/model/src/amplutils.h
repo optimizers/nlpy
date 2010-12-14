@@ -46,6 +46,7 @@ int ampl_sphsetup(ASL* asl, int no, int ow, int y, int b);
 double ampl_objval(ASL* asl, int np, double x[], int* ne);
 void ampl_objgrd(ASL* asl, int np, double x[], double g[], int* ne);
 void ampl_conval(ASL* asl, double x[], double r[], int* ne);
+int ampl_conival(ASL* asl, int i, double* c, double* x);
 
 #ifdef MYHEADER_DEFN
    #undef real

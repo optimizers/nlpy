@@ -12,3 +12,8 @@ void ampl_objgrd(ASL* asl, int np, double x[], double g[], int* ne) {
 void ampl_conval(ASL* asl, double x[], double r[], int* ne) {
   conval(x, r, ne);
 }
+int ampl_conival(ASL* asl, int i, double* c, double* x) {
+  int nerror;
+  *c = conival(i, x, &nerror);
+  return nerror;
+}

@@ -68,6 +68,7 @@ cdef extern from "amplutils.h":
     double ampl_objval(ASL*, int, double*, int*)
     void ampl_objgrd(ASL*, int, double*, double*, int*)
     void ampl_conval(ASL*, double*, double*, int*)
+    int ampl_conival(ASL*, int, double*, double*)
 
 cdef np.ndarray[np.double_t] carray_to_numpy(double *x, int lenx):
     """Utility to copy C array of doubles to numpy array."""
@@ -243,8 +244,15 @@ cdef class ampl:
             og = og.next
         return sg
 
-    def eval_icons(self, i, x):
-        pass
+    def eval_ci(self, int i, np.ndarray[np.double_t] x):
+        """Evaluate ith constraint."""
+        cdef double ci_of_x
+        if i < 0 or i >= self.n_con:
+            raise ValueError('Got i = %d; exected 0 <= i < %d' %
+                             (i, self.n_con))
+        if ampl_conival(self.asl, i, &ci_of_x, <double*>x.data):
+            raise ValueError
+        return ci_of_x
 
     def eval_gi(self, i, x):
         pass
