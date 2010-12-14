@@ -10,34 +10,42 @@
 #include "getstub.h"
 #include "jacpdim.h"
 
-#define AMPL_GET(x) int ampl_get_##x(ASL* asl)
+// These macros aren't needed, and in fact get in the way.
+#undef n_var
+#undef nbv
+#undef niv
+#undef n_con
+#undef n_obj
+#undef nlo
+#undef nranges
+#undef nlc
+#undef nlnc
+#undef nlvb
+#undef nlvbi
+#undef nlvc
+#undef nlvci
+#undef nlvo
+#undef nlvoi
+#undef lnc
+#undef nzc
+#undef nzo
+#undef maxrownamelen
+#undef maxcolnamelen
+#undef n_conjac
+#undef want_xpi0
+#undef objtype
+#undef Ograd
+#undef X0
+#undef pi0
+#undef LUv
+#undef Uvx
+#undef LUrhs
+#undef Urhsx
 
-AMPL_GET(n_var);
-AMPL_GET(nbv);
-AMPL_GET(niv);
-AMPL_GET(n_con);
-AMPL_GET(n_obj);
-AMPL_GET(nlo);
-AMPL_GET(nranges);
-AMPL_GET(nlc);
-AMPL_GET(nlnc);
-AMPL_GET(nlvb);
-AMPL_GET(nlvbi);
-AMPL_GET(nlvc);
-AMPL_GET(nlvci);
-AMPL_GET(nlvo);
-AMPL_GET(nlvoi);
-AMPL_GET(lnc);
-AMPL_GET(nzc);
-AMPL_GET(nzo);
-AMPL_GET(maxrownamelen);
-AMPL_GET(maxcolnamelen);
-
-void ampl_set_n_conjac(ASL* asl, int val0, int val1);
-void ampl_get_n_conjac(ASL* asl, int *val0, int *val1);
-void ampl_set_want_xpi0(ASL* asl, int val);
-int ampl_get_objtype(ASL* asl, int nobj);
 int ampl_sphsetup(ASL* asl, int no, int ow, int y, int b);
+double ampl_objval(ASL* asl, int np, double x[], int* ne);
+void ampl_objgrd(ASL* asl, int np, double x[], double g[], int* ne);
+void ampl_conval(ASL* asl, double x[], double r[], int* ne);
 
 #ifdef MYHEADER_DEFN
    #undef real
