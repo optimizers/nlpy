@@ -36,7 +36,7 @@ class LSQRFramework:
 
     LSQR uses an iterative (conjugate-gradient-like) method.
 
-    For further information, see 
+    For further information, see
 
     1. C. C. Paige and M. A. Saunders (1982a).
        LSQR: An algorithm for sparse linear equations and sparse least
@@ -64,7 +64,7 @@ class LSQRFramework:
 
         self.A = A
         self.x = None ; self.var = None
-    
+
         self.itn = 0; self.istop = 0; self.nstop = 0
         self.anorm = 0.; self.acond = 0. ; self.arnorm = 0.
         self.xnorm = 0.;
@@ -209,7 +209,7 @@ class LSQRFramework:
                 v     = A.T * u - beta * v
                 alfa  = norm(v)
                 if alfa > 0:  v /= alfa
-        
+
             # Use a plane rotation to eliminate the damping parameter.
             # This alters the diagonal (rhobar) of the lower-bidiagonal matrix.
 
@@ -218,10 +218,10 @@ class LSQRFramework:
             sn1     = damp   / rhobar1
             psi     = sn1 * phibar
             phibar  = cs1 * phibar
-        
+
             #  Use a plane rotation to eliminate the subdiagonal element (beta)
             # of the lower-bidiagonal matrix, giving an upper-bidiagonal matrix.
-        
+
             rho     =   normof2(rhobar1, beta)
             cs      =   rhobar1/ rho
             sn      =   beta   / rho
@@ -230,7 +230,7 @@ class LSQRFramework:
             phi     =   cs * phibar
             phibar  =   sn * phibar
             tau     =   sn * phi
-        
+
             # Update x and w.
 
             t1      =   phi  /rho;
@@ -256,17 +256,17 @@ class LSQRFramework:
                     r1norm = normof2(rho*stepMax*sn, rho*stepMax*cs - phibar)
                     tr_active = True
                     istop = 8
-            
+
             if not tr_active:
                 x      += t1*w
                 w      *= t2 ; w += v
                 ddnorm  = ddnorm + norm(dk)**2
                 if wantvar: var += dk*dk
-            
+
                 # Use a plane rotation on the right to eliminate the
                 # super-diagonal element (theta) of the upper-bidiagonal matrix.
                 # Then use the result to estimate norm(x).
-            
+
                 delta   =   sn2 * rho
                 gambar  = - cs2 * rho
                 rhs     =   phi  -  delta * z
@@ -277,17 +277,17 @@ class LSQRFramework:
                 sn2     =   theta  / gamma
                 z       =   rhs    / gamma
                 xxnorm +=   z*z
-            
+
                 # Test for convergence.
                 # First, estimate the condition of the matrix  Abar,
                 # and the norms of  rbar  and  Abar'rbar.
-        
+
                 acond   =   anorm * sqrt(ddnorm)
                 res1    =   phibar**2
                 res2    =   res2  +  psi**2
                 rnorm   =   sqrt(res1 + res2)
                 arnorm  =   alfa * abs(tau)
-        
+
                 # 07 Aug 2002:
                 # Distinguish between
                 #    r1norm = ||b - Ax|| and
@@ -296,15 +296,15 @@ class LSQRFramework:
                 #    Estimate r1norm from
                 #    r1norm = sqrt(r2norm^2 - damp^2*||x||^2).
                 # Although there is cancellation, it might be accurate enough.
-        
+
                 r1sq    =   rnorm**2  -  dampsq * xxnorm
                 r1norm  =   sqrt(abs(r1sq))
                 if r1sq < 0: r1norm = - r1norm
                 r2norm  =   rnorm
-        
+
                 # Now use these norms to estimate certain other quantities,
                 # some of which will be small near a solution.
-        
+
                 test1 = rnorm / bnorm
                 test2 = arnorm/(anorm * rnorm)
                 if acond == 0.0:
@@ -313,7 +313,7 @@ class LSQRFramework:
                     test3 = 1.0 / acond
                 t1    = test1 / (1    +  anorm * xnorm / bnorm)
                 rtol  = btol  +  atol *  anorm * xnorm / bnorm
-        
+
                 # The following tests guard against extremely small values of
                 # atol, btol  or  ctol.  (The user may have set any or all of
                 # the parameters  atol, btol, conlim  to 0.)
@@ -324,15 +324,15 @@ class LSQRFramework:
                 if 1 + test3 <= 1: istop = 6
                 if 1 + test2 <= 1: istop = 5
                 if 1 + t1    <= 1: istop = 4
-        
+
                 # Allow for tolerances set by the user.
-        
+
                 if test3 <= ctol: istop = 3
                 if test2 <= atol: istop = 2
                 if test1 <= rtol: istop = 1
-        
+
                 # See if it is time to print something.
-            
+
                 prnt = False;
                 if n     <= 40       : prnt = True
                 if itn   <= 10       : prnt = True
@@ -342,19 +342,19 @@ class LSQRFramework:
                 if test2 <= 10*atol  : prnt = True
                 if test1 <= 10*rtol  : prnt = True
                 if istop !=  0       : prnt = True
-        
+
                 if prnt and show:
                     str1 = '%6g %12.5e'     % (  itn,   x[0])
                     str2 = ' %10.3e %10.3e' % (r1norm, r2norm)
                     str3 = '  %8.1e %8.1e'  % (test1,  test2)
                     str4 = ' %8.1e %8.1e'   % (anorm,  acond)
                     print str1+str2+str3+str4
-                
+
             if istop > 0: break
 
             # End of iteration loop.
             # Print the stopping condition.
-        
+
         if show:
             print ' '
             print 'LSQR finished'
@@ -369,7 +369,7 @@ class LSQRFramework:
             print str3 + '   ' + str4
             print str5
             print ' '
-        
+
         if istop == 0: self.status = 'solution is zero'
         if istop in [1,2,4,5]: self.status = 'residual small'
         if istop in [3,6]: self.status = 'ill-conditioned operator'
