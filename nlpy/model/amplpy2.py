@@ -560,7 +560,7 @@ class AmplModel(NLPModel):
         try:
             sg_dict = self.model.eval_sgrad(x)
         except:
-            raise RunTimeError, "Failed to fetch sparse gradient of objective"
+            raise RuntimeError, "Failed to fetch sparse gradient of objective"
             return None
         self.geval += 1
         sg = sv.SparseVector(self.n, sg_dict)
@@ -577,7 +577,7 @@ class AmplModel(NLPModel):
         try:
             sc_dict = self.model.eval_cost()
         except:
-            raise RunTimeError, "Failed to fetch sparse cost vector"
+            raise RuntimeError, "Failed to fetch sparse cost vector"
             return None
         sc = sv.SparseVector(self.n, sc_dict)
         if not self.minimize: sc *= -1
@@ -665,7 +665,7 @@ class AmplModel(NLPModel):
         try:
             sci_dict = self.model.eval_sgi(i, x)
         except:
-            raise RunTimeError, "Failed to fetch sparse constraint gradient"
+            raise RuntimeError, "Failed to fetch sparse constraint gradient"
             return None
         self.Jeval += 1
         sci = sv.SparseVector(self.n, sci_dict)
@@ -680,7 +680,7 @@ class AmplModel(NLPModel):
         try:
             sri_dict = self.model.eval_row(i)
         except:
-            raise RunTimeError, "Failed to fetch sparse row"
+            raise RuntimeError, "Failed to fetch sparse row"
             return None
         sri = sv.SparseVector(self.n, sri_dict)
         return sri

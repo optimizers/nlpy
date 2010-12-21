@@ -44,9 +44,13 @@
 
 int ampl_sphsetup(ASL* asl, int no, int ow, int y, int b);
 double ampl_objval(ASL* asl, int np, double x[], int* ne);
-void ampl_objgrd(ASL* asl, int np, double x[], double g[], int* ne);
-void ampl_conval(ASL* asl, double x[], double r[], int* ne);
+int ampl_objgrd(ASL* asl, int np, double x[], double g[]);
+int ampl_conval(ASL* asl, double x[], double r[]);
+int ampl_jacval(ASL* asl, double x[], double j[]);
 int ampl_conival(ASL* asl, int i, double* c, double* x);
+int ampl_congrd(ASL* asl, int i, double* c, double* x);
+void ampl_sphes(ASL* asl, double* H, int nobj, double* ow, double* y);
+void ampl_hvcomp(ASL* asl, double* hv, double* p, int nobj, double* ow, double* y);
 
 #ifdef MYHEADER_DEFN
    #undef real
