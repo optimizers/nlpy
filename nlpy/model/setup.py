@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import urllib
 
 def getoption(config, section, option):
     try:
@@ -18,7 +19,6 @@ def configuration(parent_package='',top_path=None):
     # Read relevant NLPy-specific configuration options.
     nlpy_config = ConfigParser.SafeConfigParser()
     nlpy_config.read(os.path.join(top_path, 'site.cfg'))
-    # libampl_dir = nlpy_config.get('LIBAMPL', 'libampl_dir')
     libampl_dir = getoption(nlpy_config, 'LIBAMPL', 'libampl_dir')
 
     config = Configuration('model', parent_package, top_path)
@@ -33,7 +33,7 @@ def configuration(parent_package='',top_path=None):
             sources=amplpy_src,
             libraries=['ampl', 'funcadd0'],
             library_dirs=[libampl_libdir],
-            include_dirs=['src', libampl_include], # + [pysparse_include],
+            include_dirs=['src', libampl_include],
             extra_link_args=[]
         )
 
