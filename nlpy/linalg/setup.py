@@ -52,7 +52,7 @@ def configuration(parent_package='',top_path=None):
         ma57_src = ['ddeps.f', 'ma57d.f']
         pyma57_src = ['ma57_lib.c','nlpy_alloc.c','_pyma57.c']
 
-        # Build PyMA27
+        # Build PyMA27.
         ma27_sources  = [os.path.join(hsl_dir,name) for name in ma27_src]
         ma27_sources += [os.path.join('src',name) for name in libma27_src]
 
@@ -72,27 +72,35 @@ def configuration(parent_package='',top_path=None):
             extra_info=blas_info,
             )
 
-        # Build PyMA57
+        # Prepare to build PyMA57.
         ma57_sources = [os.path.join(hsl_dir,'ma57d',name) for name in ma57_src]
         pyma57_sources = [os.path.join('src',name) for name in pyma57_src]
 
-        config.add_library(
-            name='nlpy_ma57',
-            sources=ma57_sources,
-            libraries=[metis_lib],
-            library_dirs=[metis_dir],
-            include_dirs=[hsl_dir,'src'],
-            extra_info=blas_info,
-            )
+        # See if source files are present.
+        build57 = True
+        for src_file in ma57_sources:
+            if not os.access(src_file, os.F_OK):
+                build57 = False
+                break
 
-        config.add_extension(
-            name='_pyma57',
-            sources=pyma57_sources,
-            libraries=[metis_lib,'nlpy_ma57'],
-            library_dirs=[metis_dir],
-            include_dirs=['src'],
-            extra_info=blas_info,
-            )
+        if build57:
+            config.add_library(
+                name='nlpy_ma57',
+                sources=ma57_sources,
+                libraries=[metis_lib],
+                library_dirs=[metis_dir],
+                include_dirs=[hsl_dir,'src'],
+                extra_info=blas_info,
+                )
+
+            config.add_extension(
+                name='_pyma57',
+                sources=pyma57_sources,
+                libraries=[metis_lib,'nlpy_ma57'],
+                library_dirs=[metis_dir],
+                include_dirs=['src'],
+                extra_info=blas_info,
+                )
 
     if propack_dir is not None:
         propack_src = ['dlanbpro.F', 'dreorth.F', 'dgetu0.F', 'dsafescal.F',
