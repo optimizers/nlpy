@@ -4,7 +4,6 @@ from tempfile import mkdtemp
 import gzip, tarfile
 import os
 import re
-import shutil
 
 def tarzxf(archive):
     """
