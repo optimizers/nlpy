@@ -9,9 +9,9 @@
 
 /* ========================================================================== */
 
-/* 
+/*
    $Revision: 84 $
-   $Date: 2008-09-14 22:49:23 -0400 (Sun, 14 Sep 2008) $ 
+   $Date: 2008-09-14 22:49:23 -0400 (Sun, 14 Sep 2008) $
 */
 
 /* Indicate that module is split across several files */
@@ -171,7 +171,7 @@ static PyObject *Pyma27_fetch_lb( Pyma27Object *self, PyObject *args ) {
     if( !PyArg_ParseTuple( args, "OO", &Lmat, &Dmat ) ) return NULL;
     L = (LLMatObject *)Lmat;
     D = (LLMatObject *)Dmat;
-    
+
     /* Obtain the number of nonzeros in factors L and D^{-1} */
     nblk = abs( self->data->iw[0] );   /* # block pivots */
     if( nblk == 0 ) {
@@ -182,7 +182,7 @@ static PyObject *Pyma27_fetch_lb( Pyma27Object *self, PyObject *args ) {
     liwm1 = self->data->liw - 1;
     MA27QDEMASC( &n, iwp1, &liwm1, self->data->iw1,
                  &nblk, &latop, self->data->icntl );
-    
+
     n2x2 = self->data->info[13];   /* No. of 2x2 pivots. */
     n1x1 = n - 2*n2x2;             /* No. of 1x1 pivots. */
     nnzD = n1x1 + 4*n2x2;          /* 1 nz for each 1x1, 4 nz's for each 2x2. */
@@ -221,7 +221,7 @@ static PyObject *Pyma27_fetch_lb( Pyma27Object *self, PyObject *args ) {
         printf( " %-d ", inv_perm[i] );
     printf( "]\n" );
     */
-    
+
     /* At this point, nnzL is exact.  Build sparse matrices D^{-1}
      * and L.  Account for 0-based indexing */
     for( i = 0; i < nnzL; i++ ) {
@@ -232,7 +232,7 @@ static PyObject *Pyma27_fetch_lb( Pyma27Object *self, PyObject *args ) {
         //SpMatrix_LLMatSetItem( L, jj-1, ii-1, l[i] );
         SpMatrix_LLMatSetItem( L, jl[i]-1, il[i]-1, l[i] );
     }
-    
+
     for( i = 0; i < nnzD; i++ )
         SpMatrix_LLMatSetItem( D, id[i]-1, jd[i]-1, d[i] );
 
@@ -538,9 +538,9 @@ DL_EXPORT( void ) init_pyma27( void ) {
 
 void coord2csr( int n, int nz, int *irow, int *jcol, double *val,
                 int *iptr, int *jind, double *xval ) {
-    
+
     int i, start, elem, rowcnt;
-    
+
     for( i = 0; i < n+1; i++ ) iptr[i] = 0;
     for( i = 0; i < nz;  i++ ) iptr[ irow[i] ]++;  /* length of each row */
     /* Obtain starting index of each row */
