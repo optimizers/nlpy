@@ -18,7 +18,29 @@ cdef enum:
     ASL_read_pfgh = 5
 
 cdef extern from "amplutils.h":
-    
+
+    # Option_Info stuff. Only "wantsol" is currently used.
+    ctypedef struct keyword:
+        pass
+    ctypedef struct Solver_KW_func:
+        pass
+    ctypedef struct Fileeq_func:
+        pass
+    ctypedef struct Option_Info:
+        char*  sname
+        char* bsname
+        char* opname
+        keyword *keywds
+        int n_keywds
+        int want_funcadd
+        char *version
+        char **usage
+        Solver_KW_func *kwf
+        Fileeq_func *feq
+        keyword *options
+        int n_options
+        int wantsol
+
     ctypedef struct cgrad:
         cgrad *next
         int varno
@@ -67,6 +89,7 @@ cdef extern from "amplutils.h":
         double* Uvx_
         double* LUrhs_
         double* Urhsx_
+        int x_known
         SputInfo* sputinfo_
 
     ctypedef struct ASL:
@@ -76,6 +99,7 @@ cdef extern from "amplutils.h":
     void* ASL_free(ASL**)
     libc.stdio.FILE* jac0dim_ASL(ASL*, char*, int)
     int pfgh_read_ASL(ASL*, libc.stdio.FILE*, int)
+    void write_sol_ASL(ASL*, char*, double*, double*, Option_Info*)
     int ampl_sphsetup(ASL*, int, int, int, int)
     double ampl_objval(ASL*, int, double*, int*)
     int ampl_objgrd(ASL*, int, double*, double*)
@@ -85,6 +109,7 @@ cdef extern from "amplutils.h":
     int ampl_congrd(ASL*, int, double*, double*)
     void ampl_sphes(ASL*, double*, int, double*, double*)
     void ampl_hvcomp(ASL*, double*, double*, int, double*, double*)
+    void ampl_xknown(ASL*, double*)
 
 ########################################################################
 # PySparse headers
@@ -126,6 +151,7 @@ cdef class ampl:
     cdef:
         ASL* asl
         libc.stdio.FILE* ampl_file
+        Option_Info Oinfo
 
         # Components from Table 1.
         public int n_var
@@ -151,6 +177,7 @@ cdef class ampl:
         
         # Other odds and ends.
         public int objtype
+        public bint ampl_written_sol
 
     def __cinit__(self):
         """cinit is called before init; allocates the ASL structure."""
@@ -219,6 +246,7 @@ cdef class ampl:
 
         # Maximization or minimization.
         self.objtype = self.asl.i.objtype_[0] # 0 = minimization
+
 
     # Routines to get initial values.
     def get_x0(self): return carray_to_numpy(self.asl.i.X0_, self.n_var) 
@@ -514,7 +542,8 @@ cdef class ampl:
         Hv = np.empty(self.n_var, dtype=np.double)
         
         # Evaluate matrix-vector product Hv
-        ampl_hvcomp(self.asl, <double*>Hv.data, <double*>v.data, -1, OW, <double*>y.data)
+        ampl_hvcomp(self.asl, <double*>Hv.data, <double*>v.data,
+                    -1, OW, <double*>y.data)
 
         return Hv
     
@@ -548,14 +577,28 @@ cdef class ampl:
 
         return gHiv
 
-    def is_lp(self):
-        pass
+    def set_x(self, np.ndarray[np.double_t] x):
+        """Declare x as current primal value."""
 
-    def set_x(self, x):
-        pass
+        # Call xknown() with given x as argument, to prevent subsequent
+        # calls to objval, objgrad, etc., to check whether their argument
+        # has changed since the last call. Users must not forget to call
+        # Unset_x when they are finished, and before changing the value
+        # of x, or to call Set_x again with an updated value of x.
+        ampl_xknown(self.asl, <double*>x.data)
 
     def unset_x(self):
-        pass
+        """Release current primal value."""
+        self.asl.i.x_known = 0
     
-    def ampl_sol(self, x, z, msg):
-        pass
+    def ampl_sol(self, np.ndarray[np.double_t] x, np.ndarray[np.double_t] y, msg):
+        """Write primal and dual solution."""
+
+        # Suppress message echo, force .sol writing.
+        self.Oinfo.wantsol = 9
+
+        # Output solution.
+        write_sol_ASL(self.asl, msg, <double*>x.data, <double*>y.data, &self.Oinfo)
+
+        # Flag that a solution has been written.
+        self.ampl_written_sol = True

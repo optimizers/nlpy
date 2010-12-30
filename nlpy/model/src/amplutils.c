@@ -38,3 +38,6 @@ void ampl_hvcomp(ASL* asl, double* hv, double* v, int nobj, double* ow, double* 
   hvpinit_ASL(asl, ihd_limit, nobj, ow, y);
   hvcomp(hv, v, nobj, ow, y);
 }
+void ampl_xknown(ASL* asl, double* x) {
+  xknown(x);
+}

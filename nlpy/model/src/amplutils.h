@@ -51,6 +51,7 @@ int ampl_conival(ASL* asl, int i, double* c, double* x);
 int ampl_congrd(ASL* asl, int i, double* c, double* x);
 void ampl_sphes(ASL* asl, double* H, int nobj, double* ow, double* y);
 void ampl_hvcomp(ASL* asl, double* hv, double* p, int nobj, double* ow, double* y);
+void ampl_xknown(ASL* asl, double* x);
 
 #ifdef MYHEADER_DEFN
    #undef real
