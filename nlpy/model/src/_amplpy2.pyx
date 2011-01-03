@@ -1,6 +1,4 @@
 import os.path
-import numpy as np
-cimport numpy as np
 from pysparse import spmatrix
 cimport cpython
 cimport cython
@@ -127,21 +125,38 @@ import_spmatrix() # this does the actual import
 
 cdef extern from "spmatrix.h":
     int SpMatrix_LLMatSetItem(void* self, int i, int j, double val)
-    object SpMatrix_NewLLMatObject(int* dim, int type, int nnz, int store)
+    object SpMatrix_NewLLMatObject(int* dims, int type, int nnz, int store)
 
 ########################################################################
-# Utility function
+# Numpy utility function
 ########################################################################
+import numpy as np
+cimport numpy as np
+from numpy cimport npy_intp, NPY_DOUBLE
+
+cdef extern from "numpy/arrayobject.h":
+        np.ndarray PyArray_GETCONTIGUOUS(np.ndarray)
+        np.ndarray PyArray_EMPTY(int, npy_intp*, int, int)
+        void import_array()
+
+import_array()
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cdef np.ndarray[np.double_t] carray_to_numpy(double *x, int lenx):
+cdef np.ndarray carray_to_numpy(double *x, int lenx):
     """Utility to copy C array of doubles to numpy array."""
+    cdef npy_intp* dims = [lenx]
     cdef np.ndarray[np.double_t] \
-         v = np.empty(lenx, dtype=np.double)
+         v = PyArray_EMPTY(1, dims, NPY_DOUBLE, 0)
     cdef int i
     for i in range(lenx):
         v[i] = x[i]
     return v
+
+cdef np.ndarray ensure_contiguous(np.ndarray x, int lenx):
+    if x.shape[0] != lenx:
+        raise ValueError('Input array is incorrect length.')
+    return PyArray_GETCONTIGUOUS(x) # Only copies if not contiguous
 
 ########################################################################
 # AMPL interface class
@@ -269,8 +284,10 @@ cdef class ampl:
     def eval_obj(self, np.ndarray[np.double_t] x):
         cdef:
             int nerror
-            double val = \
-                   ampl_objval(self.asl, 0, <double*>x.data, &nerror)
+            double val
+        
+        x = ensure_contiguous(x, self.n_var)
+        val = ampl_objval(self.asl, 0, <double*>x.data, &nerror)
         if nerror:
             raise ValueError
         return val
@@ -391,13 +408,13 @@ cdef class ampl:
         """Evaluate Jacobian of LP."""
         cdef:
             cgrad* cg
-            int *dim = [self.n_con, self.n_var]
+            int *dims = [self.n_con, self.n_var]
             int i, irow, jcol
         nnzj = self.nzc if self.n_con else 1
 
         # Determine room necessary for Jacobian.
         if spJac is None:
-            spJac = SpMatrix_NewLLMatObject(dim, GENERAL,
+            spJac = SpMatrix_NewLLMatObject(dims, GENERAL,
                                             nnzj, store_zeros)
 
         # Create sparse Jacobian structure.
@@ -422,7 +439,7 @@ cdef class ampl:
 
             # Variables needed for LL format.
             cgrad* cg
-            int* dim = [self.n_con, self.n_var]
+            int* dims = [self.n_con, self.n_var]
 
         nnzj = self.nzc if self.n_con else 1
 
@@ -449,7 +466,7 @@ cdef class ampl:
 
             # Determine room necessary for Jacobian.
             if spJac is None:            
-                spJac = SpMatrix_NewLLMatObject(dim, GENERAL,
+                spJac = SpMatrix_NewLLMatObject(dims, GENERAL,
                                                 nnzj, store_zeros)
                         
             # Create sparse Jacobian structure.
@@ -483,7 +500,7 @@ cdef class ampl:
 
             # Variables needed for LL format.
             cgrad* cg
-            int* dim = [self.n_var, self.n_var]
+            int* dims = [self.n_var, self.n_var]
 
             # Misc.
             double OW[1]     # Objective type: we currently only support single objective
@@ -515,7 +532,7 @@ cdef class ampl:
         else: # return Hessian in LL format.
 
             if spHess is None:
-                spHess = SpMatrix_NewLLMatObject(dim, SYMMETRIC,
+                spHess = SpMatrix_NewLLMatObject(dims, SYMMETRIC,
                                                  nnzh, store_zeros)
                 if spHess is None:
                     raise ValueError
