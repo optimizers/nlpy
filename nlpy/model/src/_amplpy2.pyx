@@ -132,31 +132,59 @@ cdef extern from "spmatrix.h":
 ########################################################################
 import numpy as np
 cimport numpy as np
-from numpy cimport npy_intp, NPY_DOUBLE
+from numpy cimport npy_intp, NPY_DOUBLE, ndarray
+
+## cdef extern from "Python.h":
+##     void Py_INCREF(object)
+##     ctypedef struct PyObject:
+##         pass
 
 cdef extern from "numpy/arrayobject.h":
-        np.ndarray PyArray_GETCONTIGUOUS(np.ndarray)
-        np.ndarray PyArray_EMPTY(int, npy_intp*, int, int)
-        void import_array()
-
+    bint PyArray_ISCARRAY(ndarray)
+    ndarray PyArray_EMPTY(int, npy_intp*, int, int)
+    void import_array()
+    ## ndarray PyArray_GETCONTIGUOUS(ndarray)
+    ## int PyArray_AsCArray(PyObject**, void*, npy_intp*, int, np.dtype)
+    ## np.dtype PyArray_DescrFromType(int)
+    
 import_array()
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cdef np.ndarray carray_to_numpy(double *x, int lenx):
+cdef ndarray copy_c_to_numpy(double *x, int lenx):
     """Utility to copy C array of doubles to numpy array."""
-    cdef npy_intp* dims = [lenx]
-    cdef np.ndarray[np.double_t] \
-         v = PyArray_EMPTY(1, dims, NPY_DOUBLE, 0)
-    cdef int i
+    cdef:
+        npy_intp* dims = [lenx]
+        ndarray[np.double_t] \
+            v = PyArray_EMPTY(1, dims, NPY_DOUBLE, 0)
+        int i
+    
     for i in range(lenx):
         v[i] = x[i]
     return v
 
-cdef np.ndarray ensure_contiguous(np.ndarray x, int lenx):
-    if x.shape[0] != lenx:
-        raise ValueError('Input array is incorrect length.')
-    return PyArray_GETCONTIGUOUS(x) # Only copies if not contiguous
+## cdef double* get_data_ptr(ndarray x, int lenx):
+##     """Return a pointer to data guaranteed to be C-contiguous (and
+##     correct length). Probably could use PyArray_GETCONGIGOUS here, but
+##     it seems that PyArray_ISCARRAY might be faster if it tests true,
+##     which is the case we most often expect."""
+##     cdef:
+##         double* ptr
+##         int err
+##         npy_intp* dims = [lenx]
+##         PyObject *tmp = <PyObject*>x
+        
+##     if x.shape[0] != lenx:
+##         raise ValueError('Input array is incorrect length.')
+##     if PyArray_ISCARRAY(x):
+##         return <double*>x.data
+##     else:
+##         err = PyArray_AsCArray(&tmp, <void*>ptr, dims, 1,
+##                                PyArray_DescrFromType(NPY_DOUBLE))
+##         if err < 0:
+##             raise TypeError('Unable to covnert to C array.')
+##         else:
+##             return ptr
 
 ########################################################################
 # AMPL interface class
@@ -264,12 +292,12 @@ cdef class ampl:
 
 
     # Routines to get initial values.
-    def get_x0(self): return carray_to_numpy(self.asl.i.X0_, self.n_var) 
-    def get_Lvar(self): return carray_to_numpy(self.asl.i.LUv_, self.n_var)
-    def get_Uvar(self): return carray_to_numpy(self.asl.i.Uvx_, self.n_var)
-    def get_pi0(self): return carray_to_numpy(self.asl.i.pi0_, self.n_con)
-    def get_Lcon(self): return carray_to_numpy(self.asl.i.LUrhs_, self.n_con)
-    def get_Ucon(self): return carray_to_numpy(self.asl.i.Urhsx_, self.n_con)
+    def get_x0(self): return copy_c_to_numpy(self.asl.i.X0_, self.n_var) 
+    def get_Lvar(self): return copy_c_to_numpy(self.asl.i.LUv_, self.n_var)
+    def get_Uvar(self): return copy_c_to_numpy(self.asl.i.Uvx_, self.n_var)
+    def get_pi0(self): return copy_c_to_numpy(self.asl.i.pi0_, self.n_con)
+    def get_Lcon(self): return copy_c_to_numpy(self.asl.i.LUrhs_, self.n_con)
+    def get_Ucon(self): return copy_c_to_numpy(self.asl.i.Urhsx_, self.n_con)
 
     # Sparsity of Jacobian and Hessian.
     cpdef get_nnzj(self): return self.nzc
@@ -281,33 +309,41 @@ cdef class ampl:
         lin = range(self.nlc + self.nlnc, self.n_con)
         return (lin, nln, net)
 
-    def eval_obj(self, np.ndarray[np.double_t] x):
+    def eval_obj(self, ndarray[np.double_t] x):
         cdef:
             int nerror
             double val
-        
-        x = ensure_contiguous(x, self.n_var)
+
+        # Ensure contiguous input.
+        if not PyArray_ISCARRAY(x): x = x.copy()
+
         val = ampl_objval(self.asl, 0, <double*>x.data, &nerror)
         if nerror:
             raise ValueError
         return val
 
-    cpdef grad_obj(self, np.ndarray[np.double_t] x):
+    cpdef grad_obj(self, ndarray[np.double_t] x):
         """Evaluate the gradient of the objective at x."""
-        cdef np.ndarray[np.double_t] g = x.copy() # slightly faster?
+        # Ensure contiguous input.
+        if not PyArray_ISCARRAY(x): x = x.copy()
+        cdef ndarray[np.double_t] g = x.copy()
         if ampl_objgrd(self.asl, 0, <double*>x.data, <double*>g.data):
             raise ValueError
         return g
 
-    def eval_cons(self, np.ndarray[np.double_t] x):
+    def eval_cons(self, ndarray[np.double_t] x):
         """Evaluate the constraints at x."""
-        cdef np.ndarray[np.double_t] \
+        cdef ndarray[np.double_t] \
              c = np.empty(self.n_con, dtype=np.double)
+
+        # Ensure contiguous input.
+        if not PyArray_ISCARRAY(x): x = x.copy()
+
         if ampl_conval(self.asl, <double*>x.data, <double*>c.data):
             raise ValueError
         return c
 
-    def eval_sgrad(self, np.ndarray[np.double_t] x):
+    def eval_sgrad(self, ndarray[np.double_t] x):
         """Evaluate linear-part of the objective gradient at x.  A
         sparse gradient is returned as a dictionary."""
         grad_f = self.grad_obj(x)
@@ -332,33 +368,48 @@ cdef class ampl:
             og = og.next
         return sg
 
-    def eval_ci(self, int i, np.ndarray[np.double_t] x):
+    def eval_ci(self, int i, ndarray[np.double_t] x):
         """Evaluate ith constraint."""
         cdef double ci
         if i < 0 or i >= self.n_con:
             raise ValueError('Got i = %d; exected 0 <= i < %d' %
                              (i, self.n_con))
+
+        # Ensure contiguous input.
+        if not PyArray_ISCARRAY(x): x = x.copy()
+
         if ampl_conival(self.asl, i, <double*>x.data, &ci):
             raise ValueError
         return ci
 
-    def eval_gi(self, i, np.ndarray[np.double_t] x):
+    def eval_gi(self, int i, ndarray[np.double_t] x):
         """Evaluate the ith constraint gradient at x."""
         if i < 0 or i >= self.n_con:
             raise ValueError('Got i = %d; exected 0 <= i < %d' %
                              (i, self.n_con))
-        cdef np.ndarray[np.double_t] \
+
+        # Ensure contiguous input.
+        if not PyArray_ISCARRAY(x): x = x.copy()
+
+        cdef ndarray[np.double_t] \
              gi = np.empty(self.n_var, dtype=np.double)
         if ampl_congrd(self.asl, i, <double*>x.data, <double*>gi.data):
             raise ValueError
         return gi
 
-    def eval_sgi(self, i, np.ndarray[np.double_t] x):
+    def eval_sgi(self, int i, ndarray[np.double_t] x):
         """Evalute the ith constraint sparse gradient at x."""
+
+        cdef:
+            int nzgi, j
+            cgrad* cg
 
         if i < 0 or i >= self.n_con:
             raise ValueError('Got i = %d; exected 0 <= i < %d' %
                              (i, self.n_con))
+
+        # Ensure contiguous input.
+        if not PyArray_ISCARRAY(x): x = x.copy()
 
         # Set sparse format for gradient. (Restore saved val later.)
         congrd_mode_save = self.asl.i.congrd_mode
@@ -366,19 +417,19 @@ cdef class ampl:
 
         # Count number of nonzeros in gi.
         nzgi = 0
-        cdef cgrad* cg = self.asl.i.Cgrad_[i]
+        cg = self.asl.i.Cgrad_[i]
         while cg is not NULL:
             nzgi += 1
             cg = cg.next
 
         # Allocate storage and evaluate ith constraint at x.
-        cdef np.ndarray[np.double_t] \
+        cdef ndarray[np.double_t] \
              grad_ci = np.empty(nzgi, dtype=np.double)
         if ampl_congrd(self.asl, i, <double*>x.data, <double*>grad_ci.data):
             raise ValueError('congrd failed')
         
         # Generate dictionary.
-        cdef int j = 0
+        j = 0
         sgi = {}
         cg = self.asl.i.Cgrad_[i]
         while cg is not NULL:
@@ -391,7 +442,7 @@ cdef class ampl:
     
         return sgi
 
-    def eval_row(self, i):
+    def eval_row(self, int i):
         """Evaluate the ith constraint gradient as a sparse vector. To
         be used when the problem is a linear program."""
         if i < 0 or i >= self.n_con:
@@ -429,17 +480,20 @@ cdef class ampl:
 
         return spJac
 
-    def eval_J(self, np.ndarray[np.double_t] x, coord, int store_zeros=0, spJac=None):
+    def eval_J(self, ndarray[np.double_t] x, coord, int store_zeros=0, spJac=None):
         """Evaluate sparse Jacobian."""
         cdef:
-            np.ndarray[np.double_t] J
+            ndarray[np.double_t] J
 
             # Variables needed for coordinate format.
-            np.ndarray[np.int_t] a_irow, a_icol
+            ndarray[np.int_t] a_irow, a_icol
 
             # Variables needed for LL format.
             cgrad* cg
             int* dims = [self.n_con, self.n_var]
+
+        # Ensure contiguous input.
+        if not PyArray_ISCARRAY(x): x = x.copy()
 
         nnzj = self.nzc if self.n_con else 1
 
@@ -476,12 +530,11 @@ cdef class ampl:
                     irow = i
                     jcol = cg.varno
                     SpMatrix_LLMatSetItem(<void*>spJac, irow, jcol, J[cg.goff])
-                    print irow, jcol, J[cg.goff], x[jcol]
                     cg = cg.next
                     
             return spJac
         
-    def eval_H(self, np.ndarray[np.double_t] x, np.ndarray[np.double_t] y,
+    def eval_H(self, ndarray[np.double_t] x, ndarray[np.double_t] y,
                coord, double obj_weight=1.0, int store_zeros=0, spHess=None):
         """Evaluate sparse upper triangle of Lagrangian Hessian.
         
@@ -493,10 +546,10 @@ cdef class ampl:
         Hessian, and it will still hold the Hessian at the last point at
         which, f, c or J were evaluated !"""
         cdef:
-            np.ndarray[np.double_t] H
+            ndarray[np.double_t] H
 
             # Variables needed for coordinate format.
-            np.ndarray[np.int_t] a_irow, a_icol
+            ndarray[np.int_t] a_irow, a_icol
 
             # Variables needed for LL format.
             cgrad* cg
@@ -504,6 +557,10 @@ cdef class ampl:
 
             # Misc.
             double OW[1]     # Objective type: we currently only support single objective
+
+        # Ensure contiguous input.
+        if not PyArray_ISCARRAY(x): x = x.copy()
+        if not PyArray_ISCARRAY(y): y = y.copy()
 
         # Determine room for Hessian and multiplier sign.
         nnzh = self.get_nnzh()
@@ -546,15 +603,19 @@ cdef class ampl:
                                           H[j])
             return spHess
                 
-    def H_prod(self, np.ndarray[np.double_t] y, np.ndarray[np.double_t] v,
+    def H_prod(self, ndarray[np.double_t] y, ndarray[np.double_t] v,
                double obj_weight=1.0):
         """Compute matrix-vector product Hv of Lagrangian Hessian
         times a vector."""
 
         cdef:
             double OW[1]
-            np.ndarray[np.double_t] Hv
+            ndarray[np.double_t] Hv
             
+        # Ensure contiguous input.
+        if not PyArray_ISCARRAY(y): y = y.copy()
+        if not PyArray_ISCARRAY(v): v = v.copy()
+
         OW[0] = obj_weight if self.objtype == 0 else -obj_weight
         Hv = np.empty(self.n_var, dtype=np.double)
         
@@ -565,14 +626,18 @@ cdef class ampl:
         return Hv
     
 
-    def gHi_prod(self, np.ndarray[np.double_t] g, np.ndarray[np.double_t] v):
+    def gHi_prod(self, ndarray[np.double_t] g, ndarray[np.double_t] v):
         """Compute the vector of dot products (g,Hi*v) of with the
         constraint Hessians."""
 
         cdef:
-            np.ndarray[np.double_t] gHiv = np.empty(self.n_con, type=np.double)
-            np.ndarray[np.double_t] hv = np.empty(self.n_var, type=np.double)
-            np.ndarray[np.double_t] y = np.zeros(self.n_con, type=np.double)
+            ndarray[np.double_t] gHiv = np.empty(self.n_con, type=np.double)
+            ndarray[np.double_t] hv = np.empty(self.n_var, type=np.double)
+            ndarray[np.double_t] y = np.zeros(self.n_con, type=np.double)
+
+        # Ensure contiguous input.
+        if not PyArray_ISCARRAY(g): g = g.copy()
+        if not PyArray_ISCARRAY(v): v = v.copy()
 
         # Skip linear constraints.
         gHiv[self.nlc:self.n_con] = 0
@@ -594,7 +659,7 @@ cdef class ampl:
 
         return gHiv
 
-    def set_x(self, np.ndarray[np.double_t] x):
+    def set_x(self, ndarray[np.double_t] x):
         """Declare x as current primal value."""
 
         # Call xknown() with given x as argument, to prevent subsequent
@@ -602,14 +667,22 @@ cdef class ampl:
         # has changed since the last call. Users must not forget to call
         # Unset_x when they are finished, and before changing the value
         # of x, or to call Set_x again with an updated value of x.
+
+        # Ensure contiguous input.
+        if not PyArray_ISCARRAY(g): g = g.copy()
+
         ampl_xknown(self.asl, <double*>x.data)
 
     def unset_x(self):
         """Release current primal value."""
         self.asl.i.x_known = 0
     
-    def ampl_sol(self, np.ndarray[np.double_t] x, np.ndarray[np.double_t] y, msg):
+    def ampl_sol(self, ndarray[np.double_t] x, ndarray[np.double_t] y, msg):
         """Write primal and dual solution."""
+
+        # Ensure contiguous input.
+        if not PyArray_ISCARRAY(x): x = x.copy()
+        if not PyArray_ISCARRAY(y): y = y.copy()
 
         # Suppress message echo, force .sol writing.
         self.Oinfo.wantsol = 9
