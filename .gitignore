@@ -1,6 +1,7 @@
 *.pyc
 *~
 build
+cache
 site.cfg
 *.sol
 *.so

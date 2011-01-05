@@ -5,6 +5,7 @@ import gzip, tarfile
 import os
 import re
 
+
 def tarzxf(archive):
     """
     This (oddly) named function performs the same tas as the ``tar zxf``
@@ -13,7 +14,7 @@ def tarzxf(archive):
     newly-created directory named ``archive``, where ``archive.tar.gz``
     is the name of the original compressed tar archive.
     """
-    archivetar_name = archive + '.tar'
+    archivetar_name = archive + '.tar' ; print 'archivetar_name = ', archivetar_name
     archivetargz_name = archivetar_name + '.gz'
 
     # Uncompress into regular tar archive.
@@ -54,16 +55,25 @@ def configuration(parent_package='',top_path=None):
 
     config = Configuration('model', parent_package, top_path)
 
+    cache_dir = os.path.join(top_path, 'cache')
+
     if libampl_dir is None:
 
         # Fetch and build ASL.
         libampl_name = 'solvers'
         src = 'ftp://www.netlib.org/ampl/solvers.tar.gz'
-        tmpdir = mkdtemp() ; localcopy = os.path.join(tmpdir, libampl_name)
+        tmpdir = cache_dir #mkdtemp()
+        #tmpdir = config.get_build_temp_dir()
+        localcopy = os.path.join(tmpdir, libampl_name)
 
         # Fetch, uncompress and extract compressed tar archive.
-        print 'Downloading ASL'
-        urlretrieve(src, filename=localcopy + '.tar.gz')
+        localfilename = localcopy + '.tar.gz'
+
+        # Check if ASL has been downloaded previously.
+        if not os.access(localfilename, os.F_OK):
+            print 'Downloading ASL'
+            urlretrieve(src, filename=localfilename)
+
         print 'Unarchiving ASL'
         tarzxf(localcopy)
         localcopy = os.path.join(localcopy, 'solvers')
@@ -72,6 +82,7 @@ def configuration(parent_package='',top_path=None):
         cwd = os.getcwd()
         print 'Changing to %s to build headers' % localcopy
         os.chdir(localcopy)
+        os.system('make -f makefile.u clean')
         os.system('make -f makefile.u arith.h stdio1.h details.c')
 
         # Read contents of Makefile.
