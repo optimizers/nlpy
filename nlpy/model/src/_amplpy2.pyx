@@ -557,6 +557,7 @@ cdef class ampl:
 
             # Misc.
             double OW[1]     # Objective type: we currently only support single objective
+            int i, j, k
 
         # Ensure contiguous input.
         if not PyArray_ISCARRAY(x): x = x.copy()
@@ -625,15 +626,16 @@ cdef class ampl:
 
         return Hv
     
-
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
     def gHi_prod(self, ndarray[np.double_t] g, ndarray[np.double_t] v):
         """Compute the vector of dot products (g,Hi*v) of with the
         constraint Hessians."""
 
         cdef:
-            ndarray[np.double_t] gHiv = np.empty(self.n_con, type=np.double)
-            ndarray[np.double_t] hv = np.empty(self.n_var, type=np.double)
-            ndarray[np.double_t] y = np.zeros(self.n_con, type=np.double)
+            ndarray[np.double_t] gHiv = np.empty(self.n_con, dtype=np.double)
+            ndarray[np.double_t] hv = np.empty(self.n_var, dtype=np.double)
+            ndarray[np.double_t] y = np.zeros(self.n_con, dtype=np.double)
 
         # Ensure contiguous input.
         if not PyArray_ISCARRAY(g): g = g.copy()
