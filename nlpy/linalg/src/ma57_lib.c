@@ -56,6 +56,7 @@ extern "C" {   /* To prevent C++ compilers from mangling symbols */
                          //  4: MeTiS
                          //  5: Automatic (4 with fallback on 2)
     ma57->icntl[7] = 1;  // Memory will be re-allocated if necessary
+    ma57->icntl[9] = 1;  // Request condition number estimates
     ma57->icntl[14] = 1; // Scale system before factorizing    
     ma57->fetched = 0;
 
@@ -248,8 +249,6 @@ extern "C" {   /* To prevent C++ compilers from mangling symbols */
         ma57->lwork += 2 * ma57->n;
     }
     ma57->work = (double *)NLPy_Calloc( ma57->lwork, sizeof(double) );
-
-    ma57->icntl[9] = 1; // Return estimates of condition number
 
     /* Perform iterative refinement */
     MA57DD( &(ma57->job), &(ma57->n), &(ma57->nz), A, ma57->irn, ma57->jcn,
