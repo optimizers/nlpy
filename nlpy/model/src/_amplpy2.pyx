@@ -633,7 +633,7 @@ cdef class ampl:
         constraint Hessians."""
 
         cdef:
-            ndarray[np.double_t] gHiv = np.empty(self.n_con, dtype=np.double)
+            ndarray[np.double_t] gHiv = np.zeros(self.n_con, dtype=np.double)
             ndarray[np.double_t] hv = np.empty(self.n_var, dtype=np.double)
             ndarray[np.double_t] y = np.zeros(self.n_con, dtype=np.double)
 
@@ -641,10 +641,7 @@ cdef class ampl:
         if not PyArray_ISCARRAY(g): g = g.copy()
         if not PyArray_ISCARRAY(v): v = v.copy()
 
-        # Skip linear constraints.
-        gHiv[self.nlc:self.n_con] = 0
-
-        # Process nonlinear constraints.
+        # Process nonlinear constraints. The rest are already zero.
         for i in range(self.nlc):
             # Set vector of multipliers to (0, 0, ..., -1, ..., 0).
             y[i] = -1.0
