@@ -4,6 +4,27 @@ from tempfile import mkdtemp
 import gzip, tarfile
 import os, re
 
+class ProgressMeter:
+    def __init__(self):
+        self.progress = 0
+
+    def display_percent(self):
+        sys.stdout.write("\r%3d%%" % self.progress)
+        sys.stdout.flush()
+
+    def display_size(self):
+        sys.stdout.write("\r%8.2f Kb" % self.progress)
+        sys.stdout.flush()
+
+    def update(self, nblocks, block_size, total_size):
+        if total_size == -1:
+            self.progress = (1.0 * nblocs * block_size) / 1024
+            self.display_size()
+        else:
+            self.progress = int((100.0 * nblocks * block_size) / total_size)
+            self.display_percent()
+
+
 def tarzxf(archive):
     """
     This (oddly) named function performs the same tas as the ``tar zxf``
@@ -128,7 +149,8 @@ def configuration(parent_package='',top_path=None):
                 # Fetch, uncompress and extract compressed tar archive.
                 if not os.access(localcopy, os.F_OK):
                     print 'Downloading METIS'
-                    urlretrieve(src, filename=localcopy + '.tar.gz')
+                    pm = ProgressMeter()
+                    urlretrieve(src, filename=localcopy + '.tar.gz', reporthook=pm.update)
 
                 print 'Unarchiving METIS'
                 tarzxf(localcopy)
@@ -159,7 +181,8 @@ def configuration(parent_package='',top_path=None):
                 src_lst = lst.split()
                 metis_sources = [os.path.join(localcopy,f) for f in src_lst]
                 libmetis_include = localcopy
-                metis_dir = ''
+                #library_dirs = None
+                extra_args = {}
                 metis_lib = 'metis'
 
                 # Build METIS.
@@ -169,12 +192,15 @@ def configuration(parent_package='',top_path=None):
                     include_dirs=[libmetis_include],
                 )
 
+            else:
+                extra_args = {'library_dirs' : [metis_dir]}
+
             # Build PyMA57.
             config.add_library(
                 name='nlpy_ma57',
                 sources=ma57_sources,
                 libraries=[metis_lib],
-                library_dirs=[metis_dir],
+                #library_dirs=library_dirs,
                 include_dirs=[hsl_dir,'src'],
                 extra_info=blas_info,
             )

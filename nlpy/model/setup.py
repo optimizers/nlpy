@@ -4,6 +4,27 @@ from tempfile import mkdtemp
 import gzip, tarfile
 import os
 import re
+import sys
+
+class ProgressMeter:
+    def __init__(self):
+        self.progress = 0
+
+    def display_percent(self):
+        sys.stdout.write("\r%3d%%" % self.progress)
+        sys.stdout.flush()
+
+    def display_size(self):
+        sys.stdout.write("\r%8.2f Kb" % self.progress)
+        sys.stdout.flush()
+
+    def update(self, nblocks, block_size, total_size):
+        if total_size == -1:
+            self.progress = (1.0 * nblocs * block_size) / 1024
+            self.display_size()
+        else:
+            self.progress = int((100.0 * nblocks * block_size) / total_size)
+            self.display_percent()
 
 
 def tarzxf(archive):
@@ -72,7 +93,8 @@ def configuration(parent_package='',top_path=None):
         # Check if ASL has been downloaded previously.
         if not os.access(localfilename, os.F_OK):
             print 'Downloading ASL'
-            urlretrieve(src, filename=localfilename)
+            pm = ProgressMeter()
+            urlretrieve(src, filename=localfilename, reporthook=pm.update)
 
         print 'Unarchiving ASL'
         tarzxf(localcopy)
