@@ -12,10 +12,10 @@ DOCLINES = __doc__.split("\n")
 import os
 import sys
 
-try:
-    import setuptools   # To enable 'python setup.py develop'
-except:
-    pass
+#try:
+#    import setuptools   # To enable 'python setup.py develop'
+#except:
+#    pass
 
 CLASSIFIERS = """\
 Development Status :: 4 - Beta
