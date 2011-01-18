@@ -21,7 +21,7 @@ Output is an eps file sent to stdout.
 Example 1:
   Profile the metrics in column 3 of the files solver1, solver2, and solver3.
   Use a log2 scale for the x-axis.  Redirect the stdout to profile.eps.
-  
+
     %s -l 2 -c 3 solver1 solver2 solver3 > profile.eps
 
 Example 2:
@@ -57,7 +57,7 @@ Options
 
     print instructions
     return
-    
+
 
 def commandline_err(msg):
     sys.stderr.write("%s: %s\n" % (PROGNAME, msg))
@@ -92,7 +92,7 @@ def parse_cmdline(arglist):
         sys.exit(0)
 
     options = OptionClass()
-    
+
     try: optlist, files = getopt.getopt(arglist, 'hl:c:x:y:t:',
                                         ["bw", "column=", "cpu", "help",
                                          "legend", "linestyle=",
@@ -109,7 +109,7 @@ def parse_cmdline(arglist):
         sys.exit(0)
 
     opt_dict = {}
-    
+
     for opt, arg in optlist:
         if   opt ==            "--bw" : opt_dict['bw'] = True
         elif opt in ("-c", "--column"): opt_dict['column'] = atoi(arg)
@@ -265,12 +265,12 @@ class PerformanceProfile:
 
     Call usage() for the precise form of the argument argstring.
     """
-    
+
     def __init__(self, solvers, **kwargs):
 
         self.solvers = solvers
 
-        # Obtain options class with all default values 
+        # Obtain options class with all default values
         self.opts = OptionClass()
 
         # Assign non-default options
@@ -397,7 +397,7 @@ if __name__ == "__main__":
     (optlist, solvers) = parse_cmdline(sys.argv[1:])
     #print ' optlist = ', optlist
     #print ' solvers = ', solvers
-    
+
     profile = PerformanceProfile(solvers, **optlist)
 
     # Usage from within a program
