@@ -21,6 +21,16 @@ def configuration(parent_package='',top_path=None):
     libampl_libdir = os.path.join(libampl_dir, 'Lib')
     libampl_include = os.path.join(libampl_dir, os.path.join('Src','solvers'))
     amplpy_src = os.path.join('src','_amplpy.c')
+    amplpy2_src = [os.path.join('src','_amplpy2.c'),
+                   os.path.join('src','amplutils.c')]
+
+    config.add_extension(
+        name='_amplpy2',
+        sources=amplpy2_src,
+        libraries=['ampl','funcadd0'],
+        library_dirs=[libampl_libdir],
+        include_dirs=['src', libampl_include],
+        )
 
     config.add_extension(
         name='_amplpy',
@@ -32,6 +42,7 @@ def configuration(parent_package='',top_path=None):
         )
 
     config.make_config_py()
+
     return config
 
 if __name__ == '__main__':

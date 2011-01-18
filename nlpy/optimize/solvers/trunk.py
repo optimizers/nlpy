@@ -143,7 +143,7 @@ class TrunkFramework:
         else:
             cgtol = -1.0
         stoptol = max(self.abstol, self.reltol * self.g0)
-        status = None
+        step_status = None
         exitOptimal = exitIter = exitUser = False
 
         # Initialize non-monotonicity parameters.
@@ -151,6 +151,11 @@ class TrunkFramework:
             fMin = fRef = fCan = self.f0
             l = 0
             sigRef = sigCan = 0
+
+        # Wrap Hessian into an operator.
+        H = SimpleLinearOperator(nlp.n, nlp.n,
+                                 lambda v: self.hprod(v),
+                                 symmetric=True)
 
         t = cputime()
 
@@ -179,10 +184,6 @@ class TrunkFramework:
             if self.inexact:
                 cgtol = max(1.0e-6, min(0.5 * cgtol, sqrt(self.gnorm)))
 
-            H = SimpleLinearOperator(nlp.n, nlp.n,
-                                     lambda v: self.hprod(v),
-                                     symmetric=True)
-
             self.solver = self.TrSolver(self.g, H)
             self.solver.Solve(prec=self.precon,
                               radius=self.TR.Delta,
@@ -209,7 +210,7 @@ class TrunkFramework:
                 rhoHis = (fRef - f_trial)/(sigRef - m)
                 rho = max(rho, rhoHis)
 
-            status = 'Rej'
+            step_status = 'Rej'
             if rho >= self.TR.eta1:
 
                 # Trust-region step is accepted.
@@ -219,7 +220,7 @@ class TrunkFramework:
                 self.f = f_trial
                 self.g = nlp.grad(self.x)
                 self.gnorm = norms.norm2(self.g)
-                status = 'Acc'
+                step_status = 'Acc'
 
                 # Update non-monotonicity parameters.
                 if not self.monotone:
@@ -259,12 +260,13 @@ class TrunkFramework:
                     self.g = nlp.grad(self.x)
                     self.gnorm = norms.norm2(self.g)
                     self.TR.Delta = self.alpha * snorm
-                    status = 'N-Y'
+                    step_status = 'N-Y'
                 else:
                     self.TR.UpdateRadius(rho, snorm)
 
-            self.status = status
+            self.step_status = step_status
             self.radii.append(self.TR.Delta)
+            status = ''
             try:
                 self.PostIteration()
             except UserExitRequest:
@@ -277,7 +279,7 @@ class TrunkFramework:
                 self.log.info(self.hline)
 
             if self.verbose:
-                pstatus = status if status != 'Acc' else ''
+                pstatus = step_status if step_status != 'Acc' else ''
                 self.log.info(self.format % (self.iter, self.f,
                           self.gnorm, cgiter, rho,
                           self.TR.Delta, pstatus))
