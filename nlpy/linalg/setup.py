@@ -20,7 +20,7 @@ class ProgressMeter:
     def update(self, nblocks, block_size, total_size):
         if total_size == -1:
             # Total size was not supplied by server.
-            self.progress = (1.0 * nblocs * block_size) / 1024
+            self.progress = (1.0 * nblocks * block_size) / 1024
             self.display_size()
         else:
             self.progress = int((100.0 * nblocks * block_size) / total_size)
