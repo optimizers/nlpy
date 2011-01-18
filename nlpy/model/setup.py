@@ -95,6 +95,7 @@ def configuration(parent_package='',top_path=None):
             print 'Downloading ASL'
             pm = ProgressMeter()
             urlretrieve(src, filename=localfilename, reporthook=pm.update)
+            print
 
         print 'Unarchiving ASL'
         tarzxf(localcopy)
