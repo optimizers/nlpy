@@ -241,7 +241,7 @@ def configuration(parent_package='',top_path=None):
             f2py_options=f2py_options,
         )
 
-        config.add_subpackage('scaling')
+    config.add_subpackage('scaling')
 
     config.make_config_py()
     return config
