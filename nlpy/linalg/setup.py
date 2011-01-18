@@ -3,6 +3,7 @@ from urllib import urlretrieve
 from tempfile import mkdtemp
 import gzip, tarfile
 import os, re
+import sys
 
 class ProgressMeter:
     def __init__(self):
@@ -18,6 +19,7 @@ class ProgressMeter:
 
     def update(self, nblocks, block_size, total_size):
         if total_size == -1:
+            # Total size was not supplied by server.
             self.progress = (1.0 * nblocs * block_size) / 1024
             self.display_size()
         else:
@@ -138,6 +140,7 @@ def configuration(parent_package='',top_path=None):
 
         if build57:
 
+            libmetis_include = ''
             if metis_dir is None or metis_lib is None:
 
                 # Fetch and build METIS.
@@ -150,7 +153,9 @@ def configuration(parent_package='',top_path=None):
                 if not os.access(localcopy, os.F_OK):
                     print 'Downloading METIS'
                     pm = ProgressMeter()
-                    urlretrieve(src, filename=localcopy + '.tar.gz', reporthook=pm.update)
+                    urlretrieve(src, filename=localcopy + '.tar.gz',
+                                reporthook=pm.update)
+                    print
 
                 print 'Unarchiving METIS'
                 tarzxf(localcopy)
@@ -181,8 +186,7 @@ def configuration(parent_package='',top_path=None):
                 src_lst = lst.split()
                 metis_sources = [os.path.join(localcopy,f) for f in src_lst]
                 libmetis_include = localcopy
-                #library_dirs = None
-                extra_args = {}
+                metis_dir = ''
                 metis_lib = 'metis'
 
                 # Build METIS.
@@ -191,27 +195,25 @@ def configuration(parent_package='',top_path=None):
                     sources=metis_sources,
                     include_dirs=[libmetis_include],
                 )
-
-            else:
-                extra_args = {'library_dirs' : [metis_dir]}
+                #ma57_sources += metis_sources
 
             # Build PyMA57.
             config.add_library(
                 name='nlpy_ma57',
                 sources=ma57_sources,
-                libraries=[metis_lib],
-                #library_dirs=library_dirs,
-                include_dirs=[hsl_dir,'src'],
+                #libraries=[metis_lib],
+                #library_dirs=[metis_dir],
+                include_dirs=[hsl_dir,libmetis_include,'src'],
                 extra_info=blas_info,
             )
 
             config.add_extension(
                 name='_pyma57',
                 sources=pyma57_sources,
-                libraries=['nlpy_ma57'],
-                #libraries=[metis_lib,'nlpy_ma57'],
-                #library_dirs=[metis_dir],
-                include_dirs=['src'],
+                #libraries=['nlpy_ma57'],
+                libraries=[metis_lib,'nlpy_ma57'],
+                library_dirs=[metis_dir],
+                include_dirs=[libmetis_include,'src'],
                 extra_info=blas_info,
             )
 
