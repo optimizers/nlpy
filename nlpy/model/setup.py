@@ -11,17 +11,13 @@ def configuration(parent_package='',top_path=None):
     nlpy_config = ConfigParser.SafeConfigParser()
     nlpy_config.read(os.path.join(top_path, 'site.cfg'))
     libampl_dir = nlpy_config.get('LIBAMPL', 'libampl_dir')
-    #try:
-    #    pysparse_include = nlpy_config.get('PYSPARSE', 'pysparse_include')
-    #except:
-    #    pysparse_include = []
 
     config = Configuration('model', parent_package, top_path)
 
     libampl_libdir = os.path.join(libampl_dir, 'Lib')
     libampl_include = os.path.join(libampl_dir, os.path.join('Src','solvers'))
     amplpy_src = os.path.join('src','_amplpy.c')
-    amplpy2_src = [os.path.join('src','_amplpy2.c'),
+    amplpy2_src = [os.path.join('src','_amplpy2.pyx'),
                    os.path.join('src','amplutils.c')]
 
     config.add_extension(
@@ -37,7 +33,7 @@ def configuration(parent_package='',top_path=None):
         sources=amplpy_src,
         libraries=['ampl', 'funcadd0'],
         library_dirs=[libampl_libdir],
-        include_dirs=['src', libampl_include], # + [pysparse_include],
+        include_dirs=['src', libampl_include],
         extra_link_args=[]
         )
 
