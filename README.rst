@@ -18,7 +18,7 @@ The manual in PDF format is in the `doc` subfolder. The HTML documentation is
 accessible by pointing your browser to `doc/build/contents.html`.
 
 Check the paper `NLPy---A Large-Scale Optimization Toolkit in Python` by
-Dominique Orban available from `http://www.gerad.ca`_. 
+Dominique Orban available from `http://www.gerad.ca`_.
 
 If the user so desires, the documentation may be generated afresh as follows:
 
@@ -49,15 +49,11 @@ For now, just::
 
 To select another C and/or Fortran compiler::
 
-    python setup.py config_fc --ccompiler=<name> --fcompiler=<name> build
+    python setup.py config_fc --compiler=<name> --fcompiler=<name> build
 
 To see a list of available Fortran compilers and their names::
 
     python setup.py config_fc --help-fcompiler
-
-To see a list of available C compilers and their names::
-
-    python setup.py config_fc --help-ccompiler
 
 For example, you can force compilation with gfortran by specifying::
 
