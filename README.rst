@@ -47,13 +47,21 @@ For now, just::
     python setup.py build
     python setup.py install [--prefix=...]
 
-To select another C and/or Fortran compiler::
+To select another C compiler::
 
-    python setup.py config_fc --compiler=<name> --fcompiler=<name> build
+    python setup.py config --compiler=<name> build
+
+To select another Fortran compiler::
+
+    python setup.py config_fc --fcompiler=<name> build
 
 To see a list of available Fortran compilers and their names::
 
     python setup.py config_fc --help-fcompiler
+
+To select both a C and a Fortran compiler::
+
+    python setup.py config --compiler=<name> config_fc --fcompiler=<name> build
 
 For example, you can force compilation with gfortran by specifying::
 
