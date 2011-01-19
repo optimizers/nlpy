@@ -53,7 +53,7 @@ cdef extern from "amplutils.h":
     ctypedef struct SputInfo:
         int *hcolstarts
         int *hrownos
-        
+
     ctypedef struct Edaginfo:
         int n_var_
         int nbv_
@@ -115,7 +115,7 @@ cdef extern from "amplutils.h":
 cdef enum:
     SYMMETRIC = 1    # Symmetric SpMatrix
     GENERAL   = 0    # General   SpMatrix
-    
+
 cdef extern from "ll_mat.h":
     pass
 
@@ -146,7 +146,7 @@ cdef extern from "numpy/arrayobject.h":
     ## ndarray PyArray_GETCONTIGUOUS(ndarray)
     ## int PyArray_AsCArray(PyObject**, void*, npy_intp*, int, np.dtype)
     ## np.dtype PyArray_DescrFromType(int)
-    
+
 import_array()
 
 @cython.boundscheck(False)
@@ -158,7 +158,7 @@ cdef ndarray copy_c_to_numpy(double *x, int lenx):
         ndarray[np.double_t] \
             v = PyArray_EMPTY(1, dims, NPY_DOUBLE, 0)
         int i
-    
+
     for i in range(lenx):
         v[i] = x[i]
     return v
@@ -173,7 +173,7 @@ cdef ndarray copy_c_to_numpy(double *x, int lenx):
 ##         int err
 ##         npy_intp* dims = [lenx]
 ##         PyObject *tmp = <PyObject*>x
-        
+
 ##     if x.shape[0] != lenx:
 ##         raise ValueError('Input array is incorrect length.')
 ##     if PyArray_ISCARRAY(x):
@@ -217,7 +217,7 @@ cdef class ampl:
         public int nzo
         public int maxrownamelen
         public int maxcolnamelen
-        
+
         # Other odds and ends.
         public int objtype
         public bint ampl_written_sol
@@ -243,7 +243,7 @@ cdef class ampl:
 
     def __init__(self, stub):
         """Initialize an ampl object."""
-        
+
         # Let Python try to open the file before giving it to
         # Ampl. Any exception should be caught by the caller.
         basename, extension = os.path.splitext(stub)
@@ -253,7 +253,7 @@ cdef class ampl:
 
         # Open stub and get problem dimensions (Table 1 of "Hooking...").
         self.ampl_file = jac0dim_ASL(self.asl, stub, len(stub))
-        
+
         self.n_var = self.asl.i.n_var_
         self.nbv = self.asl.i.nbv_
         self.niv = self.asl.i.niv_
@@ -292,7 +292,7 @@ cdef class ampl:
 
 
     # Routines to get initial values.
-    def get_x0(self): return copy_c_to_numpy(self.asl.i.X0_, self.n_var) 
+    def get_x0(self): return copy_c_to_numpy(self.asl.i.X0_, self.n_var)
     def get_Lvar(self): return copy_c_to_numpy(self.asl.i.LUv_, self.n_var)
     def get_Uvar(self): return copy_c_to_numpy(self.asl.i.Uvx_, self.n_var)
     def get_pi0(self): return copy_c_to_numpy(self.asl.i.pi0_, self.n_con)
@@ -427,7 +427,7 @@ cdef class ampl:
              grad_ci = np.empty(nzgi, dtype=np.double)
         if ampl_congrd(self.asl, i, <double*>x.data, <double*>grad_ci.data):
             raise ValueError('congrd failed')
-        
+
         # Generate dictionary.
         j = 0
         sgi = {}
@@ -439,7 +439,7 @@ cdef class ampl:
 
         # Restore gradient mode
         self.asl.i.congrd_mode = congrd_mode_save
-    
+
         return sgi
 
     def eval_row(self, int i):
@@ -519,10 +519,10 @@ cdef class ampl:
         else: # return Jacobian in LL format.
 
             # Determine room necessary for Jacobian.
-            if spJac is None:            
+            if spJac is None:
                 spJac = SpMatrix_NewLLMatObject(dims, GENERAL,
                                                 nnzj, store_zeros)
-                        
+
             # Create sparse Jacobian structure.
             for i in range(self.n_con):
                 cg = self.asl.i.Cgrad_[i]
@@ -531,15 +531,15 @@ cdef class ampl:
                     jcol = cg.varno
                     SpMatrix_LLMatSetItem(<void*>spJac, irow, jcol, J[cg.goff])
                     cg = cg.next
-                    
+
             return spJac
-        
+
     def eval_H(self, ndarray[np.double_t] x, ndarray[np.double_t] y,
                coord, double obj_weight=1.0, int store_zeros=0, spHess=None):
         """Evaluate sparse upper triangle of Lagrangian Hessian.
-        
+
         NOTE: .... why are we passing x ???
-        
+
         In the future, we will want to be careful here, in case x has
         changed but f(x), c(x) or J(x) have not yet been recomputed. In
         such a case, Ampl has NOT updated the data structure for the
@@ -602,7 +602,7 @@ cdef class ampl:
                                           self.asl.i.sputinfo_.hrownos[j],
                                           H[j])
             return spHess
-                
+
     def H_prod(self, ndarray[np.double_t] y, ndarray[np.double_t] v,
                double obj_weight=1.0):
         """Compute matrix-vector product Hv of Lagrangian Hessian
@@ -611,20 +611,20 @@ cdef class ampl:
         cdef:
             double OW[1]
             ndarray[np.double_t] Hv
-            
+
         # Ensure contiguous input.
         if not PyArray_ISCARRAY(y): y = y.copy()
         if not PyArray_ISCARRAY(v): v = v.copy()
 
         OW[0] = obj_weight if self.objtype == 0 else -obj_weight
         Hv = np.empty(self.n_var, dtype=np.double)
-        
+
         # Evaluate matrix-vector product Hv
         ampl_hvcomp(self.asl, <double*>Hv.data, <double*>v.data,
                     -1, OW, <double*>y.data)
 
         return Hv
-    
+
 
     def gHi_prod(self, ndarray[np.double_t] g, ndarray[np.double_t] v):
         """Compute the vector of dot products (g,Hi*v) of with the
@@ -676,7 +676,7 @@ cdef class ampl:
     def unset_x(self):
         """Release current primal value."""
         self.asl.i.x_known = 0
-    
+
     def ampl_sol(self, ndarray[np.double_t] x, ndarray[np.double_t] y, msg):
         """Write primal and dual solution."""
 
