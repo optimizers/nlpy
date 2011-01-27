@@ -45,6 +45,7 @@ __docformat__ = 'restructuredtext'
 
 import numpy
 from pysparse.sparse import spmatrix   # To assemble the projection matrix
+from pysparse.sparse.pysparseMatrix import PysparseMatrix
 
 try:                            # To compute projections
     from nlpy.linalg.pyma57 import PyMa57Context as LBLContext
@@ -97,6 +98,9 @@ class ProjectedKrylov:
 
         # Optional keyword arguments
         self.A = kwargs.get('A', None)
+        if self.A is not None:
+            if isinstance(self.A, PysparseMatrix):
+                self.A = self.A.matrix
         self.b = kwargs.get('rhs', None)
         self.n = c.shape[0]            # Number of variables
         if self.A is None:
