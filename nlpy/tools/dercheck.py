@@ -43,6 +43,9 @@ class DerivativeChecker:
         self.head2 = head2fmt % ('Fun','Comp','Comp','Expected',
                                  'Finite Diff','Rel.Err')
         self.d2fmt = '%4d  %4d  %4d  %22.15e  %22.15e  %7.1e\n'
+        head3fmt = '%17s %22s  %22s  %7s\n'
+        self.head3 = head3fmt % ('Directional Deriv','Expected','Finite Diff','Rel.Err')
+        self.d3fmt = '%17s %22.15e  %22.15e  %7.1e\n'
 
         return
 
@@ -60,9 +63,14 @@ class DerivativeChecker:
         jac = (jac and self.nlp.m > 0)
         chess = (chess and self.nlp.m > 0)
 
+        if verbose:
+            sys.stderr.write('Gradient checking\n')
+            sys.stderr.write('-----------------\n')
+
         if grad:
             if cheap:
-                self.cheap_check_obj_gradient(verbose)
+                self.grad_errs = self.cheap_check_obj_gradient(verbose)
+                self.display(self.grad_errs, self.head3)
             else:
                 self.grad_errs = self.check_obj_gradient(verbose)
                 self.display(self.grad_errs, self.head)
@@ -107,10 +115,17 @@ class DerivativeChecker:
         err  = max( abs(dfdx - gtdx)/(1 + abs(gtdx)), \
                     abs(dfdx - gtdx)/(1 + abs(dfdx)) )
 
-        errs = self.d1fmt % (0, 0, gtdx, dfdx, err)
-        if verbose or err > self.tol:
-            sys.stderr.write('Cheap check: %8.1e  %8.1e  %8.1e\n'
-                             % (dfdx, gtdx, err))
+        line = self.d3fmt % ('', gtdx, dfdx, err)
+
+        if verbose:
+            sys.stderr.write(self.head3)
+            sys.stderr.write('-' * len(self.head) + '\n')
+            sys.stderr.write(line)
+
+        if err > self.tol:
+            errs = [line]
+        else:
+            errs = []
 
         return errs
 
