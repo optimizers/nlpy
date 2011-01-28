@@ -1,3 +1,7 @@
+# distutils: language = c
+# distutils: libraries = ampl funcadd0
+# distutils: include_dirs =
+
 import os.path
 from pysparse import spmatrix
 cimport cpython
