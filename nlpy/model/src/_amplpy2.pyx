@@ -561,6 +561,7 @@ cdef class ampl:
 
             # Misc.
             double OW[1]     # Objective type: we currently only support single objective
+            int i, j, k
 
         # Ensure contiguous input.
         if not PyArray_ISCARRAY(x): x = x.copy()
@@ -628,25 +629,23 @@ cdef class ampl:
                     -1, OW, <double*>y.data)
 
         return Hv
-
-
+    
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
     def gHi_prod(self, ndarray[np.double_t] g, ndarray[np.double_t] v):
         """Compute the vector of dot products (g,Hi*v) of with the
         constraint Hessians."""
 
         cdef:
-            ndarray[np.double_t] gHiv = np.empty(self.n_con, type=np.double)
-            ndarray[np.double_t] hv = np.empty(self.n_var, type=np.double)
-            ndarray[np.double_t] y = np.zeros(self.n_con, type=np.double)
+            ndarray[np.double_t] gHiv = np.zeros(self.n_con, dtype=np.double)
+            ndarray[np.double_t] hv = np.empty(self.n_var, dtype=np.double)
+            ndarray[np.double_t] y = np.zeros(self.n_con, dtype=np.double)
 
         # Ensure contiguous input.
         if not PyArray_ISCARRAY(g): g = g.copy()
         if not PyArray_ISCARRAY(v): v = v.copy()
 
-        # Skip linear constraints.
-        gHiv[self.nlc:self.n_con] = 0
-
-        # Process nonlinear constraints.
+        # Process nonlinear constraints. The rest are already zero.
         for i in range(self.nlc):
             # Set vector of multipliers to (0, 0, ..., -1, ..., 0).
             y[i] = -1.0

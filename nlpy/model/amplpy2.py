@@ -826,8 +826,11 @@ class AmplModel(NLPModel):
     def ghivprod(self, g, v, **kwargs):
         """
         Evaluate the vector of dot products (g, Hi*v) where Hi is the Hessian
-        of the i-th constraint.
+        of the i-th constraint, i=1..m.
         """
+        if self.nnln == 0:           # Quick exit if no nonlinear constraints
+            return np.zeros(self.m)
+        self.Hprod += self.nnln      # Count all Hprods needed for this call
         return self.model.gHi_prod(g, v)
 
     def islp(self):
