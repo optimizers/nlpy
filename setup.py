@@ -58,7 +58,7 @@ def setup_package():
 
     from numpy.distutils.core import setup
     from numpy.distutils.misc_util import Configuration
-    from Cython.Distutils import build_ext
+#   from Cython.Distutils import build_ext
 
     old_path = os.getcwd()
     local_path = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -81,7 +81,7 @@ def setup_package():
             classifiers=filter(None, CLASSIFIERS.split('\n')),
             platforms = ["Windows", "Linux", "Solaris", "Mac OS-X", "Unix"],
             configuration=configuration,
-            cmdclass = {'build_ext': build_ext},
+#           cmdclass = {'build_ext': build_ext},
             )
     finally:
         del sys.path[0]

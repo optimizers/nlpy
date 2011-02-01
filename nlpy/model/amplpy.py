@@ -7,7 +7,7 @@ Python interface to the AMPL modeling language
 
 import numpy as np
 from nlpy.model.nlp import NLPModel, KKTresidual
-from nlpy.model import _amplpy
+from nlpy.model import _amplpy as _amplpy
 from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
 from nlpy.tools import sparse_vector_class as sv
 import tempfile, os
@@ -81,43 +81,44 @@ class AmplModel(NLPModel):
     `AmplModel('elec.mod', data='elec.dat', neednl=True)`.
     """
 
-    def __init__(self, model, **kwargs):
+    def __init__(self, stub, **kwargs):
 
         data   = kwargs.get('data',   None)
         opts   = kwargs.get('opts',   None)
 
-        if model[-4:] == '.mod':
+        if stub[-4:] == '.mod':
             # Create the nl file.
-            template = GenTemplate(model, data, opts)
+            template = GenTemplate(stub, data, opts)
             writestub(template)
 
         # Initialize the ampl module
         try:
-            if model[-4:] == '.mod': model = model[:-4]
-            _amplpy.ampl_init(model)
+            if stub[-4:] == '.mod': stub = stub[:-4]
+            model = self.model = _amplpy.ampl(stub)
         except:
-            raise ValueError, 'Cannot initialize model %s' % model
+            raise ValueError, 'Cannot initialize model %s' % stub
 
         # Store problem name
-        self.name = model
+        self.name = stub
 
         # Get basic info on problem
-        self.minimize = (_amplpy.obj_type() == 0)
-        (self.n, self.m) = _amplpy.get_dim()  # nvar and ncon
-        self.x0   = _amplpy.get_x0()          # initial primal estimate
-        self.pi0  = _amplpy.get_pi0()         # initial dual estimate
-        self.Lvar = _amplpy.get_Lvar()        # lower bounds on variables
-        self.Uvar = _amplpy.get_Uvar()        # upper bounds on variables
-        self.Lcon = _amplpy.get_Lcon()        # lower bounds on constraints
-        self.Ucon = _amplpy.get_Ucon()        # upper bounds on constraints
-        (self.lin, self.nln, self.net) = _amplpy.get_CType() # Constraint types
+        self.minimize = (model.objtype == 0)
+        self.n    = model.n_var
+        self.m    = model.n_con
+        self.x0   = model.get_x0()          # initial primal estimate
+        self.pi0  = model.get_pi0()         # initial dual estimate
+        self.Lvar = model.get_Lvar()        # lower bounds on variables
+        self.Uvar = model.get_Uvar()        # upper bounds on variables
+        self.Lcon = model.get_Lcon()        # lower bounds on constraints
+        self.Ucon = model.get_Ucon()        # upper bounds on constraints
+        (self.lin, self.nln, self.net) = model.get_CType() # Constraint types
         self.nlin = len(self.lin)           # number of linear    constraints
         self.nnln = len(self.nln)           #    ...    nonlinear   ...
         self.nnet = len(self.net)           #    ...    network     ...
 
         # Get sparsity info
-        self.nnzj = _amplpy.get_nnzj()        # number of nonzeros in Jacobian
-        self.nnzh = _amplpy.get_nnzh()        #                       Hessian
+        self.nnzj = model.get_nnzj()        # number of nonzeros in Jacobian
+        self.nnzh = model.get_nnzh()        #                       Hessian
 
         # Initialize local value for Infinity
         self.Infinity = np.inf
@@ -219,13 +220,13 @@ class AmplModel(NLPModel):
 
     # Destructor
     def close(self):
-        _amplpy.ampl_shut()
+        pass
 
     def writesol(self, x, z, msg):
         """
         Write primal-dual solution and message msg to stub.sol
         """
-        return _amplpy.ampl_sol(x, z, msg)
+        return self.model.ampl_sol(x, z, msg)
 
 ###############################################################################
 
@@ -534,7 +535,7 @@ class AmplModel(NLPModel):
         Returns a floating-point number. This method changes the sign of the
         objective value if the problem is a maximization problem.
         """
-        f = _amplpy.eval_obj(x)
+        f = self.model.eval_obj(x)
         self.feval += 1
         if not self.minimize: return -f
         return f
@@ -545,7 +546,7 @@ class AmplModel(NLPModel):
         Returns a Numpy array. This method changes the sign of the objective
         gradient if the problem is a maximization problem.
         """
-        g = _amplpy.grad_obj(x)
+        g = self.model.grad_obj(x)
         self.geval += 1
         if not self.minimize: g *= -1
         return g
@@ -557,9 +558,9 @@ class AmplModel(NLPModel):
         gradient if the problem is a maximization problem.
         """
         try:
-            sg_dict = _amplpy.eval_sgrad(x)
+            sg_dict = self.model.eval_sgrad(x)
         except:
-            raise RunTimeError, "Failed to fetch sparse gradient of objective"
+            raise RuntimeError, "Failed to fetch sparse gradient of objective"
             return None
         self.geval += 1
         sg = sv.SparseVector(self.n, sg_dict)
@@ -574,9 +575,9 @@ class AmplModel(NLPModel):
         if the problem is a maximization problem.
         """
         try:
-            sc_dict = _amplpy.eval_cost()
+            sc_dict = self.model.eval_cost()
         except:
-            raise RunTimeError, "Failed to fetch sparse cost vector"
+            raise RuntimeError, "Failed to fetch sparse cost vector"
             return None
         sc = sv.SparseVector(self.n, sc_dict)
         if not self.minimize: sc *= -1
@@ -600,7 +601,7 @@ class AmplModel(NLPModel):
         use the `permC` permutation vector.
         """
         try:
-            c = _amplpy.eval_cons(x)
+            c = self.model.eval_cons(x)
         except:
             print ' Offending argument : '
             for i in range(self.n):
@@ -645,7 +646,7 @@ class AmplModel(NLPModel):
         Returns a floating-point number.
         """
         self.ceval += 1
-        return _amplpy.eval_ci(i, x)
+        return self.model.eval_ci(i, x)
 
     def igrad(self, i, x):
         """
@@ -653,7 +654,7 @@ class AmplModel(NLPModel):
         Returns a Numpy array.
         """
         self.Jeval += 1
-        return _amplpy.eval_gi(i, x)
+        return self.model.eval_gi(i, x)
 
     def sigrad(self, i, x):
         """
@@ -662,9 +663,9 @@ class AmplModel(NLPModel):
         in coordinate format.
         """
         try:
-            sci_dict = _amplpy.eval_sgi(i, x)
+            sci_dict = self.model.eval_sgi(i, x)
         except:
-            raise RunTimeError, "Failed to fetch sparse constraint gradient"
+            raise RuntimeError, "Failed to fetch sparse constraint gradient"
             return None
         self.Jeval += 1
         sci = sv.SparseVector(self.n, sci_dict)
@@ -677,9 +678,9 @@ class AmplModel(NLPModel):
         when problem is a linear programming problem.
         """
         try:
-            sri_dict = _amplpy.eval_row(i)
+            sri_dict = self.model.eval_row(i)
         except:
-            raise RunTimeError, "Failed to fetch sparse row"
+            raise RuntimeError, "Failed to fetch sparse row"
             return None
         sri = sv.SparseVector(self.n, sri_dict)
         return sri
@@ -694,10 +695,10 @@ class AmplModel(NLPModel):
         store_zeros = 1 if store_zeros else 0
         if len(args) == 1:
             if type(args[0]).__name__ == 'll_mat':
-                return _amplpy.eval_A(store_zeros,args[0])
+                return self.model.eval_A(store_zeros,args[0])
             else:
                 return None
-        return _amplpy.eval_A(store_zeros)
+        return self.model.eval_A(store_zeros)
 
     def jac(self, x, *args, **kwargs):
         """
@@ -716,11 +717,11 @@ class AmplModel(NLPModel):
         store_zeros = 1 if store_zeros else 0
         if len(args) > 0:
             if type(args[0]).__name__ == 'll_mat':
-                J = _amplpy.eval_J(x, self.mformat, args[0], store_zeros)
+                J = self.model.eval_J(x, self.mformat, args[0], store_zeros)
             else:
                 return None
         else:
-            J = _amplpy.eval_J(x, self.mformat, store_zeros)
+            J = self.model.eval_J(x, self.mformat, store_zeros)
         self.Jeval += 1
         return J #[self.permC,:]
 
@@ -785,12 +786,12 @@ class AmplModel(NLPModel):
         store_zeros = 1 if store_zeros else 0
         if len(args) > 0:
             if type(args[0]).__name__ == 'll_mat':
-                H = _amplpy.eval_H(x, z, self.mformat, obj_weight, args[0],
+                H = self.model.eval_H(x, z, self.mformat, obj_weight, args[0],
                                       store_zeros)
             else:
                 return None
         else:
-            H = _amplpy.eval_H(x, z, self.mformat, obj_weight, store_zeros)
+            H = self.model.eval_H(x, z, self.mformat, obj_weight, store_zeros)
         self.Heval += 1
         return H
 
@@ -811,7 +812,7 @@ class AmplModel(NLPModel):
         """
         obj_weight = kwargs.get('obj_weight', 1.0)
         self.Hprod += 1
-        return _amplpy.H_prod(z, v, obj_weight)
+        return self.model.H_prod(z, v, obj_weight)
 
     def hiprod(self, i, v, **kwargs):
         """
@@ -820,22 +821,23 @@ class AmplModel(NLPModel):
         """
         z = np.zeros(self.m) ; z[i] = -1
         self.Hprod += 1
-        return _amplpy.H_prod(z, v, 0.)
+        return self.model.H_prod(z, v, 0.)
 
     def ghivprod(self, g, v, **kwargs):
         """
         Evaluate the vector of dot products (g, Hi*v) where Hi is the Hessian
         of the i-th constraint, i=1..m.
         """
-        # Count the m Hprods that take place in this call.
-        self.Hprod += self.m
-        return _amplpy.gHi_prod(g, v)
+        if self.nnln == 0:           # Quick exit if no nonlinear constraints
+            return np.zeros(self.m)
+        self.Hprod += self.nnln      # Count all Hprods needed for this call
+        return self.model.gHi_prod(g, v)
 
     def islp(self):
         """
         Determines whether problem is a linear programming problem.
         """
-        if _amplpy.is_lp():
+        if self.nlo or self.nlc or self.nlnc:
             return True
         else:
             return False
@@ -852,7 +854,7 @@ class AmplModel(NLPModel):
 
         See also :meth:`unset_x`.
         """
-        return _amplpy.set_x(x)
+        return self.model.set_x(x)
 
     def unset_x(self):
         """
@@ -862,7 +864,7 @@ class AmplModel(NLPModel):
 
         See also :meth:`set_x`.
         """
-        return _amplpy.unset_x()
+        return self.model.unset_x()
 
     def display_basic_info(self):
         """
