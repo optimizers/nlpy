@@ -189,13 +189,13 @@ def configuration(parent_package='',top_path=None):
                 metis_dir = ''
                 metis_lib = 'metis'
 
-                # Build METIS.
-                config.add_library(
-                    name=metis_lib,
-                    sources=metis_sources,
-                    include_dirs=[libmetis_include],
-                )
-                #ma57_sources += metis_sources
+                ## Build METIS.
+                #config.add_library(
+                #    name=metis_lib,
+                #    sources=metis_sources,
+                #    include_dirs=[libmetis_include],
+                #)
+                ma57_sources += metis_sources
 
             # Build PyMA57.
             config.add_library(
@@ -210,10 +210,11 @@ def configuration(parent_package='',top_path=None):
             config.add_extension(
                 name='_pyma57',
                 sources=pyma57_sources,
-                #libraries=['nlpy_ma57'],
-                libraries=[metis_lib,'nlpy_ma57'],
-                library_dirs=[metis_dir],
-                include_dirs=[libmetis_include,'src'],
+                libraries=['nlpy_ma57'],
+                #libraries=[metis_lib,'nlpy_ma57'],
+                #library_dirs=[metis_dir],
+                #include_dirs=[libmetis_include,'src'],
+                include_dirs=['src'],
                 extra_info=blas_info,
             )
 
