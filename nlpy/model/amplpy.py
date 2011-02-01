@@ -593,7 +593,7 @@ class AmplModel(NLPModel):
             for i in range(self.n):
                 print '%-15.9f ' % x[i]
             return None #c = self.Infinity * np.ones(self.m)
-        self.ceval += self.m
+        self.ceval += 1
         return c #[self.permC]
 
     def consPos(self, x):
