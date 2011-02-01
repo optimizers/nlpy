@@ -204,20 +204,6 @@ class AmplModel(NLPModel):
         self.Jeval = 0    #                           gradients
         self.Jprod = 0    #                matrix-vector products with Jacobian
 
-    def ResetCounters(self):
-        """
-        Reset the `feval`, `geval`, `Heval`, `Hprod`, `ceval`, `Jeval` and
-        `Jprod` counters of the current instance to zero.
-        """
-        self.feval = 0
-        self.geval = 0
-        self.Heval = 0
-        self.Hprod = 0
-        self.ceval = 0
-        self.Jeval = 0
-        self.Jprod = 0
-        return None
-
     # Destructor
     def close(self):
         pass

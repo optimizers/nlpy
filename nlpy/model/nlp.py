@@ -211,6 +211,10 @@ class NLPModel:
         self.Jprod = 0    #                matrix-vector products with Jacobian
 
     def ResetCounters(self):
+        """
+        Reset the `feval`, `geval`, `Heval`, `Hprod`, `ceval`, `Jeval` and
+        `Jprod` counters of the current instance to zero.
+        """
         self.feval = 0
         self.geval = 0
         self.Heval = 0
