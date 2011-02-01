@@ -699,7 +699,7 @@ static PyObject *AmplPy_Eval_J(PyObject *self, PyObject *args) {
     } else {  /* Return Jacobian in LL format */
 
         if (!PassedJ)
-            spJac = SpMatrix_NewLLMatObject(dimJ, GENERAL, nnzj, store_zeros);
+            spJac = SpMatrix_NewLLMatObject(dimJ, GENERAL, nnzj); //, store_zeros);
 
         J = (real *)Malloc(nnzj * sizeof(real));
 
@@ -965,7 +965,7 @@ static PyObject *AmplPy_Eval_A(PyObject *self, PyObject *args) {
     nnzj = n_con ? nzc : 1;
 
     if (!PassedJ)
-        spJac = SpMatrix_NewLLMatObject(dim, GENERAL, nnzj, store_zeros);
+        spJac = SpMatrix_NewLLMatObject(dim, GENERAL, nnzj); //, store_zeros);
 
     /* Create sparse Jacobian structure. */
     for (i=0; i<n_con; i++) {
@@ -1168,7 +1168,7 @@ static PyObject *AmplPy_Eval_H(PyObject *self, PyObject *args) {
 
         /* Allocate sparse symmetric Hessian data structure */
         if (!PassedH) {
-          spHess = SpMatrix_NewLLMatObject(dimH, SYMMETRIC, nnzh, store_zeros);
+          spHess = SpMatrix_NewLLMatObject(dimH, SYMMETRIC, nnzh); //, store_zeros);
           if (!spHess) return NULL;
         }
 
