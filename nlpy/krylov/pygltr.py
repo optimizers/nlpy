@@ -78,7 +78,7 @@ class PyGltrContext:
         self.boundary = kwargs.get('boundary', False)
         self.equality = kwargs.get('equality', False)
         self.fraction = kwargs.get('fraction', 1.0)
-        
+
         self.debug = False
         self.step   = numpy.zeros(self.n, 'd')
         self.vector = numpy.zeros(self.n, 'd')
@@ -134,7 +134,7 @@ class PyGltrContext:
                 if self.prec is not None:
                     tmp = self.prec(self.vector)
                     self.context.reassign(tmp)
-        
+
             elif ierr == 3 or ierr == 7:
                 # Form product H * vector and reassign vector to the result
                 H.matvec(self.vector, tmp)
@@ -170,7 +170,7 @@ class PyGltrContext:
         containing the result of the multiplication H*v.
         For instance, if the problem is from an Ampl model called nlp,
         the hessprod method could be
-        
+
             lambda v: nlp.hprod(z, v)
 
         for some multiplier estimates z.
@@ -197,7 +197,7 @@ class PyGltrContext:
                 if self.prec is not None:
                     tmp = self.prec(self.vector)
                     self.context.reassign(tmp)
-        
+
             elif ierr == 3 or ierr == 7:
                 # Form product vector = H * vector
                 tmp = hessprod(self.vector)
