@@ -12,8 +12,10 @@ DOCLINES = __doc__.split("\n")
 import os
 import sys
 
+# Uncomment the following import if your prefer and in-place build.
 try:
-    import setuptools   # To enable 'python setup.py develop'
+    #import setuptools   # To enable 'python setup.py develop'
+    pass
 except:
     pass
 
