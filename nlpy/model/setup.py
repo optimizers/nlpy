@@ -134,14 +134,16 @@ def configuration(parent_package='',top_path=None):
             name='ampl',
             sources=ampl_sources,
             include_dirs=[libampl_include],
-            extra_compiler_args=['-std=c99', '-DNON_STDIO']
+            extra_compiler_args=['-DNON_STDIO']
+            #extra_compiler_args=['-std=c99', '-DNON_STDIO']
         )
 
         config.add_library(
             name='funcadd0',
             sources=[os.path.join(localcopy, 'funcadd0.c')],
             include_dirs=[libampl_include],
-            extra_compiler_args=['-std=c99', '-DNON_STDIO']
+            extra_compiler_args=['-DNON_STDIO']
+            #extra_compiler_args=['-std=c99', '-DNON_STDIO']
         )
 
     else:
