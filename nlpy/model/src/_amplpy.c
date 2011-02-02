@@ -1237,7 +1237,7 @@ static PyObject *AmplPy_Prod_Hv(PyObject *self, PyObject *args) {
     PY2C_1DARRAY(a_lambda, y, dim);
 
     /* Evaluate matrix-vector product Hv */
-    hvpinit_ASL((ASL*)asl, ihd_limit, -1, OW, y);
+    sphsetup(-1, 1, 1, 1);
     hvcomp(hv, v, -1, OW, y);
 
     /* Return Hv */
@@ -1292,19 +1292,20 @@ static PyObject *AmplPy_Prod_gHiv( PyObject *self, PyObject *args ) {
 
     for (j=0 ; j < n_con ; j++) y[j] = 0.;
 
-    // Skip linear constraints.
+    // All terms corresponding to linear constraints are zero.
     for (i=nlc ; i < n_con ; i++) ghiv[i] = 0.;
 
     // Process nonlinear constraints.
+    sphsetup(-1, 1, 1, 1);
     for (i=0 ; i < nlc ; i++) {
         // Set vector of multipliers to (0, 0, ..., -1, ..., 0).
         y[i] = -1.;
 
-        // Compute Hi * v by setting OW to NULL.
+        // Compute hv = Hi * v by setting OW to NULL.
         hvpinit_ASL((ASL*)asl, ihd_limit, -1, NULL, y);
         hvcomp(hv, v, -1, NULL, y);
 
-        // Compute dot product (g, Hi*v). Should use BLAS.
+        // Compute dot product g'Hi*v. Should use BLAS.
         for (j=0, prod=0 ; j < n_var ; j++) prod += (hv[j] * g[j]);
         ghiv[i] = prod;
 
@@ -1315,7 +1316,7 @@ static PyObject *AmplPy_Prod_gHiv( PyObject *self, PyObject *args ) {
     free(hv);
 
     /* Return gHiv */
-    return PyArray_Return( a_gHiv );
+    return Py_BuildValue( "N", PyArray_Return( a_gHiv ) );
 }
 
 /* ========================================================================== */
