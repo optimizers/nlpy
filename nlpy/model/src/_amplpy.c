@@ -67,6 +67,8 @@ static PyObject *AmplPy_Eval_J(       PyObject *self, PyObject *args);
 static PyObject *AmplPy_Eval_A(       PyObject *self, PyObject *args);
 static PyObject *AmplPy_Eval_H(       PyObject *self, PyObject *args);
 static PyObject *AmplPy_Prod_Hv(      PyObject *self, PyObject *args);
+static PyObject *AmplPy_Prod_Hiv(     PyObject *self, PyObject *args);
+static PyObject *AmplPy_Prod_gHiv(    PyObject *self, PyObject *args);
 static PyObject *AmplPy_Get_x0(       PyObject *self, PyObject *args);
 static PyObject *AmplPy_Get_pi0(      PyObject *self, PyObject *args);
 static PyObject *AmplPy_Get_Lvar(     PyObject *self, PyObject *args);
@@ -1237,11 +1239,65 @@ static PyObject *AmplPy_Prod_Hv(PyObject *self, PyObject *args) {
     PY2C_1DARRAY(a_lambda, y, dim);
 
     /* Evaluate matrix-vector product Hv */
-    sphsetup(-1, 1, 1, 1);
+    //sphsetup(-1, 1, 1, 1);
+    hvpinit_ASL((ASL*)asl, ihd_limit, -1, NULL, y);
     hvcomp(hv, v, -1, OW, y);
 
     /* Return Hv */
     return Py_BuildValue( "N", PyArray_Return( a_Hv ) );
+}
+
+/* ========================================================================== */
+
+static char AmplPy_Prod_Hiv_Doc[] = "Compute the product Hi*v of with the i-th constraint Hessian.";
+
+static PyObject *AmplPy_Prod_Hiv( PyObject *self, PyObject *args ) {
+
+    PyArrayObject *a_v, *a_g, *a_Hiv;
+    npy_intp       dim[1], dims[1];
+    real          *y, *v, *hiv;
+    int            i, j;
+
+    /* We read the vectors g and v and the multipliers y. */
+    if( !PyArg_ParseTuple( args, "iO!",
+                           &i, &PyArray_Type, &a_v ) )
+    return NULL;
+    if( a_v->descr->type_num != NPY_FLOAT64 ) return NULL;
+
+    if( !a_v ) return NULL;                            /* conversion error */
+    if( a_v->nd != 1 ) return NULL;             /* v must have 1 dimension */
+    if( a_v->dimensions[0] != n_var ) return NULL;       /* and size n_var */
+    PyArray_XDECREF( a_v );
+
+    dims[0] = n_var;
+    a_Hiv = (PyArrayObject *)PyArray_SimpleNew( 1, dims, NPY_FLOAT64 );
+    if( a_Hiv == NULL ) return NULL;
+    hiv = (real *)a_Hiv->data;
+
+    if (i >= nlc) {
+        // i-th constraint is linear, so Hi = 0.
+        for (j=0; j<n_var; j++) hiv[j] = 0.;
+        return Py_BuildValue( "N", PyArray_Return( a_Hiv ) );
+    }
+
+    /* Get pointers to contiguous version of v. */
+    PY2C_1DARRAY(a_v, v, dim);
+
+    /* Create a dummy vector of multipliers. */
+    y = (real *)malloc(n_con * sizeof(real));
+    if (y == NULL) return NULL;
+
+    // Set vector of multipliers to (0, 0, ..., -1, ..., 0).
+    for (j=0 ; j < n_con ; j++) y[j] = 0.;
+    y[i] = -1.;
+
+    // Compute hiv = Hi * v by setting OW to NULL.
+    hvcomp(hiv, v, -1, NULL, y);
+
+    free(y);
+
+    /* Return Hiv */
+    return Py_BuildValue( "N", PyArray_Return( a_Hiv ) );
 }
 
 /* ========================================================================== */
@@ -1296,7 +1352,7 @@ static PyObject *AmplPy_Prod_gHiv( PyObject *self, PyObject *args ) {
     for (i=nlc ; i < n_con ; i++) ghiv[i] = 0.;
 
     // Process nonlinear constraints.
-    sphsetup(-1, 1, 1, 1);
+    // sphsetup(-1, 1, 1, 1);
     for (i=0 ; i < nlc ; i++) {
         // Set vector of multipliers to (0, 0, ..., -1, ..., 0).
         y[i] = -1.;
@@ -1411,6 +1467,7 @@ static PyMethodDef AmplPyMethods[] = {
   {"eval_A",    AmplPy_Eval_A,        METH_VARARGS, AmplPy_Eval_A_Doc        },
   {"eval_H",    AmplPy_Eval_H,        METH_VARARGS, AmplPy_Eval_H_Doc        },
   {"H_prod",    AmplPy_Prod_Hv,       METH_VARARGS, AmplPy_Prod_Hv_Doc       },
+  {"Hi_prod",   AmplPy_Prod_Hiv,      METH_VARARGS, AmplPy_Prod_Hiv_Doc      },
   {"gHi_prod",  AmplPy_Prod_gHiv,     METH_VARARGS, AmplPy_Prod_gHiv_Doc     },
   {"is_lp",     AmplPy_IsLP,          METH_VARARGS, AmplPy_IsLP_Doc          },
   {"set_x",     AmplPy_Set_x,         METH_VARARGS, AmplPy_Set_x_Doc         },
