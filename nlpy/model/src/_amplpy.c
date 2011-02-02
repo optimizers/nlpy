@@ -1239,8 +1239,7 @@ static PyObject *AmplPy_Prod_Hv(PyObject *self, PyObject *args) {
     PY2C_1DARRAY(a_lambda, y, dim);
 
     /* Evaluate matrix-vector product Hv */
-    //sphsetup(-1, 1, 1, 1);
-    hvpinit_ASL((ASL*)asl, ihd_limit, -1, NULL, y);
+    hvpinit_ASL((ASL*)asl, ihd_limit, -1, OW, y);
     hvcomp(hv, v, -1, OW, y);
 
     /* Return Hv */
@@ -1292,6 +1291,7 @@ static PyObject *AmplPy_Prod_Hiv( PyObject *self, PyObject *args ) {
     y[i] = -1.;
 
     // Compute hiv = Hi * v by setting OW to NULL.
+    hvpinit_ASL((ASL*)asl, ihd_limit, -1, NULL, y);
     hvcomp(hiv, v, -1, NULL, y);
 
     free(y);
@@ -1352,7 +1352,6 @@ static PyObject *AmplPy_Prod_gHiv( PyObject *self, PyObject *args ) {
     for (i=nlc ; i < n_con ; i++) ghiv[i] = 0.;
 
     // Process nonlinear constraints.
-    // sphsetup(-1, 1, 1, 1);
     for (i=0 ; i < nlc ; i++) {
         // Set vector of multipliers to (0, 0, ..., -1, ..., 0).
         y[i] = -1.;
