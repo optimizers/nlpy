@@ -12,8 +12,10 @@ DOCLINES = __doc__.split("\n")
 import os
 import sys
 
+# Uncomment the following import if your prefer and in-place build.
 try:
-    import setuptools   # To enable 'python setup.py develop'
+    #import setuptools   # To enable 'python setup.py develop'
+    pass
 except:
     pass
 
@@ -74,8 +76,8 @@ def setup_package():
             maintainer_email = "dominique.orban@gerad.ca",
             description = DOCLINES[0],
             long_description = "\n".join(DOCLINES[2:]),
-            url = "",
-            download_url = "",
+            url = "http://nlpy.sf.net",
+            download_url = "https://github.com/dpo/nlpy",
             license = 'LGPL',
             classifiers=filter(None, CLASSIFIERS.split('\n')),
             platforms = ["Windows", "Linux", "Solaris", "Mac OS-X", "Unix"],

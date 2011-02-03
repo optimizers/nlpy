@@ -388,10 +388,10 @@ class AmplModel(NLPModel):
 
         # Bounds feasibility, part 2
 
-        bRes[n1:n2] = np.minimum(np.zeros(nlowerB), bRes[n1:n2])
-        bRes[n2:n3] = np.minimum(np.zeros(nupperB), bRes[n2:n3])
-        bRes[n3:n4] = np.minimum(np.zeros(nrangeB), bRes[n3:n4])
-        bRes[n4:]   = np.minimum(np.zeros(nrangeB), bRes[n4:])
+        bRes[n1:n2] = np.minimum(0, bRes[n1:n2])
+        bRes[n2:n3] = np.minimum(0, bRes[n2:n3])
+        bRes[n3:n4] = np.minimum(0, bRes[n3:n4])
+        bRes[n4:]   = np.minimum(0, bRes[n4:])
 
         # Initialize vector for primal feasibility
 
@@ -419,10 +419,10 @@ class AmplModel(NLPModel):
 
         # Primal feasibility, part 2
 
-        pFeas[n1:n2] = np.minimum(np.zeros(nlowerC), pFeas[n1:n2])
-        pFeas[n2:n3] = np.minimum(np.zeros(nupperC), pFeas[n2:n3])
-        pFeas[n3:n4] = np.minimum(np.zeros(nrangeC), pFeas[n3:n4])
-        pFeas[n4:]   = np.minimum(np.zeros(nrangeC), pFeas[n4:])
+        pFeas[n1:n2] = np.minimum(0, pFeas[n1:n2])
+        pFeas[n2:n3] = np.minimum(0, pFeas[n2:n3])
+        pFeas[n3:n4] = np.minimum(0, pFeas[n3:n4])
+        pFeas[n4:]   = np.minimum(0, pFeas[n4:])
 
         # Build vector of Lagrange multipliers
 
@@ -818,9 +818,9 @@ class AmplModel(NLPModel):
         Evaluate matrix-vector product Hi(x) * v.
         Returns a Numpy array.
         """
-        z = np.zeros(self.m) ; z[i] = -1
+        #z = np.zeros(self.m) ; z[i] = -1
         self.Hprod += 1
-        return _amplpy.H_prod(z, v, 0.)
+        return _amplpy.Hi_prod(i, v)
 
     def ghivprod(self, g, v, **kwargs):
         """
