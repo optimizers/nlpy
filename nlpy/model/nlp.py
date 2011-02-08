@@ -201,6 +201,11 @@ class NLPModel:
         self.stop_c = 1.0e-6    # Complementarty
         self.stop_p = 1.0e-6    # Primal feasibility
 
+        # Define scaling attributes.
+        self.g_max = 1.0e2      # max gradient entry (constant)
+        self.scale_obj = None   # Objective scaling
+        self.scale_con = None   # Constraint scaling
+
         # Initialize some counters
         self.feval = 0    # evaluations of objective  function
         self.geval = 0    #                           gradient
@@ -235,6 +240,14 @@ class NLPModel:
             return True
         return False
 
+    def compute_scaling_obj(self, x=None, g_max=1.0e2, reset=False):
+        """Compute objective scaling."""
+        raise NotImplementedError, 'This method must be subclassed.'
+
+    def compute_scaling_cons(self, x=None, g_max=1.0e2, reset=False):
+        """Compute constraint scaling."""
+        raise NotImplementedError, 'This method must be subclassed.'
+    
     # Evaluate objective function at x
     def obj(self, x, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'

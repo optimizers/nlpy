@@ -8,8 +8,8 @@ Python interface to the AMPL modeling language
 import numpy as np
 from nlpy.model.nlp import NLPModel, KKTresidual
 from nlpy.model import _amplpy as _amplpy
-from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
 from nlpy.tools import sparse_vector_class as sv
+from pysparse import spmatrix
 import tempfile, os
 
 __docformat__ = 'restructuredtext'
@@ -189,6 +189,10 @@ class AmplModel(NLPModel):
         self.stop_c = 1.0e-5    # Complementarty
         self.stop_p = 1.0e-5    # Primal feasibility
 
+        # Initializze scaling attributes
+        self.scale_obj = None   # Objective scaling
+        self.scale_con = None   # Constraint scaling
+
         # Set matrix format
         self.mformat = 0     # LL format
         if opts is not None:
@@ -206,6 +210,8 @@ class AmplModel(NLPModel):
 
     # Destructor
     def close(self):
+        """Not needed anymore. Here for backward compatibility with
+        original AmplPy interface."""
         pass
 
     def writesol(self, x, z, msg):
@@ -511,6 +517,88 @@ class AmplModel(NLPModel):
         opt = (df<=self.stop_d) and (cp<=self.stop_c) and (fs<=self.stop_p)
         return (res, opt)
 
+    def compute_scaling_obj(self, x=None, g_max=1.0e2, reset=False):
+        """Compute objective scaling.
+
+        :parameters:
+
+            :x: Determine scaling by evaluating functions at this
+                point. Default is to use :attr:`self.x0`.
+            :g_max: Maximum allowed gradient. Default: :attr:`g_max = 1e2`.
+            :reset: Set to `True` to unscale the problem.
+        
+        The procedure used here closely
+        follows IPOPT's behavior; see Section 3.8 of
+
+          Waecther and Biegler, 'On the implementation of an
+          interior-point filter line-search algorithm for large-scale
+          nonlinear programming', Math. Prog. A (106), pp.25-57, 2006
+
+        which is a scalar rescaling that ensures the inf-norm of the
+        gradient (at x) isn't larger than 'g_max'.
+
+        """
+        # Remove scaling if requested
+        if reset:
+            self.scale_obj = None
+            self.pi0 = self.model.get_pi0() # get original multipliers
+            return
+
+        # Quick return if the problem is already scaled
+        if self.scale_obj is not None:
+            return
+
+        if x is None: x = self.x0
+        g = self.grad(x)
+        gNorm = np.linalg.norm(g, np.inf)
+        self.scale_obj = g_max / max(g_max, gNorm) # <= 1 always
+
+        # Rescale the Lagrange multiplier
+        self.pi0 *= self.scale_obj
+
+    def compute_scaling_cons(self, x=None, g_max=1.0e2, reset=False):
+        """
+        Compute constraint scaling.
+        
+        :parameters:
+
+            :x: Determine scaling by evaluating functions at this
+                point. Default is to use :attr:`self.x0`.
+            :g_max: Maximum allowed gradient. Default: :attr:`g_max = 1e2`.
+            :reset: Set to `True` to unscale the problem.
+        """
+        # Remove scaling if requested
+        if reset:
+            self.scale_con = None
+            self.Lcon = self.model.get_Lcon()        # lower bounds on constraints
+            self.Ucon = self.model.get_Ucon()        # upper bounds on constraints
+            return
+        
+        # Quick return if the problem is already scaled
+        if self.scale_con is not None:
+            return
+
+        m = self.m
+        if x is None: x = self.x0
+        d_c = np.empty(m, dtype=np.double)
+        J = self.jac(x)
+
+        # Find inf-norm of each row of J
+        for i in xrange(m):
+            giNorm = J[i,:].norm('1') # This is the matrix 1-norm (max abs col)
+            d_c[i] = g_max / max(g_max, giNorm) # <= 1 always
+        self.scale_con = d_c
+
+        # Scale constraint bounds
+        self.Lcon *= d_c        # lower bounds on constraints
+        self.Ucon *= d_c        # upper bounds on constraints
+
+        # Form a diagonal matrix from scales; useful for scaling Jacobian
+        D_c = spmatrix.ll_mat_sym(m, m)
+        D_c.put(d_c, range(m))
+        self.scale_con_diag = D_c
+
+
 ###############################################################################
 
     # The following methods mirror the module functions defined in _amplpy.c.
@@ -523,8 +611,10 @@ class AmplModel(NLPModel):
         """
         f = self.model.eval_obj(x)
         self.feval += 1
-        if not self.minimize: return -f
+        if self.scale_obj:    f *= self.scale_obj
+        if not self.minimize: f *= -1
         return f
+
 
     def grad(self, x):
         """
@@ -534,8 +624,10 @@ class AmplModel(NLPModel):
         """
         g = self.model.grad_obj(x)
         self.geval += 1
+        if self.scale_obj:    g *= self.scale_obj
         if not self.minimize: g *= -1
         return g
+
 
     def sgrad(self, x):
         """
@@ -550,8 +642,10 @@ class AmplModel(NLPModel):
             return None
         self.geval += 1
         sg = sv.SparseVector(self.n, sg_dict)
+        if self.scale_obj:    sg *= self.scale_obj
         if not self.minimize: sg *= -1
         return sg
+
 
     def cost(self):
         """
@@ -566,8 +660,10 @@ class AmplModel(NLPModel):
             raise RuntimeError, "Failed to fetch sparse cost vector"
             return None
         sc = sv.SparseVector(self.n, sc_dict)
+        if self.scale_obj:    sc *= self.scale_obj
         if not self.minimize: sc *= -1
         return sc
+
 
     def cons(self, x):
         """
@@ -594,7 +690,9 @@ class AmplModel(NLPModel):
                 print '%-15.9f ' % x[i]
             return None #c = self.Infinity * np.ones(self.m)
         self.ceval += 1
+        if self.scale_con is not None: c *= self.scale_con # componentwise product
         return c #[self.permC]
+
 
     def consPos(self, x):
         """
@@ -607,6 +705,8 @@ class AmplModel(NLPModel):
 
         The constraints appear in natural order, except for the fact that the
         'upper side' of range constraints is appended to the list.
+
+        No need to apply scaling, since this is already done in cons().
         """
         m = self.m
         equalC = self.equalC
@@ -626,13 +726,17 @@ class AmplModel(NLPModel):
 
         return c
 
+
     def icons(self, i, x):
         """
         Evaluate value of i-th constraint at x.
         Returns a floating-point number.
         """
         self.ceval += 1
-        return self.model.eval_ci(i, x)
+        ci = self.model.eval_ci(i, x)
+        if self.scale_con is not None: ci *= self.scale_con[i]
+        return ci
+
 
     def igrad(self, i, x):
         """
@@ -640,7 +744,10 @@ class AmplModel(NLPModel):
         Returns a Numpy array.
         """
         self.Jeval += 1
-        return self.model.eval_gi(i, x)
+        gi = self.model.eval_gi(i, x)
+        if self.scale_con is not None: gi *= self.scale_con[i]
+        return gi
+
 
     def sigrad(self, i, x):
         """
@@ -655,7 +762,9 @@ class AmplModel(NLPModel):
             return None
         self.Jeval += 1
         sci = sv.SparseVector(self.n, sci_dict)
+        if self.scale_con is not None: sci *= self.scale_con[i]
         return sci
+
 
     def irow(self, i):
         """
@@ -669,7 +778,9 @@ class AmplModel(NLPModel):
             raise RuntimeError, "Failed to fetch sparse row"
             return None
         sri = sv.SparseVector(self.n, sri_dict)
+        if self.scale_con is not None: sri *= self.scale_con[i]
         return sri
+
 
     def A(self, *args, **kwargs):
         """
@@ -681,10 +792,16 @@ class AmplModel(NLPModel):
         store_zeros = 1 if store_zeros else 0
         if len(args) == 1:
             if type(args[0]).__name__ == 'll_mat':
-                return self.model.eval_A(store_zeros,args[0])
+                Amat = self.model.eval_A(store_zeros,args[0])
             else:
                 return None
-        return self.model.eval_A(store_zeros)
+        else:
+            Amat = self.model.eval_A(store_zeros)
+
+        if self.scale_con is not None:
+            Amat = spmatrix.matrixmultiply(Amat, self.scale_con_diag)
+        return Amat
+
 
     def jac(self, x, *args, **kwargs):
         """
@@ -703,13 +820,18 @@ class AmplModel(NLPModel):
         store_zeros = 1 if store_zeros else 0
         if len(args) > 0:
             if type(args[0]).__name__ == 'll_mat':
-                J = self.model.eval_J(x, self.mformat, args[0], store_zeros)
+                J = self.model.eval_J(x, self.mformat, store_zeros, args[0])
             else:
                 return None
         else:
             J = self.model.eval_J(x, self.mformat, store_zeros)
         self.Jeval += 1
+
+        # Warning!! This next line doesn't work for the coordinate format option.
+        if self.scale_con is not None:
+            J = spmatrix.matrixmultiply(self.scale_con_diag, J)
         return J #[self.permC,:]
+
 
     def jacPos(self, x, **kwargs):
         """
@@ -779,6 +901,12 @@ class AmplModel(NLPModel):
         else:
             H = self.model.eval_H(x, z, self.mformat, obj_weight, store_zeros)
         self.Heval += 1
+
+        if self.scale_obj:
+            if self.mformat == 0: # compressed sparse
+                H[0] *= self.scale_obj
+            else:
+                H *= self.scale_obj
         return H
 
 
@@ -798,7 +926,11 @@ class AmplModel(NLPModel):
         """
         obj_weight = kwargs.get('obj_weight', 1.0)
         self.Hprod += 1
-        return self.model.H_prod(z, v, obj_weight)
+        Hv = self.model.H_prod(z, v, obj_weight)
+        if self.scale_obj:
+            Hv *= self.scale_obj
+        return Hv
+    
 
     def hiprod(self, i, v, **kwargs):
         """
@@ -807,7 +939,11 @@ class AmplModel(NLPModel):
         """
         z = np.zeros(self.m) ; z[i] = -1
         self.Hprod += 1
-        return self.model.H_prod(z, v, 0.)
+        Hv = self.model.H_prod(z, v, 0.)
+        if self.scale_con is not None:
+            Hv *= self.scale_con[i]
+        return Hv
+    
 
     def ghivprod(self, g, v, **kwargs):
         """
@@ -817,7 +953,11 @@ class AmplModel(NLPModel):
         if self.nnln == 0:           # Quick exit if no nonlinear constraints
             return np.zeros(self.m)
         self.Hprod += self.nnln      # Count all Hprods needed for this call
-        return self.model.gHi_prod(g, v)
+        gHi = self.model.gHi_prod(g, v)
+        if self.scale_con is not None:
+            gHi *= self.scale_con    # componentwise product
+        return gHi
+    
 
     def islp(self):
         """
@@ -827,6 +967,7 @@ class AmplModel(NLPModel):
             return True
         else:
             return False
+
 
     def set_x(self,x):
         """
@@ -842,6 +983,7 @@ class AmplModel(NLPModel):
         """
         return self.model.set_x(x)
 
+
     def unset_x(self):
         """
         Reinstates the default behavior of :meth:`obj`, :meth:`grad`, `jac`,
@@ -851,6 +993,7 @@ class AmplModel(NLPModel):
         See also :meth:`set_x`.
         """
         return self.model.unset_x()
+
 
     def display_basic_info(self):
         """

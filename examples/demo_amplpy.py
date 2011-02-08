@@ -97,6 +97,42 @@ e[1] = -1
 He = nlp.hprod( pi0, e )
 print 'He = ', He[:max_n]
 
+
+print
+print ' Testing objective scaling:'
+print
+
+g = nlp.grad(x0)
+print 'Maximum/Minimum gradient (unscaled): %12.5e / %12.5e' \
+      % (max(abs(g)), min(abs(g)))
+nlp.compute_scaling_obj() # default is to use x0
+g = nlp.grad(x0)
+print 'Maximum/Minimum gradient (  scaled): %12.5e / %12.5e' \
+      % (max(abs(g)), min(abs(g)))
+nlp.compute_scaling_obj(reset=True)
+g = nlp.grad(x0)
+print '... and after a ''reset'' ...'
+print 'Maximum/Minimum gradient (unscaled): %12.5e / %12.5e' \
+      % (max(abs(g)), min(abs(g)))
+
+print
+print ' Testing constraint scaling:'
+print
+
+for i in xrange(max_m):
+    nlp.compute_scaling_cons(reset=True)
+    sgi = nlp.sigrad(i, x0)
+    imax = max(sgi.values, key=lambda x:abs(sgi.values.get(x)))
+    imin = min(sgi.values, key=lambda x:abs(sgi.values.get(x)))
+    print 'Constraint %3i: Max/Min gradient (unscaled): %12.5e (%3i) / %12.5e (%3i)' \
+          % (i, sgi[imax], imax, sgi[imin], imin)
+    nlp.compute_scaling_cons()
+    sgi = nlp.sigrad(i, x0)
+    imax = max(sgi.values, key=lambda x:abs(sgi.values.get(x)))
+    imin = min(sgi.values, key=lambda x:abs(sgi.values.get(x)))
+    print 'Constraint %3i: Max/Min gradient (  scaled): %12.5e (%3i) / %12.5e (%3i)' \
+          % (i, sgi[imax], imax, sgi[imin], imin)
+
 # Output "solution"
 nlp.writesol( x0, pi0, 'And the winner is' )
 
