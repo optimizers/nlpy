@@ -885,9 +885,6 @@ class AmplModel(NLPModel):
         Evaluate sparse lower triangular Hessian at (x, z).
         Returns a sparse matrix in format self.mformat
         (0 = compressed sparse row, 1 = linked list).
-
-        Note that the sign of the Hessian matrix of the objective function
-        appears as if the problem were a minimization problem.
         """
         obj_weight = kwargs.get('obj_weight', 1.0)
         store_zeros = kwargs.get('store_zeros', False)
@@ -907,6 +904,11 @@ class AmplModel(NLPModel):
                 H[0] *= self.scale_obj
             else:
                 H *= self.scale_obj
+        if not self.minimize:
+            if self.mformat == 0: # compressed sparse
+                H[0] *= -1
+            else:
+                H *= -1
         return H
 
 
@@ -920,15 +922,14 @@ class AmplModel(NLPModel):
                          By default, the weight is one. Setting it to zero
                          allows to exclude the Hessian of the objective from
                          the Hessian of the Lagrangian.
-
-        Note that the sign of the Hessian matrix of the objective function
-        appears as if the problem were a minimization problem.
         """
         obj_weight = kwargs.get('obj_weight', 1.0)
         self.Hprod += 1
         Hv = self.model.H_prod(z, v, obj_weight)
         if self.scale_obj:
             Hv *= self.scale_obj
+        if not self.minimize:
+            Hv *= -1
         return Hv
     
 
