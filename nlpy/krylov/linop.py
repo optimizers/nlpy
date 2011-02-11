@@ -264,6 +264,35 @@ class SquaredLinearOperator(LinearOperator):
         return self.A * (self.A.T * x)
 
 
+class RestrictedLinearOperator:
+    """
+    Given a linear operator A, implement the linear operator equivalent of
+    the matrix notation A[I,J] where I and J and index sets of rows and
+    columns, respectively.
+    """
+
+    def __init__(self, A, row_indices, col_indices, **kwargs):
+        self.op = A             # A linear operator.
+        self.row_indices = row_indices
+        self.col_indices = col_indices
+        self.symmetric = False  # Generally.
+
+    def __mul__(self, x):
+        # Return the result of A[I,J]*x. Note that the input x must have
+        # as many components as there are indices in J. The result
+        # has as many components as there are indices in I.
+        m, n = self.op.shape
+        z = np.zeros(n) ; z[self.col_indices] = x[:]
+        y = self.op * z
+        return y[self.row_indices]
+
+
+class SymmetricallyRestrictedLinearOperator(RestrictedLinearOperator):
+    def __init__(self, A, row_indices, **kwargs):
+        RestrictedLinearOperator.__init__(A, row_indices, row_indices, **kwargs)
+        self.symmetric = self.op.symmetric
+
+
 
 if __name__ == '__main__':
     from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
