@@ -264,7 +264,7 @@ class SquaredLinearOperator(LinearOperator):
         return self.A * (self.A.T * x)
 
 
-class RestrictedLinearOperator:
+class ReducedLinearOperator:
     """
     Given a linear operator A, implement the linear operator equivalent of
     the matrix notation A[I,J] where I and J and index sets of rows and
@@ -287,9 +287,9 @@ class RestrictedLinearOperator:
         return y[self.row_indices]
 
 
-class SymmetricallyRestrictedLinearOperator(RestrictedLinearOperator):
+class SymmetricallyReducedLinearOperator(ReducedLinearOperator):
     def __init__(self, A, row_indices, **kwargs):
-        RestrictedLinearOperator.__init__(A, row_indices, row_indices, **kwargs)
+        ReducedLinearOperator.__init__(A, row_indices, row_indices, **kwargs)
         self.symmetric = self.op.symmetric
 
 
