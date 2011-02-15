@@ -10,6 +10,7 @@ from nlpy.optimize.solvers import lbfgs    # For preconditioning
 from nlpy.krylov.linop import SimpleLinearOperator
 from nlpy.tools import norms
 from nlpy.tools.timing import cputime
+from nlpy.tools.exceptions import UserExitRequest
 import numpy
 import logging
 from math import sqrt
@@ -329,10 +330,3 @@ class TrunkLbfgsFramework(TrunkFramework):
         s = self.alpha * self.solver.step
         y = self.g - self.g_old
         self.lbfgs.store(s, y)
-
-class UserExitRequest(Exception):
-    """
-    Exception that the caller can use to request clean exit.
-    """
-    def __init__(self):
-        pass
