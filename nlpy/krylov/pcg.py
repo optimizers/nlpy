@@ -9,6 +9,7 @@ truncated preconditioned conjugate gradient algorithm as described in
 .. moduleauthor:: D. Orban <dominique.orban@gerad.ca>
 """
 
+from nlpy.tools.exceptions import UserExitRequest
 import numpy as np
 from math import sqrt
 import sys
@@ -95,6 +96,13 @@ class TruncatedCG:
         sigma /= pp
         return sigma
 
+    def post_iteration(self, *args, **kwargs):
+        """
+        Subclass and override this method to implement custom post-iteration
+        actions. This method will be called at the end of each CG iteration.
+        """
+        pass
+
     def Solve(self, **kwargs):
         """
         Solve the trust-region subproblem.
@@ -123,6 +131,7 @@ class TruncatedCG:
         # Initialization
         y = prec(g)
         ry = np.dot(g, y)
+        exitOptimal = exitIter = exitUser = False
 
         try:
             sqrtry = sqrt(ry)
@@ -147,7 +156,8 @@ class TruncatedCG:
             self._write(self.header)
             self._write('-' * len(self.header) + '\n')
 
-        while sqrtry > stopTol and k < maxiter and \
+        #while sqrtry > stopTol and k < maxiter and \
+        while not (exitOptimal or exitIter or exitUser) and \
                 not onBoundary and not infDescent:
 
             k += 1
@@ -197,6 +207,14 @@ class TruncatedCG:
                 raise ValueError, msg
 
             snorm2 = np.dot(s,s)
+            try:
+                self.post_iteration()
+            except UserExitRequest:
+                self.status = 'usr'
+
+            exitUser    = self.status == 'usr'
+            exitIter    = k >= maxiter
+            exitOptimal = sqrtry <= stopTol
 
         # Output info about the last iteration.
         if debug:
