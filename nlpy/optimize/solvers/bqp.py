@@ -12,8 +12,10 @@ implemented is that of More and Toraldo described in
     SIAM Journal on Optimization, 1(1), pp. 93-113, 1991.
 """
 
+from nlpy.krylov.pcg   import TruncatedCG
 from nlpy.krylov.linop import SimpleLinearOperator
 from nlpy.krylov.linop import SymmetricallyReducedLinearOperator as ReducedHessian
+from nlpy.tools.exceptions import InfeasibleError, UserExitRequest
 import numpy as np
 import logging
 
@@ -36,9 +38,46 @@ def identical(a,b):
     return False
 
 
-# Define a custom exception.
-class InfeasibleError(Exception):
-    pass
+class SufficientDecreaseCG(TruncatedCG):
+    """
+    An implementation of the conjugate-gradient algorithm with
+    a sufficient decrease stopping condition.
+
+    :keywords:
+        :cg_reltol: a relative stopping tolerance based on the decrease
+                    of the quadratic objective function. The test is
+                    triggered if, at iteration k,
+
+                    q{k-1} - qk <= cg_reltol * min { q{j-1} - qj | j < k}
+
+                    where qk is the value q(xk) of the quadratic objective
+                    at the iterate xk.
+
+    See the documentation of TruncatedCG for more information.
+    """
+    def __init__(self, g, H, **kwargs):
+        TruncatedCG.__init__(self, g, H, **kwargs)
+        self.name = 'Suff-CG'
+        self.qval = 0.0   # Initial value of quadratic objective.
+        self.best_decrease = 0
+        self.cg_reltol = kwargs.get('cg_reltol', 0.1)
+
+
+    def post_iteration(self):
+        """
+        Implement the sufficient decrease stopping condition. This test
+        costs one dot product, five products between scalars and two
+        additions of scalars.
+        """
+        p = self.p ; g = self.g ; pHp = self.pHp ; alpha = self.alpha
+        qOld = self.qval
+        qCur = qOld + alpha * np.dot(g,p) + 0.5 * alpha*alpha * pHp
+        decrease = qOld - qCur
+        if decrease <= self.cg_reltol * self.best_decrease:
+            raise ExitUserRequest
+        else:
+            self.best_decrease = max(self.best_decrease, decrease)
+        return None
 
 
 class BQP(object):
@@ -135,19 +174,22 @@ class BQP(object):
         return(lower_active, upper_active)
 
 
-    def projected_linesearch(self, x, g, qval, step=1.0):
+    def projected_linesearch(self, x, d, qval, step=1.0):
         """
-        Perform an Armijo-like projected linesearch in the steepest descent
-        direction. Here, x is the current iterate, g is the gradient vector,
+        Perform an Armijo-like projected linesearch in the direction d.
+        Here, x is the current iterate, s is the search direction,
         qval is q(x) and step is the initial steplength.
         """
+        # TODO: Does it help to replace this with Bertsekas' modified
+        #       Armijo condition?
+
         qp = self.qp
         finished = False
 
         # Perform projected Armijo linesearch.
         while not finished:
 
-            xTrial = self.project(x - step * g)
+            xTrial = self.project(x + step * d)
             qTrial = qp.obj(xTrial)
             slope = np.dot(g, xTrial-x)
             print '  step=', step, ', slope=', slope
@@ -201,7 +243,8 @@ class BQP(object):
 
             iter += 1
             qOld = qval
-            (x, qval) = self.projected_linesearch(x, g, qval)
+            # TODO: Use appropriate initial steplength.
+            (x, qval) = self.projected_linesearch(x, -g, qval)
 
             # Check decrease in objective.
             decrease = qOld - qval
@@ -211,14 +254,12 @@ class BQP(object):
 
             # Check active set at updated iterate.
             lowerTrial, upperTrial = self.get_active_set(x)
-            #print '  Comparing ', lower, lowerTrial, identical(lower,lowerTrial)
-            #print '  Comparing ', upper, upperTrial, identical(upper,upperTrial)
-            #pdb.set_trace()
             if identical(lower,lowerTrial) and identical(upper,upperTrial):
                 settled_down = True
             lower, upper = lowerTrial, upperTrial
 
-            print '  qval=', qval, 'lower=', lower, ', upper=', upper, ', settled=', repr(settled_down), ', decrease=', repr(sufficient_decrease)
+            print '  qval=', qval, 'lower=', lower, ', upper=', upper
+            print '  settled=', repr(settled_down), ', decrease=', repr(sufficient_decrease)
 
         return (x, (lower, upper))
 
@@ -250,11 +291,46 @@ class BQP(object):
             # Projected-gradient phase: determine next working set.
             (x, (lower,upper)) = self.projected_gradient(x, g=g, active_set=(lower,upper))
             g = qp.grad(x)
+            qval = qp.obj(x)
             pg = self.pgrad(x, g=g, active_set=(lower,upper))
             pgNorm = np.linalg.norm(pg)
             print 'Main loop with iter=%d and pgNorm=%g' % (iter, pgNorm)
 
             # Conjugate gradient phase: explore current face.
+
+            # 1. Obtain indices of the free variables.
+            fixed_variable = np.concatenate((lower,upper))
+            free_variables = np.setminus1d(np.arange(n, dtype=np.int),
+                                           fixed_variables)
+
+            # 2. Construct reduced QP.
+            ZHZ = ReducedHessian(self.H, free_variables)
+            Zg  = g[free_variables]
+            cg = SufficientDecreaseCG(Zg, ZHZ)
+            try:
+                cg.Solve()
+            except: UserExitRequest
+                # CG is no longer making substantial progress.
+                pass
+
+            # Temporary check.
+
+            # At this point, CG returned from a clean user exit or
+            # because its original stopping test was triggered.
+
+            # 3. Expand search direction.
+            d = np.zeros(n)
+            d[free_variables] = cg.step
+
+            # 4. Update x using projected linesearch with initial step=1.
+            (x, qval) = self.projected_linesearch(x, d, qval)
+            g = qp.grad(x)
+
+            # Compare active set to binding set.
+            lower, upper = self.get_active_set(x)
+            if g[lower] >= 0 and g[upper] <= 0:
+                # The active set agrees with the binding set.
+
 
 
 
