@@ -8,3 +8,11 @@ class UserExitRequest(Exception):
     """
     def __init__(self):
         pass
+
+
+class InfeasibleError(Exception):
+    """
+    Error that can be raised to signal an infeasible iterate.
+    """
+    def __init__(self):
+    pass
