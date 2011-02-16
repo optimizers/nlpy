@@ -110,7 +110,6 @@ class TruncatedCG:
         :keywords:
 
           :radius:     the trust-region radius (default: None),
-          :H:          linear operator representing the matrix `H`,
           :abstol:     absolute stopping tolerance (default: 1.0e-8),
           :reltol:     relative stopping tolerance (default: 1.0e-6),
           :maxiter:    maximum number of iterations (default: 2n),
@@ -207,6 +206,18 @@ class TruncatedCG:
                 raise ValueError, msg
 
             snorm2 = np.dot(s,s)
+
+            # Transfer useful quantities for post iteration.
+            self.pHp = pHp
+            self.p = p
+            self.r = r
+            self.y = y
+            self.step = s
+            self.stepNorm2 = snorm2
+            self.beta = beta
+            self.ry = ry
+            self.alpha = alpha
+
             try:
                 self.post_iteration()
             except UserExitRequest:
