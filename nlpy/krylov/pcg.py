@@ -109,6 +109,7 @@ class TruncatedCG:
 
         :keywords:
 
+          :s0:         initial guess (default: [0,0,...,0]),
           :radius:     the trust-region radius (default: None),
           :abstol:     absolute stopping tolerance (default: 1.0e-8),
           :reltol:     relative stopping tolerance (default: 1.0e-6),
@@ -128,8 +129,18 @@ class TruncatedCG:
         H = self.H
 
         # Initialization
-        y = prec(g)
-        ry = np.dot(g, y)
+        r = g.copy()
+        if 's0' in kwargs:
+            s = kwargs['s0']
+            snorm2 = np.linalg.norm(s)
+            r += H*s                 # r = g + H s0
+        else:
+            s = np.zeros(n)
+            snorm2 = 0.0
+
+        y = prec(r)
+        ry = np.dot(r, y)
+
         exitOptimal = exitIter = exitUser = False
 
         try:
@@ -141,10 +152,7 @@ class TruncatedCG:
 
         stopTol = max(abstol, reltol * sqrtry)
 
-        s = np.zeros(n) ; snorm2 = 0.0
-
         # Initialize r as a copy of g not to alter the original g
-        r = g.copy()                 # r = g + H s0 = g
         p = -y                       # p = - preconditioned residual
         k = 0
 
