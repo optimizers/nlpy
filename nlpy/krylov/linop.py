@@ -275,13 +275,14 @@ class ReducedLinearOperator:
         self.op = A             # A linear operator.
         self.row_indices = row_indices
         self.col_indices = col_indices
+        self.shape = (len(row_indices), len(col_indices))
         self.symmetric = False  # Generally.
 
     def __mul__(self, x):
         # Return the result of A[I,J]*x. Note that the input x must have
         # as many components as there are indices in J. The result
         # has as many components as there are indices in I.
-        m, n = self.op.shape
+        m, n = self.op.shape    # Shape of non-reduced operator.
         z = np.zeros(n) ; z[self.col_indices] = x[:]
         y = self.op * z
         return y[self.row_indices]
@@ -289,9 +290,8 @@ class ReducedLinearOperator:
 
 class SymmetricallyReducedLinearOperator(ReducedLinearOperator):
     def __init__(self, A, row_indices, **kwargs):
-        ReducedLinearOperator.__init__(A, row_indices, row_indices, **kwargs)
+        ReducedLinearOperator.__init__(self, A, row_indices, row_indices, **kwargs)
         self.symmetric = self.op.symmetric
-
 
 
 if __name__ == '__main__':
