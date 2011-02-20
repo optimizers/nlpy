@@ -69,6 +69,7 @@ class LSQRFramework:
         self.anorm = 0.; self.acond = 0. ; self.arnorm = 0.
         self.xnorm = 0.;
         self.r1norm = 0.; self.r2norm = 0.
+        self.optimal = False
         return
 
     def solve(self, rhs, itnlim=0, damp=0.0,
@@ -170,7 +171,7 @@ class LSQRFramework:
         x_is_zero = False   # Is x=0 the solution to the least-squares prob?
         arnorm = alfa * beta
         if arnorm == 0.0:
-            print self.msg[0]
+            if show: print self.msg[0]
             x_is_zero = True
             istop = 0
             #return
@@ -376,6 +377,7 @@ class LSQRFramework:
         if istop == 7: self.status = 'max iterations'
         if istop == 8: self.status = 'trust-region boundary active'
         self.onBoundary = tr_active
+        self.optimal = istop in [1,2,4,5]
         self.x = x
         self.istop = istop
         self.itn = itn
