@@ -140,18 +140,11 @@ class PysparseLinearOperator(LinearOperator):
         if self.transposed:
 
             LinearOperator.__init__(self, m, n, **kwargs)
-            #self.shape = (self.nargin, self.nargout)
-            #if hasattr(A, '__rmul__'):
-            #    self.__mul__ = A.__rmul__
-            #else:
             self.__mul__ = self._rmul
 
         else:
 
             LinearOperator.__init__(self, n, m, **kwargs)
-            #if hasattr(A, '__mul__'):
-            #    self.__mul__ = A.__mul__
-            #else:
             self.__mul__ = self._mul
 
         if self.logger is not None:
