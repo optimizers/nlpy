@@ -14,7 +14,7 @@ a limited-memory BFGS approximation to its inverse.
 from nlpy.model.amplpy import AmplModel
 from nlpy.optimize.solvers.lbfgs import InverseLBFGS
 from nlpy.optimize.solvers.trunk import TrunkFramework
-import numpy
+import numpy as np
 
 __docformat__ = 'restructuredtext'
 
@@ -32,6 +32,49 @@ class LDFP(InverseLBFGS):
     def store(self, new_s, new_y):
         # Simply swap s and y.
         InverseLBFGS.store(self, new_y, new_s)
+
+
+class StructuredLDFP(InverseLBFGS):
+    """
+    A limited-memory DFP framework for quasi-Newton methods that only
+    memorizes updates corresponding to certain variables. This is useful
+    when approximating the Hessian of a constraint with a sparse Jacobian.
+    """
+
+    def __init__(self, n, npairs=5, **kwargs):
+        """
+        See the documentation of `InverseLBFGS` for complete information.
+
+        :keywords:
+            :vars: List of variables participating in the quasi-Newton
+                   update. If `None`, all variables participate.
+        """
+        self.on = n   # Original value of n.
+        self.vars = kwargs.get('vars', None)  # None means all variables.
+        if self.vars is None:
+            nvars = n
+        else:
+            nvars = len(self.vars)
+
+        # This next initialization will set self.n to nvars.
+        # The original value of n was saved in self.on.
+        InverseLBFGS.__init__(self, nvars, npairs, **kwargs)
+
+    def store(self, new_s, new_y):
+        """
+        Store a new (s,y) pair. This method takes "small" vectors as
+        input, i.e., corresponding to the variables participating in
+        the quasi-Newton update.
+        """
+        InverseLBFGS.store(self, new_y, new_s)
+
+    def matvec(self, v):
+        """
+        Take a small vector and return a small vector giving the
+        contribution of the Hessian approximation to the
+        matrix-vector product.
+        """
+        return InverseLBFGS.matvec(self, v)
 
 
 # Subclass solver TRUNK to maintain an LDFP approximation to the Hessian and
