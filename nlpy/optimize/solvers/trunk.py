@@ -132,7 +132,7 @@ class TrunkFramework:
         self.f      = self.nlp.obj(self.x)
         self.f0     = self.f
         self.g      = self.nlp.grad(self.x)  # Current  gradient
-        self.g_old  = self.g                   # Previous gradient
+        self.g_old  = self.g                 # Previous gradient
         self.gnorm  = norms.norm2(self.g)
         self.g0     = self.gnorm
 
