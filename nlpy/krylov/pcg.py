@@ -193,7 +193,8 @@ class TruncatedCG:
                 # p leads past the trust-region boundary. Move to the boundary.
                 s += sigma * p
                 snorm2 = radius*radius
-                self.status = 'on boundary (sigma = %g)' % sigma
+                #self.status = 'on boundary (sigma = %g)' % sigma
+                self.status = 'trust-region boundary active'
                 onBoundary = True
                 continue
 
