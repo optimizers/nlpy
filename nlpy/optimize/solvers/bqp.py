@@ -24,7 +24,7 @@ import pdb
 __docformat__ = 'restructuredtext'
 
 
-# Helper function.
+# Helper functions.
 def identical(a,b):
     """
     Check that two arrays or lists are identical. Must be cautious because
@@ -36,6 +36,11 @@ def identical(a,b):
     if a.shape == b.shape:
         return np.all(a==b)
     return False
+
+
+def where(cond):
+    "Bypass Numpy's annoyances. Gee does someone need to write a proper Numpy!"
+    return np.where(cond)[0]
 
 
 class SufficientDecreaseCG(TruncatedCG):
@@ -169,8 +174,8 @@ class BQP(object):
         """
         if check_feasible: self.check_feasible(x)
 
-        lower_active = np.where(x==self.Lvar)[0]
-        upper_active = np.where(x==self.Uvar)[0]
+        lower_active = where(x==self.Lvar)
+        upper_active = where(x==self.Uvar)
         return(lower_active, upper_active)
 
 
