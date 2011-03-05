@@ -30,6 +30,7 @@ sys.path.append('sphinxext')
 # in the sphinxext directory defined above)
 import ipython_console_highlighting
 import inheritance_diagram
+import mathjax
 
 # General configuration
 # ---------------------
@@ -42,8 +43,8 @@ extensions += ['ipython_console_highlighting']
 extensions += ['inheritance_diagram']
 extensions += ['mathjax']
 mathjax_path = 'http://mathjax.connectmv.com/MathJax.js'
-latex_preamble = '\\usepackage{nlpy}'
 
+latex_preamble = '\\usepackage{nlpy}'
 latex_elements = {
     'preamble' : '\\usepackage{nlpy}'
 }
@@ -63,7 +64,7 @@ master_doc = 'contents'
 
 # General information about the project.
 project = u'NLPy'
-copyright = u'2009, Dominique Orban'
+copyright = u'2011, Dominique Orban'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
