@@ -29,9 +29,9 @@ class RegLPInteriorPointSolver:
 
     def __init__(self, lp, **kwargs):
         """
-        Solve a linear program of the form
+        Solve a linear program of the form::
 
-        minimize c' x   subject to  A1 x + A2 s = b  and  s >= 0,          (LP)
+            minimize c' x   subject to  A1 x + A2 s = b  and  s >= 0,      (LP)
 
         where the variables x are the original problem variables and s are
         slack variables. Any linear program may be converted to the above form
@@ -178,13 +178,13 @@ class RegLPInteriorPointSolver:
         Equilibrate the constraint matrix of the linear program. Equilibration
         is done by first dividing every row by its largest element in absolute
         value and then by dividing every column by its largest element in
-        absolute value. In effect the original problem
+        absolute value. In effect the original problem::
 
-        minimize c'x  subject to  A1 x + A2 s = b, x >= 0
+            minimize c'x  subject to  A1 x + A2 s = b, x >= 0
 
-        is converted to
+        is converted to::
 
-        minimize (Cc)'x  subject to  R A1 C x + R A2 C s = Rb, x >= 0,
+            minimize (Cc)'x  subject to  R A1 C x + R A2 C s = Rb, x >= 0,
 
         where the diagonal matrices R and C operate row and column scaling
         respectively.
@@ -473,7 +473,7 @@ class RegLPInteriorPointSolver:
             while not step_acceptable:
 
                 # Solve the linear system
-                # 
+                #
                 # [-pI          0          A1'] [∆x]   [c - A1' y             ]
                 # [ 0   -(S^{-1} Z + pI)   A2'] [∆s] = [  - A2' y - µ S^{-1} e]
                 # [ A1          A2         dI ] [∆y]   [b - A1 x - A2 s       ]
@@ -704,26 +704,26 @@ class RegLPInteriorPointSolver:
     def set_initial_guess(self, lp, **kwargs):
         """
         Compute initial guess according the Mehrotra's heuristic. Initial values
-        of x are computed as the solution to the least-squares problem
+        of x are computed as the solution to the least-squares problem::
 
-        minimize ||s||  subject to  A1 x + A2 s = b
+            minimize ||s||  subject to  A1 x + A2 s = b
 
-        which is also the solution to the augmented system
+        which is also the solution to the augmented system::
 
-        [ 0   0   A1' ] [x]   [0]
-        [ 0   I   A2' ] [s] = [0]
-        [ A1  A2   0  ] [w]   [b].
+            [ 0   0   A1' ] [x]   [0]
+            [ 0   I   A2' ] [s] = [0]
+            [ A1  A2   0  ] [w]   [b].
 
         Initial values for (y,z) are chosen as the solution to the least-squares
-        problem
+        problem::
 
-        minimize ||z||  subject to  A1' y = c,  A2' y + z = 0
+            minimize ||z||  subject to  A1' y = c,  A2' y + z = 0
 
-        which can be computed as the solution to the augmented system
+        which can be computed as the solution to the augmented system::
 
-        [ 0   0   A1' ] [w]   [c]
-        [ 0   I   A2' ] [z] = [0]
-        [ A1  A2   0  ] [y]   [0].
+            [ 0   0   A1' ] [w]   [c]
+            [ 0   I   A2' ] [z] = [0]
+            [ A1  A2   0  ] [y]   [0].
 
         To ensure stability and nonsingularity when A does not have full row
         rank, the (1,1) block is perturbed to 1.0e-4 * I and the (3,3) block is
@@ -818,13 +818,13 @@ class RegLPInteriorPointSolver29(RegLPInteriorPointSolver):
         so that the scaled matrix has all its entries near 1.0 in the sense that
         the square of the sum of the logarithms of the entries is minimized.
 
-        In effect the original problem
+        In effect the original problem::
 
-        minimize c'x  subject to  A1 x + A2 s = b, x >= 0
+            minimize c'x  subject to  A1 x + A2 s = b, x >= 0
 
-        is converted to
+        is converted to::
 
-        minimize (Cc)'x  subject to  R A1 C x + R A2 C s = Rb, x >= 0,
+            minimize (Cc)'x  subject to  R A1 C x + R A2 C s = Rb, x >= 0,
 
         where the diagonal matrices R and C operate row and column scaling
         respectively.
@@ -855,7 +855,7 @@ class RegLPInteriorPointSolver29(RegLPInteriorPointSolver):
 
         # Overwrite A with scaled matrix.
         self.A.put(values,irow,jcol)
-        
+
         # Apply row scaling to right-hand side b.
         self.b *= row_scale
 
@@ -867,7 +867,7 @@ class RegLPInteriorPointSolver29(RegLPInteriorPointSolver):
         self.col_scale = col_scale
 
         self.prob_scaled = True
-        
+
         return
 
     def unscale(self, **kwargs):
