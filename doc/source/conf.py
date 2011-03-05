@@ -30,6 +30,7 @@ sys.path.append('sphinxext')
 # in the sphinxext directory defined above)
 import ipython_console_highlighting
 import inheritance_diagram
+import mathjax
 
 # General configuration
 # ---------------------
@@ -42,15 +43,16 @@ extensions += ['sphinx.ext.pngmath']
 extensions += ['sphinx.ext.todo']
 extensions += ['ipython_console_highlighting']
 extensions += ['inheritance_diagram']
+extensions += ['mathjax']
+mathjax_path = 'http://mathjax.connectmv.com/MathJax.js'
 #jsmath_path = 'jsMath/easy/load.js'  # Under _static/ by default
-jsmath_path = '/Users/dpo/local/src/jsMath/easy/load.js'
-
-jsmath_latex_preamble = '\\usepackage{nlpy}'
+#jsmath_path = '/Users/dpo/local/src/jsMath/easy/load.js'
+#jsmath_latex_preamble = '\\usepackage{nlpy}'
 
 latex_elements = {
     'preamble' : '\\usepackage{nlpy}'
 }
-latex_additional_files = ['nlpy.sty'] 
+latex_additional_files = ['nlpy.sty']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['.templates']
@@ -66,7 +68,7 @@ master_doc = 'contents'
 
 # General information about the project.
 project = u'NLPy'
-copyright = u'2009, Dominique Orban'
+copyright = u'2011, Dominique Orban'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
