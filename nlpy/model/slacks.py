@@ -60,7 +60,7 @@ class SlackFramework( AmplModel ):
         self.original_n = self.n
         self.original_m = self.m
         self.original_nbounds = self.nbounds
-        
+
         # Number of slacks for inequality constraints with a lower bound
         n_con_low = self.nlowerC + self.nrangeC ; self.n_con_low = n_con_low
 
@@ -98,6 +98,11 @@ class SlackFramework( AmplModel ):
 
 
     def obj(self, x):
+        """
+        Return the value of the objective function at `x`. This function is
+        specialized since the original objective function only depends on a
+        subvector of `x`.
+        """
         return AmplModel.obj(self, x[:self.original_n])
 
 
@@ -114,11 +119,11 @@ class SlackFramework( AmplModel ):
 
         Constraints appear in the following order:
 
-        [ c  ]   general constraints in origninal order
-        [ cR ]   'upper' side of range constraints
-        [ b  ]   linear constraints corresponding to bounds on original problem
-        [ bR ]   linear constraints corresponding to 'upper' side of two-sided
-                 bounds
+        1. [ c  ]   general constraints in origninal order
+        2. [ cR ]   'upper' side of range constraints
+        3. [ b  ]   linear constraints corresponding to bounds on original problem
+        4. [ bR ]   linear constraints corresponding to 'upper' side of two-sided
+                    bounds
         """
         n = self.n ; on = self.original_n
         m = self.m ; om = self.original_m
