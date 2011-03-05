@@ -86,20 +86,21 @@ constraints have the form
 
     c_i(x) - a_i = 0, & \qquad i = 1, \ldots, m, \\
     g_j(x) - g_j^L - s_j^L = 0, & \qquad j = 1, \ldots, p,
-    \text{ for which } g_j^L > -\infty, \\
-    s_j^L \geq 0, & \qquad j = 1, \ldots, p, \text{ for which } g_j^L > -\infty, \\
+    \qquad \text{for which} \quad  g_j^L > -\infty, \\
+    s_j^L \geq 0, & \qquad j = 1, \ldots, p,
+    \qquad \text{for which} \quad g_j^L > -\infty, \\
     g_j^U - g_j(x) - s_j^U = 0, & \qquad j = 1, \ldots, p,
-    \text{ for which } g_j^U < +\infty, \\
-    s_j^U >= 0, & \qquad j = 1, \ldots, p,
-    \text{ for which } g_j^U < +\infty, \\
+    \qquad \text{for which} \quad g_j^U < +\infty, \\
+    s_j^U \geq 0, & \qquad j = 1, \ldots, p,
+    \qquad \text{for which} \quad g_j^U < +\infty, \\
     x_k - x_k^L - t_k^L = 0, & \qquad k = 1, \ldots, n,
-    \text{ for which } x_k^L > -\infty, \\
-    t_k^L >= 0, & \qquad k = 1, \ldots, n,
-    \text{ for which } x_k^L > -\infty, \\
+    \qquad \text{for which} \quad x_k^L > -\infty, \\
+    t_k^L \geq 0, & \qquad k = 1, \ldots, n,
+    \qquad \text{for which} \quad x_k^L > -\infty, \\
     x_k^U - x_k - t_k^U = 0, & \qquad k = 1, \ldots, n,
-    \text{ for which } x_k^U < +\infty, \\
-    t_k^U >= 0, & \qquad k = 1, \ldots, n,
-    \text{ for which } x_k^U < +\infty.
+    \qquad \text{for which} \quad x_k^U < +\infty, \\
+    t_k^U \geq 0, & \qquad k = 1, \ldots, n,
+    \qquad \text{for which} \quad x_k^U < +\infty.
 
 In the latter problem, the only inequality constraints are bounds on
 the slack variables. The other constraints are (typically) nonlinear
