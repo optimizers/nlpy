@@ -11,9 +11,9 @@ class StrongWolfeLineSearch:
     Wolfe conditions
 
     f(x+td) <= f(x) + ftol * t * <g(x),d>    (Armijo condition)
-        
+
     | <g(x+td),d> | <= gtol * | <g(x),d> |   (curvature condition)
-    
+
     This is a Python interface to the More and Thuente linesearch.
 
     Instantiate as follows
@@ -58,36 +58,36 @@ class StrongWolfeLineSearch:
         self.f = f   # Function value f(xk)
         self.g = g.copy()   # Gradient of f at xk
         self.d = d   # Direction along which to search
-        
+
         self.obj  = obj   # To evaluate function value
         self.grad = grad  # To evaluate function gradient
-        
+
         # Optional arguments
         self.ftol   = kwargs.get('ftol', 1.0e-4)
         self.gtol   = kwargs.get('gtol', 0.9)
         self.xtol   = kwargs.get('xtol', 1.0e-1)
         self.stp    = kwargs.get('stp', 1.0)
         self.stpmin = kwargs.get('stpmin', 0.0)
-        
+
         self.slope  = numpy.dot(self.g, self.d)
         self.stpmax = kwargs.get('stpmax',
-                                  max(4*min(self.stp,1.0), 
+                                  max(4*min(self.stp,1.0),
                                        0.1*self.f/(- self.slope*self.ftol)))
 
         # Initialize context object
-        self.context = _pycsrch.Init(self.ftol, 
+        self.context = _pycsrch.Init(self.ftol,
                                       self.gtol,
                                       self.xtol,
                                       self.stp,
                                       self.stpmin,
                                       self.stpmax)
-        
+
         self.armijo = False
         self.curvature = False
         self.message = None
 
     def search(self):
-        
+
         if self.slope >= 0.0:
             self.stp = None
             self.message  = 'Direction is not a descent direction. '
@@ -113,12 +113,12 @@ class StrongWolfeLineSearch:
 
 
 if __name__ == '__main__':
-    
+
     import amplpy
     import numpy
     from math import sqrt
     import sys
-    
+
     nlp = amplpy.AmplModel(sys.argv[1])
     f = nlp.obj(nlp.x0)
     g = nlp.grad(nlp.x0)
@@ -151,4 +151,4 @@ if __name__ == '__main__':
     pylab.plot(t, y)
     pylab.show()
     nlp.close()
-    
+

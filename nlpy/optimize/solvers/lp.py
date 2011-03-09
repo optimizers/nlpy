@@ -283,28 +283,28 @@ class RegLPInteriorPointSolver:
         interior-point method. Accepted input keyword arguments are
 
         :keywords:
-          :itermax:  The maximum allowed number of iterations (default: 10n)
 
-          :tolerance:  Stopping tolerance (default: 1.0e-6)
-
+          :itermax:             The maximum allowed number of iterations
+                                (default 10n)
+          :tolerance:           Stopping tolerance (default 1.0e-6)
           :PredictorCorrector:  Use the predictor-corrector method
-                                (default: `True`). If set to `False`, a variant
+                                (default `True`). If set to `False`, a variant
                                 of the long-step method is used. The long-step
                                 method is generally slower and less robust.
 
-        Upon exit, the following members of the class instance are set:
+        :return:
 
-        x..............final iterate
-        y..............final value of the Lagrange multipliers associated
-                       to A1 x + A2 s = b
-        z..............final value of the Lagrange multipliers associated
-                       to s>=0
-        obj_value......final cost
-        iter...........total number of iterations
-        kktResid.......final relative residual
-        solve_time.....time to solve the LP
-        status.........string describing the exit status
-        short_status...short version of status, used for printing.
+            :x:            final iterate
+            :y:            final value of the Lagrange multipliers associated
+                           to `A1 x + A2 s = b`
+            :z:            final value of the Lagrange multipliers associated
+                           to `s >= 0`
+            :obj_value:    final cost
+            :iter:         total number of iterations
+            :kktResid:     final relative residual
+            :solve_time:   time to solve the LP
+            :status:       string describing the exit status
+            :short_status: short version of status, used for printing.
         """
         lp = self.lp
         itermax = kwargs.get('itermax', max(100,10*lp.n))

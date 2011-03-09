@@ -5,6 +5,8 @@
 Iterative Solution of Systems of Linear Equations
 =================================================
 
+.. _linop:
+
 ----------------
 Linear Operators
 ----------------

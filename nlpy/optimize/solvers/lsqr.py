@@ -103,7 +103,7 @@ class LSQRFramework:
            :show:   if set to `True`, gives an iteration log.
                     If set to `False`, suppresses output.
 
-        :return:
+        :returns:
 
            :x:     is the final solution.
            :istop: gives the reason for termination.
