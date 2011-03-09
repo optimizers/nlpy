@@ -499,8 +499,10 @@ class PrimalDualInteriorPointFramework:
 
     def ftb(self, x, z, step, **kwargs):
         """
-        Compute the largest alpha in ]0,1] such that
+        Compute the largest alpha in ]0,1] such that::
+
             (x,z) + alpha * step >= (1 - tau) * (x,z)
+
         where 0 < tau < 1. By default, tau = 0.9.
         """
         tau = kwargs.get('tau', 0.9)

@@ -38,16 +38,12 @@ import mathjax
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest']
-extensions += ['sphinx.ext.pngmath']
-#extensions += ['sphinx.ext.jsmath']
 extensions += ['sphinx.ext.todo']
 extensions += ['ipython_console_highlighting']
 extensions += ['inheritance_diagram']
 extensions += ['mathjax']
 mathjax_path = 'http://mathjax.connectmv.com/MathJax.js'
-#jsmath_path = 'jsMath/easy/load.js'  # Under _static/ by default
-#jsmath_path = '/Users/dpo/local/src/jsMath/easy/load.js'
-#jsmath_latex_preamble = '\\usepackage{nlpy}'
+latex_preamble = '\\usepackage{nlpy}'
 
 latex_elements = {
     'preamble' : '\\usepackage{nlpy}'

@@ -1,6 +1,8 @@
 # A General module that implements various linesearch schemes
 # D. Orban, Montreal, Jan. 2005.
 
+__docformat__ = 'restructuredtext'
+
 class LineSearch:
     """
     A generic linesearch class. Most methods of this
@@ -15,7 +17,7 @@ class LineSearch:
         """
         Given a descent direction d for function func at the
         current iterate x, see if the steplength t satisfies
-        a specific linesearch condition. 
+        a specific linesearch condition.
 
         Must be overridden.
         """
@@ -32,7 +34,8 @@ class LineSearch:
         be the value of func(x). If not given, it will be evaluated.
 
         func can point to a defined function or be a lambda function.
-        For example, in the univariate case:
+        For example, in the univariate case::
+
             test(lambda x: x**2, 2.0, -1, 4.0)
         """
         # Must override
@@ -57,11 +60,11 @@ class ArmijoLineSearch(LineSearch):
 
     :keywords:
 
-        :beta:      Value of beta. Default: 0.001
+        :beta:      Value of beta (default 0.001)
         :tfactor:   Amount by which to reduce the steplength
-                    during the backtracking. Default: 0.5.
+                    during the backtracking (default 0.5).
     """
-    
+
     def __init__(self, **kwargs):
         LineSearch.__init__(self, **kwargs)
         self.beta = max(min(kwargs.get('beta', 1.0e-4), 0.5), 1.0e-10)
@@ -72,7 +75,7 @@ class ArmijoLineSearch(LineSearch):
         """
         Given a descent direction d for function func at the
         current iterate x, see if the steplength t satisfies
-        the Armijo linesearch condition. 
+        the Armijo linesearch condition.
         """
         if f is None:
             f = func(x)
@@ -109,13 +112,13 @@ class ArmijoLineSearch(LineSearch):
 
 # Test
 if __name__ == '__main__':
-    
+
     # Simple example:
     #    steepest descent method
     #    with Armijo backtracking
     from numpy import array, dot
     from nlpy.tools.norms import norm_infty
-    
+
     def rosenbrock(x):
         return 10.0 * (x[1]-x[0]**2)**2 + (1-x[0])**2
 
