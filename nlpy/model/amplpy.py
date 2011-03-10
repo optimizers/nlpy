@@ -795,7 +795,7 @@ class AmplModel(NLPModel):
         return H
 
 
-    def hprod(self, z, v, **kwargs):
+    def hprod(self, x, z, v, **kwargs):
         """
         Evaluate matrix-vector product H(x,z) * v.
         Returns a Numpy array.
