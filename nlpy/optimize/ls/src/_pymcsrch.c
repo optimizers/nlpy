@@ -3,7 +3,7 @@
 
 /*
  *                             P y m c s r c h
- *  
+ *
  * P y t h o n   i n t e r f a c e   t o   t h e   M C S R C H   p a c k a g e
  */
 
@@ -101,7 +101,7 @@ static PymcsrchObject *NewPymcsrchObject( int n, double ftol, double gtol,
     self->dk = d;
     self->nfev = 0;
     self->info = 99;
-    
+
     return self;
 }
 
@@ -127,17 +127,17 @@ static PyObject *Pymcsrch_mcsrch( PymcsrchObject *self, PyObject *args ) {
     if( a_x->nd != 1 ) return NULL;                /* x must have 1 dimension */
     if( a_x->dimensions[0] != self->n ) return NULL;            /* and size n */
     PyArray_XDECREF( a_x );
-    
+
     if( a_g->descr->type_num != NPY_DOUBLE ) return NULL;
     if( !a_g ) return NULL;                               /* conversion error */
     if( a_g->nd != 1 ) return NULL;                /* g must have 1 dimension */
     if( a_g->dimensions[0] != self->n ) return NULL;            /* and size n */
     PyArray_XDECREF( a_g );
-    
+
     /* Assign input to variables x and g */
     x = (double *)a_x->data;
     g = (double *)a_g->data;
-    
+
     /* Perform linesearch */
     MCSRCH( &(self->n),
             x,
