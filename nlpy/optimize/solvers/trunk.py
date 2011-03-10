@@ -99,7 +99,7 @@ class TrunkFramework:
         # Setup the logger. Install a NullHandler if no output needed.
         logger_name = kwargs.get('logger_name', 'nlpy.trunk')
         self.log = logging.getLogger(logger_name)
-        self.log.addHandler(logging.NullHandler())
+        #self.log.addHandler(logging.NullHandler())
         if not self.verbose:
             self.log.propagate=False
 
@@ -108,7 +108,7 @@ class TrunkFramework:
         Default hprod based on nlp's hprod. User should overload to
         provide a custom routine, e.g., a quasi-Newton approximation.
         """
-        return self.nlp.hprod(self.nlp.pi0, v)
+        return self.nlp.hprod(self.x, self.nlp.pi0, v)
 
     def precon(self, v, **kwargs):
         """
