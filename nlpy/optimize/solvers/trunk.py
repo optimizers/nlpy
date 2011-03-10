@@ -45,7 +45,7 @@ class TrunkFramework:
         :monotone:     use monotone descent strategy     (default False)
         :nIterNonMono: number of iterations for which non-strict descent can
                        be tolerated if monotone=False    (default 25)
-        :logger:       a logger object that can be used in the post
+        :logger_name:  name of a logger object that can be used in the post
                        iteration                         (default None)
         :verbose:      print log if True                 (default True)
 
