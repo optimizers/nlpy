@@ -101,37 +101,37 @@ class NLPModel:
 
         # Set initial point
         if 'x0' in kwargs.keys():
-            self.x0 = kwargs['x0']
+            self.x0 = np.ascontiguousarray(kwargs['x0'], dtype=float)
         else:
             self.x0 = np.zeros(self.n, 'd')
 
         # Set initial multipliers
         if 'pi0' in kwargs.keys():
-            self.pi0 = kwargs['pi0']
+            self.pi0 = np.ascontiguousarray(kwargs['pi0'], dtype=float)
         else:
             self.pi0 = np.zeros(self.m, 'd')
 
         # Set lower bounds on variables    Lvar[i] <= x[i]  i = 1,...,n
         if 'Lvar' in kwargs.keys():
-            self.Lvar = kwargs['Lvar']
+            self.Lvar = np.ascontiguousarray(kwargs['Lvar'], dtype=float)
         else:
             self.Lvar = self.negInfinity * np.ones(self.n, 'd')
 
         # Set upper bounds on variables    x[i] <= Uvar[i]  i = 1,...,n
         if 'Uvar' in kwargs.keys():
-            self.Uvar = kwargs['Uvar']
+            self.Uvar = np.ascontiguousarray(kwargs['Uvar'], dtype=float)
         else:
             self.Uvar = self.Infinity * np.ones(self.n, 'd')
 
         # Set lower bounds on constraints  Lcon[i] <= c[i]  i = 1,...,m
         if 'Lcon' in kwargs.keys():
-            self.Lcon = kwargs['Lcon']
+            self.Lcon = np.ascontiguousarray(kwargs['Lcon'], dtype=float)
         else:
             self.Lcon = self.negInfinity * np.ones(self.m, 'd')
 
         # Set upper bounds on constraints  c[i] <= Ucon[i]  i = 1,...,m
         if 'Ucon' in kwargs.keys():
-            self.Ucon = kwargs['Ucon']
+            self.Ucon = np.ascontiguousarray(kwargs['Ucon'], dtype=float)
         else:
             self.Ucon = self.Infinity * np.ones(self.m, 'd')
 
