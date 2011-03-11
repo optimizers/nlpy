@@ -2,6 +2,11 @@
 
 __docformat__ = 'restructuredtext'
 
+# Unit Tests
+import numpy
+from numpy.testing import Tester
+test = Tester().test
+
 # Imports
 from numpy._import_tools import PackageLoader
 from version import version as __version__
