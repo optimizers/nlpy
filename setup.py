@@ -56,6 +56,22 @@ def configuration(parent_package='',top_path=None):
 
     return config
 
+
+def fullsplit(path, result=None):
+    """
+    Split a pathname into components (the opposite of os.path.join) in a
+    platform-neutral way.
+    """
+    if result is None:
+        result = []
+    head, tail = os.path.split(path)
+    if head == '':
+        return [tail] + result
+    if head == path:
+        return result
+    return fullsplit(head, [tail] + result)
+    
+
 def setup_package():
 
     from numpy.distutils.core import setup, Extension
@@ -66,6 +82,26 @@ def setup_package():
     os.chdir(local_path)
     sys.path.insert(0,local_path)
     sys.path.insert(0,os.path.join(local_path,'nlpy')) # to retrieve version
+    
+    
+    local_path = os.path.dirname(os.path.abspath(sys.argv[0]))
+    src_path = local_path
+
+    # Run build
+    old_path = os.getcwd()
+    os.chdir(src_path)
+    sys.path.insert(0, src_path)
+    
+    # find all files that should be included
+    packages, data_files = [], []
+    for dirpath, dirnames, filenames in os.walk('nlpy'):
+        # Ignore dirnames that start with '.'
+        for i, dirname in enumerate(dirnames):
+            if dirname.startswith('.'): del dirnames[i]
+        if '__init__.py' in filenames:
+            packages.append('.'.join(fullsplit(dirpath)))
+        elif filenames:
+            data_files.append([dirpath, [os.path.join(dirpath, f) for f in filenames]])
 
     try:
         setup(
@@ -79,6 +115,7 @@ def setup_package():
             url = "",
             download_url = "",
             license = 'LGPL',
+            packages = packages,
             classifiers=filter(None, CLASSIFIERS.split('\n')),
             platforms = ["Windows", "Linux", "Solaris", "Mac OS-X", "Unix"],
             configuration=configuration,
