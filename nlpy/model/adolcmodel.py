@@ -2,15 +2,29 @@ from nlpy.model import NLPModel
 import adolc
 import numpy as np
 
+
+
 class AdolcModel(NLPModel):
+
+    __NUM_INSTANCES = [-1]
 
     def __init__(self, n=0, m=0, name='Generic', **kwargs):
         NLPModel.__init__(self, n, m, name, **kwargs)
+        self.__NUM_INSTANCES[0] += 1
+
+        # Trace objective and constraint functions.
         self._obj_trace_id = None
+        self._con_trace_id = None
         self._trace_obj(self.x0)
-        
+        self._trace_con(self.x0)
+
         self.first_sparse_hess_eval = True
         self.first_sparse_jac_eval  = True
+
+
+    def _get_trace_id(self):
+        "Return an available trace id."
+        return 100*self.__NUM_INSTANCES[0]
 
 
     def get_obj_trace_id(self):
@@ -18,18 +32,37 @@ class AdolcModel(NLPModel):
         return self._obj_trace_id
 
 
+    def get_con_trace_id(self):
+        "Return the trace id for the constraints."
+        return self._con_trace_id
+
+
     def _trace_obj(self, x):
 
         if self._obj_trace_id is None:
 
             print 'Tracing objective...'
-            adolc.trace_on(0)
+            self._obj_trace_id = self._get_trace_id()
+            adolc.trace_on(self._obj_trace_id)
             x = adolc.adouble(x)
             adolc.independent(x)
             y = self.obj(x)
             adolc.dependent(y)
             adolc.trace_off()
-            self._obj_trace_id = 0
+
+
+    def _trace_con(self, x):
+
+        if self._con_trace_id is None:
+
+            print 'Tracing constraints...'
+            self._con_trace_id = self._get_trace_id() + 1
+            adolc.trace_on(self._con_trace_id)
+            x = adolc.adouble(x)
+            adolc.independent(x)
+            y = self.cons(x)
+            adolc.dependent(y)
+            adolc.trace_off()
 
 
     def _adolc_obj(self, x):
@@ -50,7 +83,7 @@ class AdolcModel(NLPModel):
     def hess(self, x, z, **kwargs):
         "Return the Hessian of the objective at x."
         return adolc.hessian(self._obj_trace_id, x)
-        
+
 
     def hprod(self, x, z, v, **kwargs):
         "Return the Hessian-vector product at x with v."
@@ -68,11 +101,34 @@ class AdolcModel(NLPModel):
             self.hess_values = values
             self.first_sparse_hess_eval = False
             return rind, cind, values
-            
+
         else:
             return adolc.colpack.sparse_hess_repeat(self._obj_trace_id, x, self.hess_rind, self.hess_cind, self.hess_values)
-            
 
+
+    def _adolc_cons(self, x, **kwargs):
+        "Evaluate the constraints from the ADOL-C tape."
+        return adolc.function(self._con_trace_id, x)
+
+
+    def jac(self, x, **kwargs):
+        "Return constraints Jacobian at x."
+        return self._adolc_jac(x, **kwargs)
+
+
+    def _adolc_jac(self, x, **kwargs):
+        "Evaluate the constraints Jacobian from the ADOL-C tape."
+        return adolc.jacobian(self._con_trace_id, x)
+
+
+    def jac_vec(self, x, v, **kwargs):
+        "Return the product of v with the Jacobian at x."
+        return adolc.jac_vec(self._con_trace_id, x, v)
+
+
+    def vec_jac(self, x, v, **kwargs):
+        "Return the product of v with the transpose Jacobian at x."
+        return adolc.vec_jac(self._con_trace_id, x, v)
 
 
 
@@ -86,17 +142,15 @@ if __name__ == '__main__':
     import nlpy.tools.logs
     import logging, sys
 
+    # Define a few problems.
+
     class AdolcRosenbrock(AdolcModel):
 
         def obj(self, x, **kwargs):
             return np.sum( 100*(x[1:] - x[:-1]**2)**2 + (1 - x[:-1])**2 )
 
 
-    nvar = 10
-    nlp = AdolcRosenbrock(n=nvar, name='Rosenbrock', x0=-np.ones(nvar))
-
-
-    class hs7(AdolcModel):
+    class AdolcHS7(AdolcModel):
 
         def obj(self, x, **kwargs):
             return np.log(1 + x[0]**2) - x[1]
@@ -105,16 +159,29 @@ if __name__ == '__main__':
             return (1 + x[0]**2)**2 + x[1]**2 - 4
 
 
+    nvar = 10
+    #rosenbrock = AdolcRosenbrock(n=nvar, name='Rosenbrock', x0=-np.ones(nvar))
+    hs7 = AdolcHS7(n=2, m=1, name='HS7', x0=2*np.ones(2))
+
+    nlp = hs7
+
     g = nlp.grad(nlp.x0)
     H = nlp.hess(nlp.x0, nlp.x0)
-    H_sparse = nlp.sparse_hess(nlp.x0, nlp.x0)
-    H_sparse = nlp.sparse_hess(nlp.x0, nlp.x0)
+    #H_sparse = nlp.sparse_hess(nlp.x0, nlp.x0)
+    c = nlp.cons(nlp.x0)
+    J = nlp.jac(nlp.x0)
+    v = np.array([-1.,1.])
+    w = np.array([-2])
     print 'number of variables: ', nlp.n
     print 'initial guess: ', nlp.x0
     print 'f(x0) = ', nlp.obj(nlp.x0)
     print 'g(x0) = ', g
     print 'H(x0) = ', H
-    print 'H_sparse(x0) = ', H_sparse
+    #print 'H_sparse(x0) = ', H_sparse
+    print 'c(x0) = ', c
+    print 'J(x0) = ', J
+    print 'J(x0) * [-1,1] = ', nlp.jac_vec(nlp.x0, v)
+    print 'J(x0).T * [-2] = ', nlp.vec_jac(nlp.x0, w)
 
 #     # Solve with linesearch-based L-BFGS method.
 #     lbfgs = LBFGSFramework(nlp, npairs=5, scaling=True, silent=False)
