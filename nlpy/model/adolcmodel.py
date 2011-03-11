@@ -51,6 +51,12 @@ class AdolcModel(NLPModel):
         "Return the Hessian of the objective at x."
         return adolc.hessian(self._obj_trace_id, x)
         
+
+    def hprod(self, x, z, v, **kwargs):
+        "Return the Hessian-vector product at x with v."
+        return adolc.hess_vec(self._obj_trace_id, x, v)
+
+
     def sparse_hess(self, x, z, **kwargs):
         "Return the Hessian of the objective at x."
         options = np.zeros(2,dtype=int)
@@ -67,9 +73,6 @@ class AdolcModel(NLPModel):
             return adolc.colpack.sparse_hess_repeat(self._obj_trace_id, x, self.hess_rind, self.hess_cind, self.hess_values)
             
 
-    def hprod(self, x, z, v, **kwargs):
-        "Return the Hessian-vector product at x with v."
-        return adolc.hess_vec(self._obj_trace_id, x, v)
 
 
 
