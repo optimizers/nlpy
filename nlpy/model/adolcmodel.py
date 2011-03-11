@@ -8,6 +8,9 @@ class AdolcModel(NLPModel):
         NLPModel.__init__(self, n, m, name, **kwargs)
         self._obj_trace_id = None
         self._trace_obj(self.x0)
+        
+        self.first_sparse_hess_eval = True
+        self.first_sparse_jac_eval  = True
 
 
     def get_obj_trace_id(self):
@@ -47,8 +50,22 @@ class AdolcModel(NLPModel):
     def hess(self, x, z, **kwargs):
         "Return the Hessian of the objective at x."
         return adolc.hessian(self._obj_trace_id, x)
-        # return adolc.sparse_hessian_norepeat()
-
+        
+    def sparse_hess(self, x, z, **kwargs):
+        "Return the Hessian of the objective at x."
+        options = np.zeros(2,dtype=int)
+        if self.first_sparse_hess_eval:
+            nnz, rind, cind, values =  adolc.colpack.sparse_hess_no_repeat(self._obj_trace_id, x, options=options)
+            self.hess_nnz  = nnz
+            self.hess_rind = rind
+            self.hess_cind = cind
+            self.hess_values = values
+            self.first_sparse_hess_eval = False
+            return rind, cind, values
+            
+        else:
+            return adolc.colpack.sparse_hess_repeat(self._obj_trace_id, x, self.hess_rind, self.hess_cind, self.hess_values)
+            
 
     def hprod(self, x, z, v, **kwargs):
         "Return the Hessian-vector product at x with v."
@@ -86,41 +103,46 @@ if __name__ == '__main__':
 
 
     g = nlp.grad(nlp.x0)
+    H = nlp.hess(nlp.x0, nlp.x0)
+    H_sparse = nlp.sparse_hess(nlp.x0, nlp.x0)
+    H_sparse = nlp.sparse_hess(nlp.x0, nlp.x0)
     print 'number of variables: ', nlp.n
     print 'initial guess: ', nlp.x0
     print 'f(x0) = ', nlp.obj(nlp.x0)
     print 'g(x0) = ', g
+    print 'H(x0) = ', H
+    print 'H_sparse(x0) = ', H_sparse
 
-    # Solve with linesearch-based L-BFGS method.
-#    lbfgs = LBFGSFramework(nlp, npairs=5, scaling=True, silent=False)
-#    lbfgs.solve()
+#     # Solve with linesearch-based L-BFGS method.
+#     lbfgs = LBFGSFramework(nlp, npairs=5, scaling=True, silent=False)
+#     lbfgs.solve()
 
-    # Create root logger.
-    log = logging.getLogger('adolcmodel')
-    log.setLevel(logging.INFO)
-    fmt = logging.Formatter('%(name)-15s %(levelname)-8s %(message)s')
-    hndlr = logging.StreamHandler(sys.stdout)
-    hndlr.setFormatter(fmt)
-    log.addHandler(hndlr)
+#     # Create root logger.
+#     log = logging.getLogger('adolcmodel')
+#     log.setLevel(logging.INFO)
+#     fmt = logging.Formatter('%(name)-15s %(levelname)-8s %(message)s')
+#     hndlr = logging.StreamHandler(sys.stdout)
+#     hndlr.setFormatter(fmt)
+#     log.addHandler(hndlr)
 
-    # Configure the subproblem solver logger
-    nlpy.tools.logs.config_logger('adolcmodel.ldfp',
-                                  filemode='w',
-                                  stream=sys.stdout)
+#     # Configure the subproblem solver logger
+#     nlpy.tools.logs.config_logger('adolcmodel.ldfp',
+#                                   filemode='w',
+#                                   stream=sys.stdout)
 
-    tr = TR(Delta=1.0, eta1=0.05, eta2=0.9, gamma1=0.25, gamma2=2.5)
+#     tr = TR(Delta=1.0, eta1=0.05, eta2=0.9, gamma1=0.25, gamma2=2.5)
 
-    # Solve with trust-region-based L-DFP method.
-#    ldfp = LDFPTrunkFramework(nlp, tr, TRSolver,
-#                              ny=True, monotone=False,
-#                              logger_name='adolcmodel.ldfp')
-#    ldfp.TR.Delta = 0.1 * np.linalg.norm(g)         # Reset initial trust-region radius
-#    ldfp.Solve()
+#     # Solve with trust-region-based L-DFP method.
+# #    ldfp = LDFPTrunkFramework(nlp, tr, TRSolver,
+# #                              ny=True, monotone=False,
+# #                              logger_name='adolcmodel.ldfp')
+# #    ldfp.TR.Delta = 0.1 * np.linalg.norm(g)         # Reset initial trust-region radius
+# #    ldfp.Solve()
 
-    # Solve with trust-region-based method.
-    trnk = TrunkFramework(nlp, tr, TRSolver,
-                          ny=True, monotone=False,
-                          logger_name='adolcmodel.ldfp')
-    trnk.TR.Delta = 0.1 * np.linalg.norm(g)         # Reset initial trust-region radius
-    trnk.Solve()
+#     # Solve with trust-region-based method.
+#     trnk = TrunkFramework(nlp, tr, TRSolver,
+#                           ny=True, monotone=False,
+#                           logger_name='adolcmodel.ldfp')
+#     trnk.TR.Delta = 0.1 * np.linalg.norm(g)         # Reset initial trust-region radius
+#     trnk.Solve()
 
