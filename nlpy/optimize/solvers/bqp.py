@@ -99,7 +99,9 @@ class BQP(object):
         self.Lvar = qp.Lvar
         self.Uvar = qp.Uvar
         self.H = SimpleLinearOperator(qp.n, qp.n,
-                                      lambda u: self.qp.hprod(self.qp.pi0,u),
+                                      lambda u: self.qp.hprod(self.qp.x0,
+                                                              self.qp.pi0,
+                                                              u),
                                       symmetric=True)
 
         # Relative stopping tolerance in projected gradient iterations.
