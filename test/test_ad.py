@@ -1,5 +1,5 @@
 # Tests relative to algorithmic differentiation.
-from nlpy.model import AdolcModel
+from nlpy.model import AdolcModel, AlgopyModel
 import numpy as np
 
 # Define a few problems.
@@ -62,3 +62,8 @@ def test_hs7():
     print Jv, expected_Jv
     assert(np.allclose(Jv,expected_Jv))
     assert(np.allclose(JTw,expected_JTw))
+    Jop = hs7.get_jac_linop(hs7.x0)
+    Jopv = Jop * (-np.ones(hs7.n))
+    JopTw = Jop.T * (2*np.ones(hs7.m))
+    assert(np.allclose(Jopv,expected_Jv))
+    assert(np.allclose(JopTw,expected_JTw))

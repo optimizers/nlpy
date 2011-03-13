@@ -1,10 +1,16 @@
-from nlpy.model import NLPModel
+from nlpy.model  import NLPModel
+from nlpy.krylov import SimpleLinearOperator
 import adolc
 import numpy as np
 
 has_colpack = False
 
 class AdolcModel(NLPModel):
+    """
+    A class to represent optimization problems in which derivatives
+    are computed via algorithmic differentiation through ADOL-C.
+    See the documentation of `NLPModel` for further information.
+    """
 
     # Count the number of instances of this class to generate
     # non-conflicting tape ids. Must be a mutable type.
@@ -44,7 +50,6 @@ class AdolcModel(NLPModel):
 
         if self._obj_trace_id is None:
 
-            #print 'Tracing objective...'
             self._obj_trace_id = self._get_trace_id()
             adolc.trace_on(self._obj_trace_id)
             x = adolc.adouble(x)
@@ -58,7 +63,6 @@ class AdolcModel(NLPModel):
 
         if self._con_trace_id is None and self.m > 0:
 
-            #print 'Tracing constraints...'
             self._con_trace_id = self._get_trace_id() + 1
             adolc.trace_on(self._con_trace_id)
             x = adolc.adouble(x)
@@ -178,6 +182,15 @@ class AdolcModel(NLPModel):
     def vec_jac(self, x, v, **kwargs):
         "Return the product of v with the transpose Jacobian at x."
         return adolc.vec_jac(self._con_trace_id, x, v)
+
+
+    def get_jac_linop(self, x, **kwargs):
+        "Return the Jacobian at x as a linear operator."
+        J = SimpleLinearOperator(self.n, self.m,
+                                 lambda v: self.jac_vec(x,v),
+                                 matvec_transp=lambda v: self.vec_jac(x,v),
+                                 symmetric=False)
+        return J
 
 
 
