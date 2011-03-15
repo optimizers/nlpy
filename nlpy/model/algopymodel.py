@@ -6,12 +6,12 @@ class AlgopyModel(NLPModel):
 
     def __init__(self, n=0, m=0, name='Generic', **kwargs):
         NLPModel.__init__(self, n, m, name, **kwargs)
-        
+
         try:
             self._trace_obj(self.x0)
         except:
             pass
-        
+
         try:
             self._trace_cons(self.x0)
         except:
@@ -38,8 +38,8 @@ class AlgopyModel(NLPModel):
         cg.trace_off()
         cg.independentFunctionList = [x]
         cg.dependentFunctionList = [y]
-        self._cg_cons = cg        
-        
+        self._cg_cons = cg
+
 
     def grad(self, x, **kwargs):
         "Evaluate the objective gradient at x."
@@ -48,6 +48,11 @@ class AlgopyModel(NLPModel):
 
     def hess(self, x, z, **kwargs):
         "Return the Hessian of the objective at x."
+        return self.dense_hess(x,z,**kwargs)
+
+
+    def dense_hess(self, x, z, **kwargs):
+        "Return the Hessian of the objective at x in dense format."
         return self._cg_obj.hessian([x])[0]
 
 
@@ -56,9 +61,13 @@ class AlgopyModel(NLPModel):
         return self._cg_obj.hess_vec([x], [v])
 
 
-
     def jac(self, x, **kwargs):
         "Return constraints Jacobian at x."
+        return self.dense_jac(x,**kwargs)
+
+
+    def dense_jac(self, x, **kwargs):
+        "Return constraints Jacobian at x in dense format."
         return self._cg_cons.jacobian([x])[0]
 
 
