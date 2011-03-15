@@ -16,7 +16,7 @@ class AdolcModel(NLPModel):
     # non-conflicting tape ids. Must be a mutable type.
     __NUM_INSTANCES = [-1]
 
-    def __init__(self, n=0, m=0, name='Generic', **kwargs):
+    def __init__(self, n=0, m=0, name='Adolc-Generic', **kwargs):
         NLPModel.__init__(self, n, m, name, **kwargs)
         self.__NUM_INSTANCES[0] += 1
 
