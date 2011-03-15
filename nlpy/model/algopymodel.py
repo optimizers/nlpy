@@ -3,8 +3,13 @@ import algopy
 import numpy as np
 
 class AlgopyModel(NLPModel):
+    """
+    A class to represent optimization problems in which derivatives
+    are computed via algorithmic differentiation through Algopy.
+    See the documentation of `NLPModel` for further information.
+    """
 
-    def __init__(self, n=0, m=0, name='Generic', **kwargs):
+    def __init__(self, n=0, m=0, name='Algopy-Generic', **kwargs):
         NLPModel.__init__(self, n, m, name, **kwargs)
 
         try:
