@@ -1,3 +1,7 @@
+# distutils: language = c
+# distutils: libraries = ampl funcadd0
+# distutils: include_dirs =
+
 import os.path
 from pysparse import spmatrix
 cimport cpython
@@ -625,7 +629,7 @@ cdef class ampl:
                     -1, OW, <double*>y.data)
 
         return Hv
-    
+
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def gHi_prod(self, ndarray[np.double_t] g, ndarray[np.double_t] v):

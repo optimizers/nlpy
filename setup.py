@@ -12,8 +12,10 @@ DOCLINES = __doc__.split("\n")
 import os
 import sys
 
+# Uncomment the following import if your prefer and in-place build.
 try:
-    import setuptools   # To enable 'python setup.py develop'
+    #import setuptools   # To enable 'python setup.py develop'
+    pass
 except:
     pass
 
@@ -39,6 +41,7 @@ def configuration(parent_package='',top_path=None):
     import numpy
     import pysparse
     from numpy.distutils.misc_util import Configuration
+
     config = Configuration(None, parent_package, top_path)
     config.set_options(ignore_setup_xxx_py=True,
                        assume_default_configuration=True,
@@ -60,6 +63,7 @@ def setup_package():
     from numpy.distutils.misc_util import Configuration
 #   from Cython.Distutils import build_ext
 
+
     old_path = os.getcwd()
     local_path = os.path.dirname(os.path.abspath(sys.argv[0]))
     os.chdir(local_path)
@@ -75,8 +79,8 @@ def setup_package():
             maintainer_email = "dominique.orban@gerad.ca",
             description = DOCLINES[0],
             long_description = "\n".join(DOCLINES[2:]),
-            url = "",
-            download_url = "",
+            url = "http://nlpy.sf.net",
+            download_url = "https://github.com/dpo/nlpy",
             license = 'LGPL',
             classifiers=filter(None, CLASSIFIERS.split('\n')),
             platforms = ["Windows", "Linux", "Solaris", "Mac OS-X", "Unix"],

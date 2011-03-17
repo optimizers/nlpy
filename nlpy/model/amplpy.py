@@ -7,7 +7,7 @@ Python interface to the AMPL modeling language
 
 import numpy as np
 from nlpy.model.nlp import NLPModel, KKTresidual
-from nlpy.model import _amplpy as _amplpy
+from nlpy.model import _amplpy
 from nlpy.tools import sparse_vector_class as sv
 from pysparse import spmatrix
 import tempfile, os
@@ -83,8 +83,8 @@ class AmplModel(NLPModel):
 
     def __init__(self, stub, **kwargs):
 
-        data   = kwargs.get('data',   None)
-        opts   = kwargs.get('opts',   None)
+        data = kwargs.get('data', None)
+        opts = kwargs.get('opts', None)
 
         if stub[-4:] == '.mod':
             # Create the nl file.
@@ -381,10 +381,10 @@ class AmplModel(NLPModel):
 
         # Bounds feasibility, part 2
 
-        bRes[n1:n2] = np.minimum(np.zeros(nlowerB), bRes[n1:n2])
-        bRes[n2:n3] = np.minimum(np.zeros(nupperB), bRes[n2:n3])
-        bRes[n3:n4] = np.minimum(np.zeros(nrangeB), bRes[n3:n4])
-        bRes[n4:]   = np.minimum(np.zeros(nrangeB), bRes[n4:])
+        bRes[n1:n2] = np.minimum(0, bRes[n1:n2])
+        bRes[n2:n3] = np.minimum(0, bRes[n2:n3])
+        bRes[n3:n4] = np.minimum(0, bRes[n3:n4])
+        bRes[n4:]   = np.minimum(0, bRes[n4:])
 
         # Initialize vector for primal feasibility
 
@@ -412,10 +412,10 @@ class AmplModel(NLPModel):
 
         # Primal feasibility, part 2
 
-        pFeas[n1:n2] = np.minimum(np.zeros(nlowerC), pFeas[n1:n2])
-        pFeas[n2:n3] = np.minimum(np.zeros(nupperC), pFeas[n2:n3])
-        pFeas[n3:n4] = np.minimum(np.zeros(nrangeC), pFeas[n3:n4])
-        pFeas[n4:]   = np.minimum(np.zeros(nrangeC), pFeas[n4:])
+        pFeas[n1:n2] = np.minimum(0, pFeas[n1:n2])
+        pFeas[n2:n3] = np.minimum(0, pFeas[n2:n3])
+        pFeas[n3:n4] = np.minimum(0, pFeas[n3:n4])
+        pFeas[n4:]   = np.minimum(0, pFeas[n4:])
 
         # Build vector of Lagrange multipliers
 
@@ -691,7 +691,7 @@ class AmplModel(NLPModel):
             return None #c = self.Infinity * np.ones(self.m)
         self.ceval += 1
         if self.scale_con is not None: c *= self.scale_con # componentwise product
-        return c #[self.permC]
+        return c
 
 
     def consPos(self, x):
@@ -944,7 +944,7 @@ class AmplModel(NLPModel):
         if self.scale_con is not None:
             Hv *= self.scale_con[i]
         return Hv
-    
+
 
     def ghivprod(self, g, v, **kwargs):
         """
