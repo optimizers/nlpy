@@ -43,8 +43,8 @@ extensions += ['ipython_console_highlighting']
 extensions += ['inheritance_diagram']
 extensions += ['mathjax']
 mathjax_path = 'http://mathjax.connectmv.com/MathJax.js'
-latex_preamble = '\\usepackage{nlpy}'
 
+latex_preamble = '\\usepackage{nlpy}'
 latex_elements = {
     'preamble' : '\\usepackage{nlpy}'
 }
