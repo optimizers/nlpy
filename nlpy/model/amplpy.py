@@ -924,11 +924,16 @@ class AmplModel(NLPModel):
         return H
 
 
-    def hprod(self, z, v, **kwargs):
+    def hprod(self, x, z, v, **kwargs):
         """
-        Evaluate matrix-vector product H(x,z) * v.
+        Evaluate matrix-vector product H(x,z) * v, where H is the Hessian of
+        the Lagrangian evaluated at the primal-dual pair (x,z).
+        
         Returns a Numpy array.
-
+        
+        Bug: x is ignored, and is determined as the point at which the
+        objective or gradient were last evaluated.
+        
         :keywords:
             :obj_weight: Add a weight to the Hessian of the objective function.
                          By default, the weight is one. Setting it to zero
@@ -945,10 +950,12 @@ class AmplModel(NLPModel):
         return Hv
     
 
-    def hiprod(self, i, v, **kwargs):
+    def hiprod(self, x, i, v, **kwargs):
         """
         Evaluate matrix-vector product Hi(x) * v.
         Returns a Numpy array.
+        
+        Bug: x is ignored. See hprod above.
         """
         z = np.zeros(self.m) ; z[i] = -1
         self.Hprod += 1
