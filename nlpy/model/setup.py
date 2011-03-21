@@ -91,14 +91,15 @@ def configuration(parent_package='',top_path=None):
         localfilename = localcopy + '.tar.gz'
 
         # Check if ASL has been downloaded previously.
-        if not os.access(localfilename, os.F_OK):
-            print 'Downloading ASL'
-            pm = ProgressMeter()
-            urlretrieve(src, filename=localfilename, reporthook=pm.update)
-            print
+        if not os.access(localcopy, os.F_OK):
+            if not os.access(localfilename, os.F_OK):
+                print 'Downloading ASL'
+                pm = ProgressMeter()
+                urlretrieve(src, filename=localfilename, reporthook=pm.update)
+                print
 
-        print 'Unarchiving ASL'
-        tarzxf(localcopy)
+            print 'Unarchiving ASL'
+            tarzxf(localcopy)
         localcopy = os.path.join(localcopy, 'solvers')
 
         # Change to unarchived directory and build header files.

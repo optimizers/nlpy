@@ -151,15 +151,18 @@ def configuration(parent_package='',top_path=None):
 
                 # Fetch, uncompress and extract compressed tar archive.
                 if not os.access(localcopy, os.F_OK):
-                    print 'Downloading METIS'
-                    pm = ProgressMeter()
-                    urlretrieve(src, filename=localcopy + '.tar.gz',
-                                reporthook=pm.update)
-                    print
+                    archive=os.path.join(tmpdir, 'metis-4.0.tar.gz')
+                    if not os.access(archive, os.F_OK):
+                        print 'Downloading METIS'
+                        pm = ProgressMeter()
+                        urlretrieve(src, filename=localcopy + '.tar.gz',
+                                    reporthook=pm.update)
+                        print
 
-                print 'Unarchiving METIS'
-                tarzxf(localcopy)
-                localcopy = os.path.join(localcopy, 'metis-4.0', 'Lib')
+                    print 'Unarchiving METIS'
+                    tarzxf(localcopy)
+
+                localcopy = os.path.join(localcopy, 'metis-4.0.3', 'Lib')
 
                 # Change to unarchived directory and build header files.
                 cwd = os.getcwd()
