@@ -83,8 +83,7 @@ def configuration(parent_package='',top_path=None):
         # Fetch and build ASL.
         libampl_name = 'solvers'
         src = 'ftp://www.netlib.org/ampl/solvers.tar.gz'
-        tmpdir = cache_dir #mkdtemp()
-        #tmpdir = config.get_build_temp_dir()
+        tmpdir = cache_dir
         localcopy = os.path.join(tmpdir, libampl_name)
 
         # Fetch, uncompress and extract compressed tar archive.
@@ -136,7 +135,6 @@ def configuration(parent_package='',top_path=None):
             sources=ampl_sources,
             include_dirs=[libampl_include],
             extra_compiler_args=['-DNON_STDIO']
-            #extra_compiler_args=['-std=c99', '-DNON_STDIO']
         )
 
         config.add_library(
@@ -144,7 +142,6 @@ def configuration(parent_package='',top_path=None):
             sources=[os.path.join(localcopy, 'funcadd0.c')],
             include_dirs=[libampl_include],
             extra_compiler_args=['-DNON_STDIO']
-            #extra_compiler_args=['-std=c99', '-DNON_STDIO']
         )
 
     else:

@@ -71,7 +71,6 @@ def configuration(parent_package='',top_path=None):
 
     # For debugging f2py extensions:
     f2py_options = []
-    #f2py_options.append('--debug-capi')
 
     # Read relevant NLPy-specific configuration options.
     nlpy_config = ConfigParser.SafeConfigParser()
@@ -192,20 +191,12 @@ def configuration(parent_package='',top_path=None):
                 metis_dir = ''
                 metis_lib = 'metis'
 
-                ## Build METIS.
-                #config.add_library(
-                #    name=metis_lib,
-                #    sources=metis_sources,
-                #    include_dirs=[libmetis_include],
-                #)
                 ma57_sources += metis_sources
 
             # Build PyMA57.
             config.add_library(
                 name='nlpy_ma57',
                 sources=ma57_sources,
-                #libraries=[metis_lib],
-                #library_dirs=[metis_dir],
                 include_dirs=[hsl_dir,libmetis_include,'src'],
                 extra_info=blas_info,
             )
@@ -214,9 +205,6 @@ def configuration(parent_package='',top_path=None):
                 name='_pyma57',
                 sources=pyma57_sources,
                 libraries=['nlpy_ma57'],
-                #libraries=[metis_lib,'nlpy_ma57'],
-                #library_dirs=[metis_dir],
-                #include_dirs=[libmetis_include,'src'],
                 include_dirs=['src'],
                 extra_info=blas_info,
             )
