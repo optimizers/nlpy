@@ -14,7 +14,7 @@ class CppADModel(NLPModel):
 
         # Trace objective and constraint functions.
         self._trace_obj(self.x0)
-        self._trace_cons(self.x0)
+        if self.m > 0: self._trace_cons(self.x0)
 
 
     def _trace_obj(self, x):
@@ -113,7 +113,10 @@ class CppADModel(NLPModel):
 
 
     def _cppad_vec_jac(self, x, v, **kwargs):
-        "Return the product of v with the transpose Jacobian at x from CppAD tape."
+        """
+        Return the product of v with the transpose Jacobian at x
+        from CppAD tape.
+        """
 
         # forward: order zero (computes function value)
         self._cppad_adfun_cons.forward(0, x)

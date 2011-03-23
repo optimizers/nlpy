@@ -7,6 +7,7 @@ from amplpy      import *
 from noisynlp    import *
 from slacks      import *
 from adolcmodel  import *
+from cppadmodel  import *
 from algopymodel import *
 
 __all__ = filter(lambda s:not s.startswith('_'), dir())
