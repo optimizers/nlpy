@@ -555,8 +555,10 @@ class AmplModel(NLPModel):
 
         # Rescale the Lagrange multiplier
         self.pi0 *= self.scale_obj
+        
+        return gNorm
 
-    def compute_scaling_cons(self, x=None, g_max=1.0e2, reset=False):
+    def compute_scaling_con(self, x=None, g_max=1.0e2, reset=False):
         """
         Compute constraint scaling.
         
@@ -584,12 +586,19 @@ class AmplModel(NLPModel):
         J = self.jac(x)
 
         # Find inf-norm of each row of J
+        gmaxNorm = 0            # holds the maxiumum row-norm of J
+        imaxNorm = 0            # holds the corresponding index
         for i in xrange(m):
             giNorm = J[i,:].norm('1') # This is the matrix 1-norm (max abs col)
             d_c[i] = g_max / max(g_max, giNorm) # <= 1 always
+            if giNorm > gmaxNorm:
+                gmaxNorm = giNorm
+                imaxNorm = i
+            gmaxNorm = max(gmaxNorm, giNorm)
+            
         self.scale_con = d_c
 
-        # Scale constraint bounds
+        # Scale constraint bounds: componentwise multiplications
         self.Lcon *= d_c        # lower bounds on constraints
         self.Ucon *= d_c        # upper bounds on constraints
 
@@ -598,7 +607,10 @@ class AmplModel(NLPModel):
         D_c.put(d_c, range(m))
         self.scale_con_diag = D_c
 
-
+        # Return largest row norm and its index
+        
+        return (imaxNorm, gmaxNorm)
+        
 ###############################################################################
 
     # The following methods mirror the module functions defined in _amplpy.c.
@@ -912,11 +924,16 @@ class AmplModel(NLPModel):
         return H
 
 
-    def hprod(self, z, v, **kwargs):
+    def hprod(self, x, z, v, **kwargs):
         """
-        Evaluate matrix-vector product H(x,z) * v.
+        Evaluate matrix-vector product H(x,z) * v, where H is the Hessian of
+        the Lagrangian evaluated at the primal-dual pair (x,z).
+        
         Returns a Numpy array.
-
+        
+        Bug: x is ignored, and is determined as the point at which the
+        objective or gradient were last evaluated.
+        
         :keywords:
             :obj_weight: Add a weight to the Hessian of the objective function.
                          By default, the weight is one. Setting it to zero
@@ -933,10 +950,12 @@ class AmplModel(NLPModel):
         return Hv
     
 
-    def hiprod(self, i, v, **kwargs):
+    def hiprod(self, x, i, v, **kwargs):
         """
         Evaluate matrix-vector product Hi(x) * v.
         Returns a Numpy array.
+        
+        Bug: x is ignored. See hprod above.
         """
         z = np.zeros(self.m) ; z[i] = -1
         self.Hprod += 1
