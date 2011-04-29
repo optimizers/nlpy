@@ -15,7 +15,7 @@ try:
 except:
     from nlpy.linalg.pyma27 import PyMa27Context as LBLContext
 
-from pysparse import spmatrix
+from pysparse.sparse import spmatrix
 import numpy as np
 from nlpy.tools.timing import cputime
 import sys
@@ -45,19 +45,19 @@ K.matvec(e,rhs)
 
 # Factorize and solve Kx = rhs, knowing K is sqd
 t = cputime()
-P = LBLContext(K, sqd=True)
+LDL = LBLContext(K, sqd=True)
 t = cputime() - t
 sys.stderr.write('Factorization time with sqd=True : %5.2fs   ' % t )
-P.solve(rhs, get_resid=False)
-sys.stderr.write('Error: %7.1e\n' % np.linalg.norm(P.x - e, ord=np.Inf))
+LDL.solve(rhs, get_resid=False)
+sys.stderr.write('Error: %7.1e\n' % np.linalg.norm(LDL.x - e, ord=np.Inf))
 
 # Do it all over again, pretending we don't know K is sqd
 t = cputime()
-P = LBLContext(K)
+LBL = LBLContext(K)
 t = cputime() - t
 sys.stderr.write('Factorization time with sqd=False: %5.2fs   ' % t )
-P.solve(rhs, get_resid=False)
-sys.stderr.write('Error: %7.1e\n' % np.linalg.norm(P.x - e, ord=np.Inf))
+LBL.solve(rhs, get_resid=False)
+sys.stderr.write('Error: %7.1e\n' % np.linalg.norm(LBL.x - e, ord=np.Inf))
 
 try:
     import pylab
