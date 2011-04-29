@@ -16,6 +16,7 @@ except:
     from nlpy.linalg.pyma27 import PyMa27Context as LBLContext
 
 from pysparse.sparse import spmatrix
+from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
 import numpy as np
 from nlpy.tools.timing import cputime
 import sys
@@ -26,22 +27,24 @@ if len(sys.argv) < 3:
     sys.exit(1)
 
 # Create symmetric quasi-definite matrix K
-A = spmatrix.ll_mat_from_mtx(sys.argv[1])
-C = spmatrix.ll_mat_from_mtx(sys.argv[2])
+A = sp(matrix=spmatrix.ll_mat_from_mtx(sys.argv[1]))
+C = sp(matrix=spmatrix.ll_mat_from_mtx(sys.argv[2]))
 
 nA = A.shape[0]
 nC = C.shape[0]
-K = spmatrix.ll_mat_sym(nA + nC, A.nnz + C.nnz + min(nA,nC))
+#K = spmatrix.ll_mat_sym(nA + nC, A.nnz + C.nnz + min(nA,nC))
+K = sp(size=nA + nC, sizeHint=A.nnz + C.nnz + min(nA,nC), symmetric=True)
 K[:nA,:nA] = A
-K[nA:,nA:] = C
-K[nA:,nA:].scale(-1.0)
+K[nA:,nA:] = -C
+#K[nA:,nA:].scale(-1.0)
 idx = np.arange(min(nA,nC), dtype=np.int)
 K.put(1, nA+idx, idx)
 
 # Create right-hand side rhs=K*e
 e = np.ones(nA+nC)
-rhs = np.empty(nA+nC)
-K.matvec(e,rhs)
+#rhs = np.empty(nA+nC)
+#K.matvec(e,rhs)
+rhs = K*e
 
 # Factorize and solve Kx = rhs, knowing K is sqd
 t = cputime()
