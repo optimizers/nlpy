@@ -38,10 +38,10 @@ def get_derivatives(nlp):
 class Test_CppADRosenbrock(TestCase):
 
     def setUp(self):
-        self.rosenbrock = CppADRosenbrock(n=5, name='Rosenbrock', x0=-np.ones(5))
+        self.nlp = CppADRosenbrock(n=5, name='Rosenbrock', x0=-np.ones(5))
 
     def test_rosenbrock(self):
-        (g,H) = get_derivatives(self.rosenbrock)
+        (g,H) = get_derivatives(self.nlp)
         expected_g = np.array([-804., -1204., -1204., -1204., -400.])
         expected_H = np.array([[1602.,  400.,    0.,    0.,   0.],
                                [ 400., 1802.,  400.,    0.,   0.],
@@ -55,10 +55,10 @@ class Test_CppADRosenbrock(TestCase):
 class Test_CppADHS7(TestCase):
 
     def setUp(self):
-        self.hs7 = CppADHS7(n=2, m=1, name='HS7', x0=2*np.ones(2))
+        self.nlp = CppADHS7(n=2, m=1, name='HS7', x0=2*np.ones(2))
 
     def test_hs7(self):
-        hs7 = self.hs7
+        hs7 = self.nlp
         (g,H,J,Jv,JTw) = get_derivatives(hs7)
         expected_g = np.array([0.8, -1.])
         expected_H = np.array([[-0.24, 0.],[0., 0.]])
