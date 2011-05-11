@@ -13,7 +13,8 @@ class Sils:
     """
 
     def __init__(self, A, **kwargs):
-        if not A.issym: self = None
+        if not A.issym:
+            raise ValueError, 'Input matrix must be symmetric'
         self.n = A.shape[0]
         self.sqd = 'sqd' in kwargs and kwargs['sqd']
 
