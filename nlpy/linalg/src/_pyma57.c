@@ -9,7 +9,7 @@
 
 /* ========================================================================== */
 
-/* 
+/*
    $Revision:$
    $Date:$
 */
@@ -125,7 +125,7 @@ static PyObject *Pyma57_factorize( Pyma57Object *self, PyObject *args ) {
 
   PyObject    *mat;
   LLMatObject *llmat;
-  int          n, nz;               
+  int          n, nz;
   int          i, k, elem;
   int          error;
 
@@ -155,7 +155,7 @@ static PyObject *Pyma57_factorize( Pyma57Object *self, PyObject *args ) {
   if( error ) {
     fprintf( stderr, " Error return code from Factorize: %-d\n", error );
     return NULL;
-  }  
+  }
 
   /* Find out if matrix was rank deficient */
   self->data->rank = self->data->info[24];
@@ -207,7 +207,7 @@ static PyObject *Pyma57_fetch_perm( Pyma57Object *self ) {
 /*   if( !PyArg_ParseTuple( args, "OO", &Lmat, &Dmat ) ) return NULL; */
 /*   L = (LLMatObject *)Lmat; */
 /*   D = (LLMatObject *)Dmat; */
-    
+
 /*   /\* Obtain the number of nonzeros in factors L and D^{-1} *\/ */
 /*   nblk = abs( self->data->iw[0] );   /\* # block pivots *\/ */
 /*   if( nblk == 0 ) { */
@@ -218,7 +218,7 @@ static PyObject *Pyma57_fetch_perm( Pyma57Object *self ) {
 /*   liwm1 = self->data->liw - 1; */
 /*   MA27QDEMASC( &n, iwp1, &liwm1, self->data->iw1, */
 /*                &nblk, &latop, self->data->icntl ); */
-    
+
 /*   n2x2 = self->data->info[13];   /\* No. of 2x2 pivots. *\/ */
 /*   n1x1 = n - 2*n2x2;             /\* No. of 1x1 pivots. *\/ */
 /*   nnzD = n1x1 + 4*n2x2;          /\* 1 nz for each 1x1, 4 nz's for each 2x2. *\/ */
@@ -240,12 +240,12 @@ static PyObject *Pyma57_fetch_perm( Pyma57Object *self ) {
 /*                &nblk, &latop, self->data->icntl, colrhs, */
 /*                &nnzD, id, jd, d, */
 /*                &nnzL, il, jl, l ); */
-    
+
 /*   /\* At this point, nnzL is exact.  Build sparse matrices D^{-1} */
 /*    * and L.  Account for 0-based indexing *\/ */
 /*   for( i = 0; i < nnzL; i++ ) */
 /*     SpMatrix_LLMatSetItem( L, jl[i]-1, il[i]-1, l[i] ); */
-    
+
 /*   for( i = 0; i < nnzD; i++ ) */
 /*     SpMatrix_LLMatSetItem( D, id[i]-1, jd[i]-1, d[i] ); */
 
@@ -281,16 +281,18 @@ static PyObject *Pyma57_ma57( Pyma57Object *self, PyObject *args ) {
                          &PyArray_Type, &a_x,
                          &PyArray_Type, &a_res, &get_resid ) ) return NULL;
 
+  if( !a_rhs ) return NULL;                               /* conversion error */
+  if( !a_x ) return NULL;
+  if( !a_res ) return NULL;
+
   if( a_rhs->descr->type_num != NPY_DOUBLE ) return NULL;
   if( a_x->descr->type_num != NPY_DOUBLE ) return NULL;
   if( a_res->descr->type_num != NPY_DOUBLE ) return NULL;
-  if( !a_rhs ) return NULL;                               /* conversion error */
+
   if( a_rhs->nd != 1 ) return NULL;                  /* must have 1 dimension */
   if( a_rhs->dimensions[0] != self->data->n ) return NULL;      /* and size n */
-  if( !a_x ) return NULL;
   if( a_x->nd != 1 ) return NULL;
   if( a_x->dimensions[0] != self->data->n ) return NULL;
-  if( !a_res ) return NULL;
   if( a_res->nd != 1 ) return NULL;
   if( a_res->dimensions[0] != self->data->n ) return NULL;
 
@@ -539,9 +541,9 @@ DL_EXPORT( void ) init_pyma57( void ) {
 
 void coord2csr( int n, int nz, int *irow, int *jcol, double *val,
                 int *iptr, int *jind, double *xval ) {
-    
+
   int i, start, elem, rowcnt;
-    
+
   for( i = 0; i < n+1; i++ ) iptr[i] = 0;
   for( i = 0; i < nz;  i++ ) iptr[ irow[i] ]++;  /* length of each row */
   /* Obtain starting index of each row */
