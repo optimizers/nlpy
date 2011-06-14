@@ -41,7 +41,7 @@ delta = 1000 #max(1.0, 100 * norms.norm_infty(g))
 #   s.t  Jd = 0,  |d| <= delta
 CG = Ppcg(g,
           SimpleLinearOperator(nlp.n, nlp.n,
-                               lambda p: nlp.hprod(nlp.pi0,p),
+                               lambda p: nlp.hprod(nlp.x0,nlp.pi0,p),
                                symmetric=True),
           A=J, radius=delta, debug=True)
 #CG = Ppcg(g, A=J, rhs=-c, matvec=hprod, debug=True)
