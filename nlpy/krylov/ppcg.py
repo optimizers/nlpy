@@ -255,8 +255,9 @@ class ProjectedCG( ProjectedKrylov ):
                 self.rhs[n:] = 0.0
             else:
                 self.rhs[:n] = self.c
+            r = self.rhs[:n].copy()
             self.Proj.solve( self.rhs )
-            r = g = self.Proj.x[:n]
+            g = self.Proj.x[:n]
             self.v = self.Proj.x[n:]
 
             #self.CheckAccurate()
