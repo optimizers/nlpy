@@ -162,8 +162,8 @@ if __name__ == '__main__':
 
 
     nvar = 2
-    # rosenbrock = Rosenbrock(n=nvar, name='Rosenbrock', x0=-np.ones(nvar))
-    # nlp = rosenbrock
+    rosenbrock = Rosenbrock(n=nvar, name='Rosenbrock', x0=-np.ones(nvar))
+    #nlp = rosenbrock
     hs7 = HS7(n=2, m=1, name='HS7', x0=2*np.ones(2))
     nlp = hs7
 
@@ -174,8 +174,6 @@ if __name__ == '__main__':
     H = nlp.hess(nlp.x0, nlp.x0)
     Hv = nlp.hess_vec(nlp.x0, nlp.x0, v)
     #H_sparse = nlp.sparse_hess(nlp.x0, nlp.x0)
-    c = nlp.cons(nlp.x0)
-    J = nlp.jac(nlp.x0)
 
     print 'number of variables: ', nlp.n
     print 'initial guess: ', nlp.x0
@@ -184,10 +182,13 @@ if __name__ == '__main__':
     print 'H(x0) = ', H
     print 'H(x0)*v = ', Hv
     # #print 'H_sparse(x0) = ', H_sparse
-    print 'c(x0) = ', c
-    print 'J(x0) = ', J
-    print 'J(x0) * v = ', nlp.jac_vec(nlp.x0, v)
-    print 'J(x0).T * [-2] = ', nlp.vec_jac(nlp.x0, w)
+    if nlp.m > 0:
+        c = nlp.cons(nlp.x0)
+        J = nlp.jac(nlp.x0)
+        print 'c(x0) = ', c
+        print 'J(x0) = ', J
+        print 'J(x0) * v = ', nlp.jac_vec(nlp.x0, v)
+        print 'J(x0).T * [-2] = ', nlp.vec_jac(nlp.x0, w)
 
 #     # Solve with linesearch-based L-BFGS method.
 #     lbfgs = LBFGSFramework(nlp, npairs=5, scaling=True, silent=False)

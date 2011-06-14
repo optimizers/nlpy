@@ -38,7 +38,7 @@ def get_derivatives(nlp):
 class Test_AdolcRosenbrock(TestCase):
 
     def setUp(self):
-        self.rosenbrock = AdolcRosenbrock(n=5, name='Rosenbrock', x0=-np.ones(5))
+        self.rosenbrock = AdolcRosenbrock(n=5,name='Rosenbrock',x0=-np.ones(5))
 
     def test_rosenbrock(self):
         (g,H) = get_derivatives(self.rosenbrock)
