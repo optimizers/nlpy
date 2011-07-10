@@ -428,9 +428,11 @@ class RegQPInteriorPointSolver:
                 du_last_iter = 0
                 mu0 = mu
             else:
-                regdu = min(regdu/10, sz/normdy/10, (sz/normdy)**(1.1))
+                #regdu = min(regdu/10, sz/normdy/10, (sz/normdy)**(1.1))
+                regdu = min(regdu/10, sz**(1.1))
                 regdu = max(regdu, regdu_min)
-                regpr = min(regpr/10, sz/normdx/10, (sz/normdx)**(1.1))
+                #regpr = min(regpr/10, sz/normdx/10, (sz/normdx)**(1.1))
+                regpr = min(regpr/10, sz**(1.1))
                 regpr = max(regpr, regpr_min)
 
                 # Check for infeasible problem.
@@ -560,6 +562,16 @@ class RegQPInteriorPointSolver:
                 rhs[:n]    = -dFeas
                 rhs[on:n] += comp/s
                 rhs[n:]    = -pFeas
+
+            # Dump current system to file.
+            #if iter == 2:
+            #    _A = -H[:n,:n]
+            #    _A.exportMmf('A.mtx')
+            #    _BT = H[n:,:n]
+            #    _BT.exportMmf('BT.mtx')
+            #    _C = H[n:,n:]
+            #    _C.exportMmf('C.mtx')
+            #    np.savetxt('rhs.txt', rhs, fmt='%25.15e')
 
             # Solve augmented system.
             (step, nres, neig) = self.solveSystem(rhs)
