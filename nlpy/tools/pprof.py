@@ -229,7 +229,7 @@ class RatioClass:
 
         # Compute largest ratio and use to replace failure entries
         self.maxrat = ma.maximum(self.ratios)
-        self.ratios = ma.filled(self.ratios, 1.01 * self.maxrat)
+        self.ratios = ma.filled(self.ratios, numpy.inf) # 2 * self.maxrat)
 
     def solv_ratios(self, solver):
         return self.ratios[:,solver]
@@ -329,7 +329,8 @@ class PerformanceProfile:
             srats = self.pprofs.solv_ratios(s)
 
             if self.opts.logscale is not None:
-                srats += self.epsilon
+                #srats += self.epsilon
+                srats = numpy.maximum(srats, self.epsilon)
 
             self.profiles.append(self.mmplotcmd(srats,
                                                 self.ydata,
