@@ -18,7 +18,7 @@ class AdolcModel(NLPModel):
 
     def __init__(self, n=0, m=0, name='Adolc-Generic', **kwargs):
         NLPModel.__init__(self, n, m, name, **kwargs)
-        self.__NUM_INSTANCES[0] += 1
+        self.__class__.__NUM_INSTANCES[0] += 1
 
         # Trace objective and constraint functions.
         self._obj_trace_id = None
