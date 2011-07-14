@@ -307,7 +307,7 @@ class ProjectedCG( ProjectedKrylov ):
                 self.x += sigma * p
                 xNorm2 = self.radius * self.radius
                 status = 'on boundary (sigma = %g)' % sigma
-                self.infDescent = True
+                self.infDescent = (pHp <= 0.0)
                 onBoundary = True
                 continue
 
