@@ -210,5 +210,5 @@ if __name__ == '__main__':
     nlp = AmplModel(sys.argv[1])
     print 'Checking at x = ', nlp.x0
     derchk = DerivativeChecker(nlp, nlp.x0)
-    derchk.check(verbose=True)
+    derchk.check(verbose=False)
     nlp.close()
