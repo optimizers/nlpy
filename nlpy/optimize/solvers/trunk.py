@@ -66,7 +66,7 @@ class TrunkFramework:
         self.solver   = None    # Will point to solver data in Solve()
         self.iter   = 0         # Iteration counter
         self.total_cgiter = 0
-        self.x      = kwargs.get('x0', self.nlp.x0)
+        self.x      = kwargs.get('x0', self.nlp.x0.copy())
         self.f      = None
         self.f0     = None
         self.g      = None
