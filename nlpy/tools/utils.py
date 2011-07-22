@@ -6,9 +6,9 @@ from math import copysign, sqrt
 def roots_quadratic(q2, q1, q0, tol=1.0e-8, nitref=1):
     """
     Find the real roots of the quadratic q(x) = q2 * x^2 + q1 * x + q0.
-    The numbers a0, a1 and a0 must be real.
+    The numbers q0, q1 and q0 must be real.
 
-    This function is written after the GALAHAD function of the same name.
+    This function takes after the GALAHAD function of the same name.
     See http://galahad.rl.ac.uk.
     """
     a2 = float(q2) ; a1 = float(q1) ; a0 = float(q0)
