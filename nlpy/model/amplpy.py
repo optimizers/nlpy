@@ -771,7 +771,7 @@ class AmplModel(NLPModel):
         return J
 
 
-    def hess(self, x, z, *args, **kwargs):
+    def hess(self, x, z=None, *args, **kwargs):
         """
         Evaluate sparse lower triangular Hessian at (x, z).
         Returns a sparse matrix in format self.mformat
@@ -783,6 +783,7 @@ class AmplModel(NLPModel):
         obj_weight = kwargs.get('obj_weight', 1.0)
         store_zeros = kwargs.get('store_zeros', False)
         store_zeros = 1 if store_zeros else 0
+        if z is None: z = np.zeros(self.m)
         if len(args) > 0:
             if type(args[0]).__name__ == 'll_mat':
                 H = _amplpy.eval_H(x, z, self.mformat, obj_weight, args[0],
@@ -798,6 +799,7 @@ class AmplModel(NLPModel):
     def hprod(self, x, z, v, **kwargs):
         """
         Evaluate matrix-vector product H(x,z) * v.
+        Zero multipliers can be specified as an array of zeros or as `None`.
         Returns a Numpy array.
 
         :keywords:
@@ -810,6 +812,7 @@ class AmplModel(NLPModel):
         appears as if the problem were a minimization problem.
         """
         obj_weight = kwargs.get('obj_weight', 1.0)
+        if z is None: z = np.zeros(self.m)
         self.Hprod += 1
         return _amplpy.H_prod(z, v, obj_weight)
 
