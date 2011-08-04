@@ -105,7 +105,7 @@ class DerivativeChecker:
         fx = nlp.obj(self.x)
         gx = nlp.grad(self.x)
         h = self.h
-        
+
         dx  = np.random.standard_normal(n)
         dx /= norm(dx)
         xph = self.x.copy()
