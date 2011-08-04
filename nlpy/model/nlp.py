@@ -247,7 +247,7 @@ class NLPModel:
     def compute_scaling_cons(self, x=None, g_max=1.0e2, reset=False):
         """Compute constraint scaling."""
         raise NotImplementedError, 'This method must be subclassed.'
-    
+
     # Evaluate objective function at x
     def obj(self, x, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
