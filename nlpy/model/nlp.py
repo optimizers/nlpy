@@ -274,3 +274,32 @@ class NLPModel:
     # the Hessian of the i-th constraint and a vector
     def hiprod(self, i, x, p, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
+
+    def display_basic_info(self):
+        """
+        Display vital statistics about the current model.
+        """
+        import sys
+        write = sys.stderr.write
+        write('Problem Name: %s\n' % self.name)
+        write('Number of Variables: %d\n' % self.n)
+        write('Number of Bound Constraints: %d' % self.nbounds)
+        write(' (%d lower, %d upper, %d two-sided)\n' % (self.nlowerB,
+            self.nupperB, self.nrangeB))
+        if self.nlowerB > 0: write('Lower bounds: %s\n' % self.lowerB)
+        if self.nupperB > 0: write('Upper bounds: %s\n' % self.upperB)
+        if self.nrangeB > 0: write('Two-Sided bounds: %s\n' % self.rangeB)
+        write('Vector of lower bounds: %s\n' % self.Lvar)
+        write('Vectof of upper bounds: %s\n' % self.Uvar)
+        write('Number of General Constraints: %d' % self.m)
+        write(' (%d equality, %d lower, %d upper, %d range)\n' % (self.nequalC,
+            self.nlowerC, self.nupperC, self.nrangeC))
+        if self.nequalC > 0: write('Equality: %s\n' % self.equalC)
+        if self.nlowerC > 0: write('Lower   : %s\n' % self.lowerC)
+        if self.nupperC > 0: write('Upper   : %s\n' % self.upperC)
+        if self.nrangeC > 0: write('Range   : %s\n' % self.rangeC)
+        write('Vector of constraint lower bounds: %s\n' % self.Lcon)
+        write('Vector of constraint upper bounds: %s\n' % self.Ucon)
+        write('Initial Guess: %s\n' % self.x0)
+
+        return
