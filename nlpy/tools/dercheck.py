@@ -70,8 +70,9 @@ class DerivativeChecker:
 
 
     def display(self, errs, header):
+        name = self.nlp.name
         nerrs = len(errs)
-        sys.stderr.write('Found %d errors.\n' % nerrs)
+        sys.stderr.write('Problem %s: Found %d errors.\n' % (name,nerrs))
         if nerrs > 0:
             sys.stderr.write(header)
             sys.stderr.write('-' * len(header) + '\n')
