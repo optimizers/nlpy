@@ -182,7 +182,7 @@ class DerivativeChecker:
 
         # Check each Hessian in turn.
         for k in range(m):
-            y = np.zeros(m) ; y[k] = 1
+            y = np.zeros(m) ; y[k] = -1
             Hk = nlp.hess(self.x, y, obj_weight=0)
 
             # Check second partial derivatives in turn.
