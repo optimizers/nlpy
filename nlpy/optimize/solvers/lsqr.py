@@ -249,7 +249,8 @@ class LSQRFramework:
 
                 # Select largest real root in absolute value with the same
                 # sign as t1.
-                stepMax = max([abs(r) for r in roots if r*t1 > 0])
+                lst = [abs(r) for r in roots if r*t1 > 0]
+                stepMax = max(lst) if len(lst) > 0 else 1.0
 
                 if abs(t1) > abs(stepMax):
                     x += stepMax * w
