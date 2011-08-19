@@ -262,7 +262,7 @@ class NLPModel:
         raise NotImplementedError, 'This method must be subclassed.'
 
     # Evaluate Lagrangian Hessian at (x,z)
-    def hess(self, x, z, **kwargs):
+    def hess(self, x, z=None, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
 
     # Evaluate matrix-vector product between
