@@ -590,11 +590,8 @@ class AmplModel(NLPModel):
         The constraints appear in natural order. To order them as follows
 
         1) equalities
-
         2) lower bound only
-
         3) upper bound only
-
         4) range constraints,
 
         use the `permC` permutation vector.
@@ -605,9 +602,10 @@ class AmplModel(NLPModel):
             print ' Offending argument : '
             for i in range(self.n):
                 print '%-15.9f ' % x[i]
-            return None #c = self.Infinity * np.ones(self.m)
+            print 'Make sure input array has dtype float'
+            return None
         self.ceval += self.m
-        return c #[self.permC]
+        return c
 
     def consPos(self, x):
         """
