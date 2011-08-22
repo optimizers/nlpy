@@ -9,6 +9,7 @@ import numpy as np
 from nlpy.model.nlp import NLPModel, KKTresidual
 from nlpy.model import _amplpy
 from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
+from nlpy.krylov.linop import PysparseLinearOperator
 from nlpy.tools import sparse_vector_class as sv
 import tempfile, os
 
@@ -523,6 +524,129 @@ class AmplModel(NLPModel):
         #print 'KKT resids: ', (df, cp, fs)
         opt = (df<=self.stop_d) and (cp<=self.stop_c) and (fs<=self.stop_p)
         return (res, opt)
+
+
+    def get_bounds(self, x):
+        """
+        Return the vector with components x[i]-Lvar[i] or Uvar[i]-x[i] in such
+        a way that the bound constraints on the problem variables are
+        equivalent to get_bounds(x) >= 0. The bounds are odered as follows:
+
+        [lowerB | upperB | rangeB (lower) | rangeB (upper) ].
+        """
+        # Shortcuts.
+        lB  = self.lowerB  ; uB  = self.upperB  ; rB  = self.rangeB
+        nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
+        nB = self.nbounds ; Lvar = self.Lvar ; Uvar = self.Uvar
+
+        b = np.empty(nB+nrB)
+        b[:nlB] = x[lB] - Lvar[lB]
+        b[nlB:nlB+nuB] = Uvar[uB] - x[uB]
+        b[nlB+nuB:nlB+nuB+nrB] = x[rB] - Lvar[rB]
+        b[nlB+nuB+nrB:] = Uvar[rB] - x[rB]
+        return b
+
+
+    def primal_feasibility(self, x, c=None):
+        """
+        Evaluate the primal feasibility residual at x. If `c` is given, it
+        should conform to :meth:`consPos`.
+        """
+        # Shortcuts.
+        eC = self.equalC ; m = self.m ; nrC = self.nrangeC
+        nB = self.nbounds ; nrB = self.nrangeB
+
+        pFeas = np.empty(m+nrC+nB+nrB)
+        pFeas[:m+nrC] = -self.consPos(x) if c is None else -c[:]
+        not_eC = [i for i in range(m+nrC) if i not in eC]
+        pFeas[eC] = np.abs(pFeas[eC])
+        pFeas[not_eC] = np.maximum(0, pFeas[not_eC])
+        pFeas[m:m+nrC] = np.maximum(0, pFeas[m:m+nrC])
+        pFeas[m+nrC:] = -self.get_bounds(x)
+        pFeas[m+nrC:] = np.maximum(0, pFeas[m+nrC:])
+        return pFeas
+
+
+    def dual_feasibility(self, x, y, z, g=None, J=None):
+        """
+        Evaluate the dual feasibility residual at (x,y,z). If `J` is specified,
+        it should conform to :meth:`jacPos` and the multipliers `y` should
+        appear in the same order. The multipliers `z` should conform to
+        :meth:`get_bounds`.
+        """
+        # Shortcuts.
+        lB  = self.lowerB  ; uB  = self.upperB  ; rB  = self.rangeB
+        nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
+        nB = self.nbounds
+
+        if J is None: J = self.jacPos(x)
+        Jop = PysparseLinearOperator(J, symmetric=False)
+        dFeas = self.grad(x) if g is None else g[:]
+        dFeas -= Jop.T * y
+        dFeas[lB] -= z[:nlB]
+        dFeas[uB] -= z[nlB:nlB+nuB]
+        dFeas[rB] -= z[nlB+nuB:nlB+nuB+nrB] - z[nlB+nuB+nrB:]
+
+        return dFeas
+
+
+    def complementarity(self, x, y, z, c=None):
+        """
+        Evaluate the complementarity residuals at (x,y,z). If `c` is specified,
+        it should conform to :meth:`consPos` and the multipliers `y` should
+        appear in the same order. The multipliers `z` should conform to
+        :meth:`get_bounds`.
+
+        :returns:
+            :cy:  complementarity residual for general constraints
+            :xz:  complementarity residual for bound constraints.
+        """
+        # Shortcuts.
+        m = self.m ; eC = self.equalC
+        lC = self.lowerC ; uC = self.upperC ; rC = self.rangeC
+        nrC = self.nrangeC
+        lB  = self.lowerB  ; uB  = self.upperB  ; rB  = self.rangeB
+        nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
+        nB = self.nbounds ; Lvar = self.Lvar ; Uvar = self.Uvar
+
+        if c is None: c = self.consPos(x)
+        not_eC = [i for i in range(m+nrC) if i not in eC]
+        cy = c[not_eC] * y[not_eC]
+        xz = self.get_bounds(x) * z
+
+        return (cy,xz)
+
+
+    def kkt_residuals(self, x, y, z, c=None, g=None, J=None):
+        """
+        Return the first-order residuals. There is no check on the sign of the
+        multipliers. See :meth:`kkt`.
+
+        :returns:
+            :pFeas:  primal feasibility residual
+            :dFeas:  dual feasibility residual (gradient of Lagrangian)
+            :cy:     complementarity for general constraints
+            :xz:     complementarity for bound constraints.
+        """
+        pFeas = self.primal_feasibility(x, c=c)
+        dFeas = self.dual_feasibility(x, y, z, g=g, J=J)
+        cy, xz = self.complementarity(x, y, z, c=c)
+        return (pFeas, dFeas, cy, xz)
+
+
+    def kkt(self, x, y, z, c=None, g=None, J=None):
+        # Shortcuts.
+        m = self.m ; nrC = self.nrangeC
+
+        # Check multipliers sign.
+        not_eC = [i for i in range(m+nrC) if i not in eC]
+        if len(np.where(y[not_eC] < 0)[0]) > 0:
+            raise ValueError, 'Multipliers for inequalities must be >= 0.'
+        if not z >= 0:
+            raise ValueError, 'Multipliers for bounds must be >= 0.'
+
+        (pFeas, dFeas, cy, xz) = self.kkt_residuals(x, y, z, c=c, g=g, J=J)
+
 
 ###############################################################################
 
