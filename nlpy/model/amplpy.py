@@ -567,7 +567,7 @@ class AmplModel(NLPModel):
         return pFeas
 
 
-    def dual_feasibility(self, x, y, z, g=None, J=None):
+    def dual_feasibility(self, x, y, z, g=None, J=None, obj_weight=1.0):
         """
         Evaluate the dual feasibility residual at (x,y,z). If `J` is specified,
         it should conform to :meth:`jacPos` and the multipliers `y` should
@@ -577,12 +577,17 @@ class AmplModel(NLPModel):
         # Shortcuts.
         lB  = self.lowerB  ; uB  = self.upperB  ; rB  = self.rangeB
         nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
-        nB = self.nbounds
+        nB = self.nbounds ; n = self.n
 
         if J is None: J = self.jacPos(x)
         Jop = PysparseLinearOperator(J, symmetric=False)
-        dFeas = self.grad(x) if g is None else g[:]
-        dFeas -= Jop.T * y
+        if obj_weight == 0.0:   # Checking Fritz-John conditions.
+            dFeas = -(Jop.T * y)
+        else:
+            dFeas = self.grad(x) if g is None else g[:]
+            if obj_weight != 1.0:
+                dFeas *= obj_weight
+            dFeas -= Jop.T * y
         dFeas[lB] -= z[:nlB]
         dFeas[uB] -= z[nlB:nlB+nuB]
         dFeas[rB] -= z[nlB+nuB:nlB+nuB+nrB] - z[nlB+nuB+nrB:]
