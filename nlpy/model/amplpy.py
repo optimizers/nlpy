@@ -569,17 +569,28 @@ class AmplModel(NLPModel):
 
     def dual_feasibility(self, x, y, z, g=None, J=None, obj_weight=1.0):
         """
-        Evaluate the dual feasibility residual at (x,y,z). If `J` is specified,
-        it should conform to :meth:`jacPos` and the multipliers `y` should
-        appear in the same order. The multipliers `z` should conform to
-        :meth:`get_bounds`.
+        Evaluate the dual feasibility residual at (x,y,z).
+
+        The vector of multipliers `y` can either be of size `m + nrangeC` or of
+        size `m`, where `m` is the number of general constraints (counting
+        range constraints as a single constraint) and `nrangeC` is the number
+        of range constraints. In the first case, if `J` is specified, it should
+        conform to :meth:`jacPos` and the multipliers `y` should appear in the
+        same order. In the second case, if `J` is specified, it should conform
+        to :meth:`jac` and the multipliers `y` should appear in the same order.
+
+        The multipliers `z` should conform to :meth:`get_bounds`.
         """
         # Shortcuts.
         lB  = self.lowerB  ; uB  = self.upperB  ; rB  = self.rangeB
         nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
-        nB = self.nbounds ; n = self.n
+        nB = self.nbounds ; n = self.n ; m = self.m ; nrC = self.nrangeC
 
-        if J is None: J = self.jacPos(x)
+        if J is None:
+            if len(y) == m+nrC:
+                J = self.jacPos(x)
+            else:
+                J = self.jac(x)
         Jop = PysparseLinearOperator(J, symmetric=False)
         if obj_weight == 0.0:   # Checking Fritz-John conditions.
             dFeas = -(Jop.T * y)
