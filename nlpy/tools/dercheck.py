@@ -3,9 +3,11 @@ A simple derivative checker.
 """
 
 import numpy as np
+from numpy.linalg import norm
 from math import sqrt
 import sys
 
+np.random.seed(0)
 macheps = np.finfo(np.double).eps  # Machine epsilon.
 
 class DerivativeChecker:
@@ -20,9 +22,13 @@ class DerivativeChecker:
         checking the derivative. See the documentation of the `check` method
         for available options.
         """
-
-        self.step = kwargs.get('step', sqrt(macheps))
+        # Tolerance for determining if gradient seems correct.
         self.tol  = kwargs.get('tol', 100*sqrt(macheps))
+
+        # Finite difference interval. Scale by norm(x). Use the 1-norm
+        # so as not to make small x "smaller".
+        self.step = kwargs.get('step', sqrt(macheps))
+        self.h = self.step * (1 + norm(x,1))
 
         self.nlp = nlp
         self.x = x
@@ -38,6 +44,9 @@ class DerivativeChecker:
         self.head2 = head2fmt % ('Fun','Comp','Comp','Expected',
                                  'Finite Diff','Rel.Err')
         self.d2fmt = '%4d  %4d  %4d  %22.15e  %22.15e  %7.1e\n'
+        head3fmt = '%17s %22s  %22s  %7s\n'
+        self.head3 = head3fmt % ('Directional Deriv','Expected','Finite Diff','Rel.Err')
+        self.d3fmt = '%17s %22.15e  %22.15e  %7.1e\n'
 
         return
 
@@ -60,14 +69,23 @@ class DerivativeChecker:
         jac  = kwargs.get('jac', True)
         chess = kwargs.get('chess', True)
         verbose = kwargs.get('verbose', True)
+        cheap = kwargs.get('cheap_check', False)
 
         # Skip constraints if problem is unconstrained.
         jac = (jac and self.nlp.m > 0)
         chess = (chess and self.nlp.m > 0)
 
+        if verbose:
+            sys.stderr.write('Gradient checking\n')
+            sys.stderr.write('-----------------\n')
+
         if grad:
-            self.grad_errs = self.check_obj_gradient(verbose)
-            self.display(self.grad_errs, self.head)
+            if cheap:
+                self.grad_errs = self.cheap_check_obj_gradient(verbose)
+                self.display(self.grad_errs, self.head3)
+            else:
+                self.grad_errs = self.check_obj_gradient(verbose)
+                self.display(self.grad_errs, self.head)
         if jac:
             self.jac_errs = self.check_con_jacobian(verbose)
             self.display(self.jac_errs, self.head)
@@ -94,20 +112,51 @@ class DerivativeChecker:
 
         return
 
+    def cheap_check_obj_gradient(self, verbose=False):
+        nlp = self.nlp
+        n = nlp.n
+        fx = nlp.obj(self.x)
+        gx = nlp.grad(self.x)
+        h = self.h
+
+        dx  = np.random.standard_normal(n)
+        dx /= norm(dx)
+        xph = self.x.copy()
+        xph += h*dx
+        dfdx = (nlp.obj(xph) - fx)/h      # finite-difference estimate
+        gtdx = np.dot(gx, dx)             # expected
+        err  = max( abs(dfdx - gtdx)/(1 + abs(gtdx)), \
+                    abs(dfdx - gtdx)/(1 + abs(dfdx)) )
+
+        line = self.d3fmt % ('', gtdx, dfdx, err)
+
+        if verbose:
+            sys.stderr.write(self.head3)
+            sys.stderr.write('-' * len(self.head) + '\n')
+            sys.stderr.write(line)
+
+        if err > self.tol:
+            errs = [line]
+        else:
+            errs = []
+
+        return errs
 
     def check_obj_gradient(self, verbose=False):
         nlp = self.nlp
         n = nlp.n
         fx = nlp.obj(self.x)
         gx = nlp.grad(self.x)
-        h = self.step
+        h = self.h
         errs = []
 
         if verbose:
             sys.stderr.write('Objective gradient\n')
+            sys.stderr.write(self.head)
+            sys.stderr.write('-' * len(self.head) + '\n')
 
         # Check partial derivatives in turn.
-        for i in range(n):
+        for i in xrange(n):
             xph = self.x.copy() ; xph[i] += h
             xmh = self.x.copy() ; xmh[i] -= h
             dfdxi = (nlp.obj(xph) - nlp.obj(xmh))/(2*h)
@@ -134,7 +183,7 @@ class DerivativeChecker:
             sys.stderr.write('Objective Hessian\n')
 
         # Check second partial derivatives in turn.
-        for i in range(n):
+        for i in xrange(n):
             xph = self.x.copy() ; xph[i] += h
             xmh = self.x.copy() ; xmh[i] -= h
             dgdx = (nlp.grad(xph) - nlp.grad(xmh))/(2*h)
@@ -165,7 +214,7 @@ class DerivativeChecker:
             sys.stderr.write('Constraints Jacobian\n')
 
         # Check partial derivatives of each constraint in turn.
-        for i in range(n):
+        for i in xrange(n):
             xph = self.x.copy() ; xph[i] += h
             xmh = self.x.copy() ; xmh[i] -= h
             dcdx = (nlp.cons(xph) - nlp.cons(xmh))/(2*h)
@@ -198,11 +247,11 @@ class DerivativeChecker:
             Hk = nlp.hess(self.x, y, obj_weight=0)
 
             # Check second partial derivatives in turn.
-            for i in range(n):
+            for i in xrange(n):
                 xph = self.x.copy() ; xph[i] += h
                 xmh = self.x.copy() ; xmh[i] -= h
                 dgdx = (nlp.igrad(k, xph) - nlp.igrad(k, xmh))/(2*h)
-                for j in range(i+1):
+                for j in xrange(i+1):
                     dgjdxi = dgdx[j]
                     err = abs(Hk[i,j] - dgjdxi)/max(1, abs(Hk[i,j]))
 

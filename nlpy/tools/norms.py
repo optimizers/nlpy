@@ -57,7 +57,7 @@ if __name__ == '__main__':
     from nlpy.krylov.linop import SimpleLinearOperator as aslinop
 
     tol = 1e-6 ; maxits = 100
-
+    
     print "Unsymmetric matrices"
     for n in xrange(1,100):
         m = n/2 + 1

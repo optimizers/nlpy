@@ -6,3 +6,5 @@ site.cfg
 *.so
 __config__.py
 cache
+nlpy/linalg/scaling/src/mc29modulemodule.c
+nlpy/linalg/src/_pypropackmodule.c

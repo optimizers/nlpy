@@ -201,6 +201,11 @@ class NLPModel:
         self.stop_c = 1.0e-6    # Complementarty
         self.stop_p = 1.0e-6    # Primal feasibility
 
+        # Define scaling attributes.
+        self.g_max = 1.0e2      # max gradient entry (constant)
+        self.scale_obj = None   # Objective scaling
+        self.scale_con = None   # Constraint scaling
+
         # Initialize some counters
         self.feval = 0    # evaluations of objective  function
         self.geval = 0    #                           gradient
@@ -211,6 +216,10 @@ class NLPModel:
         self.Jprod = 0    #                matrix-vector products with Jacobian
 
     def ResetCounters(self):
+        """
+        Reset the `feval`, `geval`, `Heval`, `Hprod`, `ceval`, `Jeval` and
+        `Jprod` counters of the current instance to zero.
+        """
         self.feval = 0
         self.geval = 0
         self.Heval = 0
@@ -230,6 +239,14 @@ class NLPModel:
         if d <= self.stop_d and c <= self.stop_c and p <= self.stop_p:
             return True
         return False
+
+    def compute_scaling_obj(self, x=None, g_max=1.0e2, reset=False):
+        """Compute objective scaling."""
+        raise NotImplementedError, 'This method must be subclassed.'
+
+    def compute_scaling_cons(self, x=None, g_max=1.0e2, reset=False):
+        """Compute constraint scaling."""
+        raise NotImplementedError, 'This method must be subclassed.'
 
     # Evaluate objective function at x
     def obj(self, x, **kwargs):

@@ -153,6 +153,11 @@ class TrunkFramework:
             l = 0
             sigRef = sigCan = 0
 
+        # Wrap Hessian into an operator.
+        H = SimpleLinearOperator(nlp.n, nlp.n,
+                                 lambda v: self.hprod(v),
+                                 symmetric=True)
+
         t = cputime()
 
         # Print out header and initial log.
@@ -179,10 +184,6 @@ class TrunkFramework:
 
             if self.inexact:
                 cgtol = max(1.0e-6, min(0.5 * cgtol, sqrt(self.gnorm)))
-
-            H = SimpleLinearOperator(nlp.n, nlp.n,
-                                     lambda v: self.hprod(v),
-                                     symmetric=True)
 
             self.solver = self.TrSolver(self.g, H)
             self.solver.Solve(prec=self.precon,
