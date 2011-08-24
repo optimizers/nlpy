@@ -5,3 +5,4 @@ site.cfg
 *.sol
 *.so
 __config__.py
+cache

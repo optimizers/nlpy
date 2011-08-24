@@ -117,6 +117,8 @@ class ProjectedKrylov:
         self.Proj = kwargs.get('Proj', None)
         self.factorized = (self.Proj != None) # Factorization already performed
 
+        self.dreg = kwargs.get('dreg', 0.0)   # Dual regularization.
+
         # Initializations
         self.t_fact     = 0.0     # Timing of factorization phase
         self.t_feasible = 0.0     # Timing of feasibility phase
@@ -147,9 +149,16 @@ class ProjectedKrylov:
         if self.precon is not None:
             P[:self.n,:self.n] = self.precon
         else:
-            for i in range(self.n):
-                P[i,i] = 1
+            r = range(self.n)
+            P.put(1, r, r)
+            #for i in range(self.n):
+            #    P[i,i] = 1
         P[self.n:,:self.n] = self.A
+
+        # Add regularization if requested.
+        if self.dreg > 0.0:
+            r = range(self.n, self.n + self.m)
+            P.put(-self.dreg, r, r)
 
         if self.debug:
                 msg = 'Factorizing projection matrix '

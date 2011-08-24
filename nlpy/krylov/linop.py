@@ -140,18 +140,11 @@ class PysparseLinearOperator(LinearOperator):
         if self.transposed:
 
             LinearOperator.__init__(self, m, n, **kwargs)
-            #self.shape = (self.nargin, self.nargout)
-            #if hasattr(A, '__rmul__'):
-            #    self.__mul__ = A.__rmul__
-            #else:
             self.__mul__ = self._rmul
 
         else:
 
             LinearOperator.__init__(self, n, m, **kwargs)
-            #if hasattr(A, '__mul__'):
-            #    self.__mul__ = A.__mul__
-            #else:
             self.__mul__ = self._mul
 
         if self.logger is not None:
@@ -263,6 +256,35 @@ class SquaredLinearOperator(LinearOperator):
         self.nMatvecTransp += 1
         return self.A * (self.A.T * x)
 
+
+class ReducedLinearOperator:
+    """
+    Given a linear operator A, implement the linear operator equivalent of
+    the matrix notation A[I,J] where I and J and index sets of rows and
+    columns, respectively.
+    """
+
+    def __init__(self, A, row_indices, col_indices, **kwargs):
+        self.op = A             # A linear operator.
+        self.row_indices = row_indices
+        self.col_indices = col_indices
+        self.shape = (len(row_indices), len(col_indices))
+        self.symmetric = False  # Generally.
+
+    def __mul__(self, x):
+        # Return the result of A[I,J]*x. Note that the input x must have
+        # as many components as there are indices in J. The result
+        # has as many components as there are indices in I.
+        m, n = self.op.shape    # Shape of non-reduced operator.
+        z = np.zeros(n) ; z[self.col_indices] = x[:]
+        y = self.op * z
+        return y[self.row_indices]
+
+
+class SymmetricallyReducedLinearOperator(ReducedLinearOperator):
+    def __init__(self, A, row_indices, **kwargs):
+        ReducedLinearOperator.__init__(self, A, row_indices, row_indices, **kwargs)
+        self.symmetric = self.op.symmetric
 
 
 if __name__ == '__main__':

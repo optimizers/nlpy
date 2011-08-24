@@ -9,6 +9,7 @@ truncated preconditioned conjugate gradient algorithm as described in
 .. moduleauthor:: D. Orban <dominique.orban@gerad.ca>
 """
 
+from nlpy.tools.exceptions import UserExitRequest
 import numpy as np
 from math import sqrt
 import sys
@@ -95,14 +96,21 @@ class TruncatedCG:
         sigma /= pp
         return sigma
 
+    def post_iteration(self, *args, **kwargs):
+        """
+        Subclass and override this method to implement custom post-iteration
+        actions. This method will be called at the end of each CG iteration.
+        """
+        pass
+
     def Solve(self, **kwargs):
         """
         Solve the trust-region subproblem.
 
         :keywords:
 
+          :s0:         initial guess (default: [0,0,...,0]),
           :radius:     the trust-region radius (default: None),
-          :H:          linear operator representing the matrix `H`,
           :abstol:     absolute stopping tolerance (default: 1.0e-8),
           :reltol:     relative stopping tolerance (default: 1.0e-6),
           :maxiter:    maximum number of iterations (default: 2n),
@@ -121,8 +129,19 @@ class TruncatedCG:
         H = self.H
 
         # Initialization
-        y = prec(g)
-        ry = np.dot(g, y)
+        r = g.copy()
+        if 's0' in kwargs:
+            s = kwargs['s0']
+            snorm2 = np.linalg.norm(s)
+            r += H*s                 # r = g + H s0
+        else:
+            s = np.zeros(n)
+            snorm2 = 0.0
+
+        y = prec(r)
+        ry = np.dot(r, y)
+
+        exitOptimal = exitIter = exitUser = False
 
         try:
             sqrtry = sqrt(ry)
@@ -133,10 +152,7 @@ class TruncatedCG:
 
         stopTol = max(abstol, reltol * sqrtry)
 
-        s = np.zeros(n) ; snorm2 = 0.0
-
         # Initialize r as a copy of g not to alter the original g
-        r = g.copy()                 # r = g + H s0 = g
         p = -y                       # p = - preconditioned residual
         k = 0
 
@@ -147,7 +163,8 @@ class TruncatedCG:
             self._write(self.header)
             self._write('-' * len(self.header) + '\n')
 
-        while sqrtry > stopTol and k < maxiter and \
+        #while sqrtry > stopTol and k < maxiter and \
+        while not (exitOptimal or exitIter or exitUser) and \
                 not onBoundary and not infDescent:
 
             k += 1
@@ -176,7 +193,8 @@ class TruncatedCG:
                 # p leads past the trust-region boundary. Move to the boundary.
                 s += sigma * p
                 snorm2 = radius*radius
-                self.status = 'on boundary (sigma = %g)' % sigma
+                #self.status = 'on boundary (sigma = %g)' % sigma
+                self.status = 'trust-region boundary active'
                 onBoundary = True
                 continue
 
@@ -197,6 +215,26 @@ class TruncatedCG:
                 raise ValueError, msg
 
             snorm2 = np.dot(s,s)
+
+            # Transfer useful quantities for post iteration.
+            self.pHp = pHp
+            self.p = p
+            self.r = r
+            self.y = y
+            self.step = s
+            self.stepNorm2 = snorm2
+            self.beta = beta
+            self.ry = ry
+            self.alpha = alpha
+
+            try:
+                self.post_iteration()
+            except UserExitRequest:
+                self.status = 'usr'
+
+            exitUser    = self.status == 'usr'
+            exitIter    = k >= maxiter
+            exitOptimal = sqrtry <= stopTol
 
         # Output info about the last iteration.
         if debug:

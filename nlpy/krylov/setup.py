@@ -27,11 +27,12 @@ def configuration(parent_package='',top_path=None):
     libgltr_src = [os.path.join(hsl_dir,'hsl_zd11d.f90'),
                    os.path.join(gdir,'auxiliary','norms.f90'),
                    os.path.join(gdir,'rand','rand.f90'),
-                   os.path.join(gdir,'roots','roots.f90'),
                    os.path.join(gdir,'sym','symbols.f90'),
                    os.path.join(gdir,'smt','smt.f90'),
                    os.path.join(gdir,'space','space.f90'),
                    os.path.join(gdir,'spec','specfile.f90'),
+                   os.path.join(gdir,'sort','sort.f90'),
+                   os.path.join(gdir,'roots','roots.f90'),
                    os.path.join(gdir,'gltr','gltr.f90'),
                    os.path.join('src','pygltr.f90')]
     pygltr_src = ['_pygltr.c']

@@ -15,7 +15,8 @@ try:
 except:
     from nlpy.linalg.pyma27 import PyMa27Context as LBLContext
 
-from pysparse import spmatrix
+from pysparse.sparse import spmatrix
+from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
 import numpy as np
 from nlpy.tools.timing import cputime
 import sys
@@ -26,38 +27,40 @@ if len(sys.argv) < 3:
     sys.exit(1)
 
 # Create symmetric quasi-definite matrix K
-A = spmatrix.ll_mat_from_mtx(sys.argv[1])
-C = spmatrix.ll_mat_from_mtx(sys.argv[2])
+A = sp(matrix=spmatrix.ll_mat_from_mtx(sys.argv[1]))
+C = sp(matrix=spmatrix.ll_mat_from_mtx(sys.argv[2]))
 
 nA = A.shape[0]
 nC = C.shape[0]
-K = spmatrix.ll_mat_sym(nA + nC, A.nnz + C.nnz + min(nA,nC))
+#K = spmatrix.ll_mat_sym(nA + nC, A.nnz + C.nnz + min(nA,nC))
+K = sp(size=nA + nC, sizeHint=A.nnz + C.nnz + min(nA,nC), symmetric=True)
 K[:nA,:nA] = A
-K[nA:,nA:] = C
-K[nA:,nA:].scale(-1.0)
+K[nA:,nA:] = -C
+#K[nA:,nA:].scale(-1.0)
 idx = np.arange(min(nA,nC), dtype=np.int)
 K.put(1, nA+idx, idx)
 
 # Create right-hand side rhs=K*e
 e = np.ones(nA+nC)
-rhs = np.empty(nA+nC)
-K.matvec(e,rhs)
+#rhs = np.empty(nA+nC)
+#K.matvec(e,rhs)
+rhs = K*e
 
 # Factorize and solve Kx = rhs, knowing K is sqd
 t = cputime()
-P = LBLContext(K, sqd=True)
+LDL = LBLContext(K, sqd=True)
 t = cputime() - t
 sys.stderr.write('Factorization time with sqd=True : %5.2fs   ' % t )
-P.solve(rhs, get_resid=False)
-sys.stderr.write('Error: %7.1e\n' % np.linalg.norm(P.x - e, ord=np.Inf))
+LDL.solve(rhs, get_resid=False)
+sys.stderr.write('Error: %7.1e\n' % np.linalg.norm(LDL.x - e, ord=np.Inf))
 
 # Do it all over again, pretending we don't know K is sqd
 t = cputime()
-P = LBLContext(K)
+LBL = LBLContext(K)
 t = cputime() - t
 sys.stderr.write('Factorization time with sqd=False: %5.2fs   ' % t )
-P.solve(rhs, get_resid=False)
-sys.stderr.write('Error: %7.1e\n' % np.linalg.norm(P.x - e, ord=np.Inf))
+LBL.solve(rhs, get_resid=False)
+sys.stderr.write('Error: %7.1e\n' % np.linalg.norm(LBL.x - e, ord=np.Inf))
 
 try:
     import pylab

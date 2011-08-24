@@ -12,9 +12,9 @@ class StrongWolfeLineSearch:
     Wolfe conditions
 
     f(x+td) <= f(x) + ftol * t * <g(x),d>    (Armijo condition)
-        
+
     | <g(x+td),d> | <= gtol * | <g(x),d> |   (curvature condition)
-    
+
     This is a Python interface to Jorge Nocedal's modification of
     the More and Thuente linesearch. Usage of this class is slightly
     different from the original More and Thuente linesearch.
@@ -62,10 +62,10 @@ class StrongWolfeLineSearch:
         self.g = g.copy()   # Gradient of f at xk
         self.d = d          # Direction along which to search
         self.n = self.g.shape[0]
-        
+
         self.obj  = obj   # To evaluate function value
         self.grad = grad  # To evaluate function gradient
-        
+
         # Optional arguments
         self.ftol   = kwargs.get('ftol', 1.0e-4)
         self.gtol   = kwargs.get('gtol', 0.9)
@@ -77,7 +77,7 @@ class StrongWolfeLineSearch:
 
         # Initialize context object
         self.context = _pymcsrch.Init(self.n,
-                                       self.ftol, 
+                                       self.ftol,
                                        self.gtol,
                                        self.xtol,
                                        self.stp,
@@ -85,13 +85,13 @@ class StrongWolfeLineSearch:
                                        self.stpmax,
                                        self.maxfev,
                                        self.d)
-        
+
         self.armijo = False
         self.curvature = False
         self.info = None
 
     def search(self):
-        
+
         self.stp, info = self.context.mcsrch(self.f,self.x,self.g)
 
         while info == -1:
@@ -118,12 +118,12 @@ class StrongWolfeLineSearch:
 
 
 if __name__ == '__main__':
-    
+
     import amplpy
     import numpy
     from math import sqrt
     import sys
-    
+
     nlp = amplpy.AmplModel(sys.argv[1])
     f = nlp.obj(nlp.x0)
     g = nlp.grad(nlp.x0)

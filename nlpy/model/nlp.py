@@ -101,37 +101,37 @@ class NLPModel:
 
         # Set initial point
         if 'x0' in kwargs.keys():
-            self.x0 = kwargs['x0']
+            self.x0 = np.ascontiguousarray(kwargs['x0'], dtype=float)
         else:
             self.x0 = np.zeros(self.n, 'd')
 
         # Set initial multipliers
         if 'pi0' in kwargs.keys():
-            self.pi0 = kwargs['pi0']
+            self.pi0 = np.ascontiguousarray(kwargs['pi0'], dtype=float)
         else:
             self.pi0 = np.zeros(self.m, 'd')
 
         # Set lower bounds on variables    Lvar[i] <= x[i]  i = 1,...,n
         if 'Lvar' in kwargs.keys():
-            self.Lvar = kwargs['Lvar']
+            self.Lvar = np.ascontiguousarray(kwargs['Lvar'], dtype=float)
         else:
             self.Lvar = self.negInfinity * np.ones(self.n, 'd')
 
         # Set upper bounds on variables    x[i] <= Uvar[i]  i = 1,...,n
         if 'Uvar' in kwargs.keys():
-            self.Uvar = kwargs['Uvar']
+            self.Uvar = np.ascontiguousarray(kwargs['Uvar'], dtype=float)
         else:
             self.Uvar = self.Infinity * np.ones(self.n, 'd')
 
         # Set lower bounds on constraints  Lcon[i] <= c[i]  i = 1,...,m
         if 'Lcon' in kwargs.keys():
-            self.Lcon = kwargs['Lcon']
+            self.Lcon = np.ascontiguousarray(kwargs['Lcon'], dtype=float)
         else:
             self.Lcon = self.negInfinity * np.ones(self.m, 'd')
 
         # Set upper bounds on constraints  c[i] <= Ucon[i]  i = 1,...,m
         if 'Ucon' in kwargs.keys():
-            self.Ucon = kwargs['Ucon']
+            self.Ucon = np.ascontiguousarray(kwargs['Ucon'], dtype=float)
         else:
             self.Ucon = self.Infinity * np.ones(self.m, 'd')
 
@@ -262,7 +262,7 @@ class NLPModel:
         raise NotImplementedError, 'This method must be subclassed.'
 
     # Evaluate Lagrangian Hessian at (x,z)
-    def hess(self, x, z, **kwargs):
+    def hess(self, x, z=None, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
 
     # Evaluate matrix-vector product between
@@ -274,3 +274,32 @@ class NLPModel:
     # the Hessian of the i-th constraint and a vector
     def hiprod(self, i, x, p, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
+
+    def display_basic_info(self):
+        """
+        Display vital statistics about the current model.
+        """
+        import sys
+        write = sys.stderr.write
+        write('Problem Name: %s\n' % self.name)
+        write('Number of Variables: %d\n' % self.n)
+        write('Number of Bound Constraints: %d' % self.nbounds)
+        write(' (%d lower, %d upper, %d two-sided)\n' % (self.nlowerB,
+            self.nupperB, self.nrangeB))
+        if self.nlowerB > 0: write('Lower bounds: %s\n' % self.lowerB)
+        if self.nupperB > 0: write('Upper bounds: %s\n' % self.upperB)
+        if self.nrangeB > 0: write('Two-Sided bounds: %s\n' % self.rangeB)
+        write('Vector of lower bounds: %s\n' % self.Lvar)
+        write('Vectof of upper bounds: %s\n' % self.Uvar)
+        write('Number of General Constraints: %d' % self.m)
+        write(' (%d equality, %d lower, %d upper, %d range)\n' % (self.nequalC,
+            self.nlowerC, self.nupperC, self.nrangeC))
+        if self.nequalC > 0: write('Equality: %s\n' % self.equalC)
+        if self.nlowerC > 0: write('Lower   : %s\n' % self.lowerC)
+        if self.nupperC > 0: write('Upper   : %s\n' % self.upperC)
+        if self.nrangeC > 0: write('Range   : %s\n' % self.rangeC)
+        write('Vector of constraint lower bounds: %s\n' % self.Lcon)
+        write('Vector of constraint upper bounds: %s\n' % self.Ucon)
+        write('Initial Guess: %s\n' % self.x0)
+
+        return

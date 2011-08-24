@@ -17,7 +17,8 @@ class DerivativeChecker:
         implemented in an optimization model.
 
         `nlp` should be a `NLPModel` and `x` is the point about which we are
-        checking the derivative.
+        checking the derivative. See the documentation of the `check` method
+        for available options.
         """
 
         self.step = kwargs.get('step', sqrt(macheps))
@@ -42,11 +43,22 @@ class DerivativeChecker:
 
 
     def check(self, **kwargs):
+        """
+        Perform derivative check. Recognized keyword arguments are:
 
-        grad = kwargs.get('grad', True)            # Check objective  gradient.
-        hess = kwargs.get('hess', True)            # Check objective  Hessian.
-        jac  = kwargs.get('jac', True)             # Check constraint Jacobian.
-        chess = kwargs.get('chess', True)          # Check constraint Hessians.
+        :keywords:
+            :grad:      Check objective gradient  (default `True`)
+            :hess:      Check objective Hessian   (default `True`)
+            :jac:       Check constraints Hessian (default `True`)
+            :chess:     Check constraints Hessian (default `True`)
+            :verbose:   Do not only display inaccurate
+                        derivatives (default `True`)
+        """
+
+        grad = kwargs.get('grad', True)
+        hess = kwargs.get('hess', True)
+        jac  = kwargs.get('jac', True)
+        chess = kwargs.get('chess', True)
         verbose = kwargs.get('verbose', True)
 
         # Skip constraints if problem is unconstrained.
@@ -70,8 +82,9 @@ class DerivativeChecker:
 
 
     def display(self, errs, header):
+        name = self.nlp.name
         nerrs = len(errs)
-        sys.stderr.write('Found %d errors.\n' % nerrs)
+        sys.stderr.write('Problem %s: Found %d errors.\n' % (name,nerrs))
         if nerrs > 0:
             sys.stderr.write(header)
             sys.stderr.write('-' * len(header) + '\n')
@@ -98,7 +111,7 @@ class DerivativeChecker:
             xph = self.x.copy() ; xph[i] += h
             xmh = self.x.copy() ; xmh[i] -= h
             dfdxi = (nlp.obj(xph) - nlp.obj(xmh))/(2*h)
-            err = abs(gx[i] - dfdxi)/(1 + abs(gx[i]))
+            err = abs(gx[i] - dfdxi)/max(1, abs(gx[i]))
 
             line = self.d1fmt % (0, i, gx[i], dfdxi, err)
             if verbose:
@@ -113,7 +126,7 @@ class DerivativeChecker:
     def check_obj_hessian(self, verbose=False):
         nlp = self.nlp
         n = nlp.n
-        Hx = nlp.hess(self.x, np.zeros(nlp.m))
+        Hx = nlp.hess(self.x) #, np.zeros(nlp.m))
         h = self.step
         errs = []
 
@@ -127,7 +140,7 @@ class DerivativeChecker:
             dgdx = (nlp.grad(xph) - nlp.grad(xmh))/(2*h)
             for j in range(i+1):
                 dgjdxi = dgdx[j]
-                err = abs(Hx[i,j] - dgjdxi)/(1 + abs(Hx[i,j]))
+                err = abs(Hx[i,j] - dgjdxi)/max(1, abs(Hx[i,j]))
 
                 line = self.d2fmt % (0, i, j, Hx[i,j], dgjdxi, err)
                 if verbose:
@@ -158,7 +171,7 @@ class DerivativeChecker:
             dcdx = (nlp.cons(xph) - nlp.cons(xmh))/(2*h)
             for j in range(m):
                 dcjdxi = dcdx[j] #(nlp.icons(j, xph) - nlp.icons(j, xmh))/(2*h)
-                err = abs(Jx[j,i] - dcjdxi)/(1 + abs(Jx[j,i]))
+                err = abs(Jx[j,i] - dcjdxi)/max(1, abs(Jx[j,i]))
 
                 line = self.d1fmt % (j+1, i, Jx[j,i], dcjdxi, err)
                 if verbose:
@@ -181,7 +194,7 @@ class DerivativeChecker:
 
         # Check each Hessian in turn.
         for k in range(m):
-            y = np.zeros(m) ; y[k] = 1
+            y = np.zeros(m) ; y[k] = -1
             Hk = nlp.hess(self.x, y, obj_weight=0)
 
             # Check second partial derivatives in turn.
@@ -191,7 +204,7 @@ class DerivativeChecker:
                 dgdx = (nlp.igrad(k, xph) - nlp.igrad(k, xmh))/(2*h)
                 for j in range(i+1):
                     dgjdxi = dgdx[j]
-                    err = abs(Hk[i,j] - dgjdxi)/(1 + abs(Hk[i,j]))
+                    err = abs(Hk[i,j] - dgjdxi)/max(1, abs(Hk[i,j]))
 
                     line = self.d2fmt % (k+1, i, j, Hk[i,j], dgjdxi, err)
                     if verbose:

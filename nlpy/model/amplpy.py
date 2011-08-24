@@ -9,6 +9,7 @@ import numpy as np
 from nlpy.model.nlp import NLPModel, KKTresidual
 from nlpy.model import _amplpy
 from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
+from nlpy.krylov.linop import PysparseLinearOperator
 from nlpy.tools import sparse_vector_class as sv
 import tempfile, os
 
@@ -524,6 +525,166 @@ class AmplModel(NLPModel):
         opt = (df<=self.stop_d) and (cp<=self.stop_c) and (fs<=self.stop_p)
         return (res, opt)
 
+
+    def get_bounds(self, x):
+        """
+        Return the vector with components x[i]-Lvar[i] or Uvar[i]-x[i] in such
+        a way that the bound constraints on the problem variables are
+        equivalent to get_bounds(x) >= 0. The bounds are odered as follows:
+
+        [lowerB | upperB | rangeB (lower) | rangeB (upper) ].
+        """
+        # Shortcuts.
+        lB  = self.lowerB  ; uB  = self.upperB  ; rB  = self.rangeB
+        nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
+        nB = self.nbounds ; Lvar = self.Lvar ; Uvar = self.Uvar
+
+        b = np.empty(nB+nrB)
+        b[:nlB] = x[lB] - Lvar[lB]
+        b[nlB:nlB+nuB] = Uvar[uB] - x[uB]
+        b[nlB+nuB:nlB+nuB+nrB] = x[rB] - Lvar[rB]
+        b[nlB+nuB+nrB:] = Uvar[rB] - x[rB]
+        return b
+
+
+    def primal_feasibility(self, x, c=None):
+        """
+        Evaluate the primal feasibility residual at x. If `c` is given, it
+        should conform to :meth:`consPos`.
+        """
+        # Shortcuts.
+        eC = self.equalC ; m = self.m ; nrC = self.nrangeC
+        nB = self.nbounds ; nrB = self.nrangeB
+
+        pFeas = np.empty(m+nrC+nB+nrB)
+        pFeas[:m+nrC] = -self.consPos(x) if c is None else -c[:]
+        not_eC = [i for i in range(m+nrC) if i not in eC]
+        pFeas[eC] = np.abs(pFeas[eC])
+        pFeas[not_eC] = np.maximum(0, pFeas[not_eC])
+        pFeas[m:m+nrC] = np.maximum(0, pFeas[m:m+nrC])
+        pFeas[m+nrC:] = -self.get_bounds(x)
+        pFeas[m+nrC:] = np.maximum(0, pFeas[m+nrC:])
+        return pFeas
+
+
+    def dual_feasibility(self, x, y, z, g=None, J=None, **kwargs):
+        """
+        Evaluate the dual feasibility residual at (x,y,z).
+
+        The multipliers `z` should conform to :meth:`get_bounds`.
+
+        :keywords:
+            :obj_weight: weight of the objective gradient in dual feasibility.
+                         Set to zero to check Fritz-John conditions instead
+                         of KKT conditions. (default: 1.0)
+            :all_pos:    if `True`, indicates that the multipliers `y` conform
+                         to :meth:`jacPos`. If `False`, `y` conforms to
+                         :meth:`jac`. In all cases, `y` should be appropriately
+                         ordered. If the positional argument `J` is specified,
+                         it must be consistent with the layout of `y`.
+                         (default: `True`)
+        """
+        # Shortcuts.
+        lB  = self.lowerB  ; uB  = self.upperB  ; rB  = self.rangeB
+        nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
+        nB = self.nbounds ; n = self.n ; m = self.m ; nrC = self.nrangeC
+
+        obj_weight = kwargs.get('obj_weight', 1.0)
+        all_pos = kwargs.get('all_pos', True)
+
+        if J is None:
+            J = self.jacPos(x) if all_pos else self.jac(x)
+        Jop = PysparseLinearOperator(J, symmetric=False)
+
+        if obj_weight == 0.0:   # Checking Fritz-John conditions.
+            dFeas = -(Jop.T * y)
+        else:
+            dFeas = self.grad(x) if g is None else g[:]
+            if obj_weight != 1.0:
+                dFeas *= obj_weight
+            dFeas -= Jop.T * y
+        dFeas[lB] -= z[:nlB]
+        dFeas[uB] -= z[nlB:nlB+nuB]
+        dFeas[rB] -= z[nlB+nuB:nlB+nuB+nrB] - z[nlB+nuB+nrB:]
+
+        return dFeas
+
+
+    def complementarity(self, x, y, z, c=None):
+        """
+        Evaluate the complementarity residuals at (x,y,z). If `c` is specified,
+        it should conform to :meth:`consPos` and the multipliers `y` should
+        appear in the same order. The multipliers `z` should conform to
+        :meth:`get_bounds`.
+
+        :returns:
+            :cy:  complementarity residual for general constraints
+            :xz:  complementarity residual for bound constraints.
+        """
+        # Shortcuts.
+        m = self.m ; eC = self.equalC
+        lC = self.lowerC ; uC = self.upperC ; rC = self.rangeC
+        nrC = self.nrangeC
+        lB  = self.lowerB  ; uB  = self.upperB  ; rB  = self.rangeB
+        nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
+        nB = self.nbounds ; Lvar = self.Lvar ; Uvar = self.Uvar
+
+        if c is None: c = self.consPos(x)
+        not_eC = [i for i in range(m+nrC) if i not in eC]
+        cy = c[not_eC] * y[not_eC]
+        xz = self.get_bounds(x) * z
+
+        return (cy,xz)
+
+
+    def kkt_residuals(self, x, y, z, c=None, g=None, J=None, **kwargs):
+        """
+        Return the first-order residuals. There is no check on the sign of the
+        multipliers unless `check` is set to `True`. Keyword arguments not
+        specified below are passed directly to :meth:`primal_feasibility`,
+        :meth:`dual_feasibility` and :meth:`complementarity`.
+
+        :keywords:
+            :all_pos:    if `True`, indicates that the multipliers `y` conform
+                         to :meth:`jacPos`. If `False`, `y` conforms to
+                         :meth:`jac`. In all cases, `y` should be appropriately
+                         ordered. If the positional argument `J` is specified,
+                         it must be consistent with the layout of `y`.
+                         (default: `True`)
+            :check:  check sign of multipliers.
+
+        :returns:
+            :pFeas:  primal feasibility residual
+            :dFeas:  dual feasibility residual (gradient of Lagrangian)
+            :cy:     complementarity for general constraints
+            :xz:     complementarity for bound constraints.
+        """
+        # Shortcuts.
+        m = self.m ; nrC = self.nrangeC ; lC = self.lowerC ; uC = self.upperC
+
+        check = kwargs.get('check', True)
+        all_pos = kwargs.get('all_pos', True)
+
+        if check:
+            # Check multipliers sign.
+            if all_pos:
+                not_eC = [i for i in range(m+nrC) if i not in eC]
+                wrong_sign = len(np.where(y[not_eC] < 0)[0]) > 0
+            else:
+                lC_wrong = len(np.where(y[lC] < 0)[0]) > 0
+                uC_wrong = len(np.where(y[uC] > 0)[0]) > 0
+                wrong_sign = lC_wrong or uC_wrong
+            if wrong_sign:
+                raise ValueError, 'Multipliers for inequalities must be >= 0.'
+            if not z >= 0:
+                raise ValueError, 'Multipliers for bounds must be >= 0.'
+
+        pFeas = self.primal_feasibility(x, c=c)
+        dFeas = self.dual_feasibility(x, y, z, g=g, J=J, **kwargs)
+        cy, xz = self.complementarity(x, y, z, c=c)
+        return KKTresidual(dFeas, pFeas[:m+nrC], pFeas[m+nrC:], cy, xz)
+
+
 ###############################################################################
 
     # The following methods mirror the module functions defined in _amplpy.c.
@@ -590,11 +751,8 @@ class AmplModel(NLPModel):
         The constraints appear in natural order. To order them as follows
 
         1) equalities
-
         2) lower bound only
-
         3) upper bound only
-
         4) range constraints,
 
         use the `permC` permutation vector.
@@ -605,9 +763,10 @@ class AmplModel(NLPModel):
             print ' Offending argument : '
             for i in range(self.n):
                 print '%-15.9f ' % x[i]
-            return None #c = self.Infinity * np.ones(self.m)
+            print 'Make sure input array has dtype float'
+            return None
         self.ceval += self.m
-        return c #[self.permC]
+        return c
 
     def consPos(self, x):
         """
@@ -771,7 +930,7 @@ class AmplModel(NLPModel):
         return J
 
 
-    def hess(self, x, z, *args, **kwargs):
+    def hess(self, x, z=None, *args, **kwargs):
         """
         Evaluate sparse lower triangular Hessian at (x, z).
         Returns a sparse matrix in format self.mformat
@@ -783,6 +942,7 @@ class AmplModel(NLPModel):
         obj_weight = kwargs.get('obj_weight', 1.0)
         store_zeros = kwargs.get('store_zeros', False)
         store_zeros = 1 if store_zeros else 0
+        if z is None: z = np.zeros(self.m)
         if len(args) > 0:
             if type(args[0]).__name__ == 'll_mat':
                 H = _amplpy.eval_H(x, z, self.mformat, obj_weight, args[0],
@@ -795,9 +955,10 @@ class AmplModel(NLPModel):
         return H
 
 
-    def hprod(self, z, v, **kwargs):
+    def hprod(self, x, z, v, **kwargs):
         """
         Evaluate matrix-vector product H(x,z) * v.
+        Zero multipliers can be specified as an array of zeros or as `None`.
         Returns a Numpy array.
 
         :keywords:
@@ -810,6 +971,7 @@ class AmplModel(NLPModel):
         appears as if the problem were a minimization problem.
         """
         obj_weight = kwargs.get('obj_weight', 1.0)
+        if z is None: z = np.zeros(self.m)
         self.Hprod += 1
         return _amplpy.H_prod(z, v, obj_weight)
 

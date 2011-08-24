@@ -260,7 +260,7 @@ class PrimalDualMeritFunction(NLPModel):
         Hp = np.empty(nx + nz) ; p1 = p[:nx] ; p2 = p[nx:]
 
         # Contributions from first block row.
-        Hp[:nx] = self.nlp.hprod(self.nlp.pi0, p1)
+        Hp[:nx] = self.nlp.hprod(x, self.nlp.pi0, p1)
         Hp[lB] += 2 * mu/slB**2 * p1[lB] + p2[rlB]
         Hp[uB] += 2 * mu/suB**2 * p1[uB] - p2[nlB+ruB]
         Hp[rB] += 2 * (mu/srlB**2 + mu/sruB**2) * p1[rB] + p2[rrB] - p2[rrB2]
@@ -333,6 +333,30 @@ class PrimalDualMeritFunction(NLPModel):
         [      I           Z^{-1} X ] [ p2 ] = [     p1 + Z^{-1} X p3       ].
         """
         mu = kwargs.get('mu', self.mu)
+
+        n = self.nlp.n
+        ndual = self.ndual
+        N = self.nlowerB + self.nupperB + self.nrangeB
+        Lvar = self.nlp.Lvar
+        Uvar = self.nlp.Uvar
+        Hp = np.zeros(n + self.ndual, 'd')
+
+        Hp[:n] = self.nlp.hprod(x, self.nlp.pi0, p[:n])
+        for i in self.lowerB:
+            k = self.lowerB.index(i)
+            Hp[i] += 2.0 * z[k]/(x[i]-Lvar[i]) * p[i] + p[n+k]
+            Hp[n+k] += p[i] + (x[i]-Lvar[i])/z[k] * p[n+k]
+        for i in self.upperB:
+            k = self.nlowerB + self.upperB.index(i)
+            Hp[i] += 2.0 * z[k]/(Uvar[i]-x[i]) * p[i] - p[n+k]
+            Hp[n+k] += -p[i] - (Uvar[i]-x[i])/z[k] * p[n+k]
+        for i in self.rangeB:
+            k = self.nlowerB + self.nupperB + self.rangeB.index(i)
+            Hp[i] += 2.0 * z[k]/(x[i]-Lvar[i]) * p[i] + p[n+k]
+            Hp[n+k] += p[i] + (x[i]-Lvar[i])/z[k] * p[n+k]
+            k += self.nrangeB
+            Hp[i] += 2.0 * z[k]/(Uvar[i]-x[i]) * p[i] - p[n+k]
+            Hp[n+k] += -p[i] + (Uvar[i]-x[i])/z[k] * p[n+k]
 
         nlp = self.nlp ; nx = nlp.n ; nz = self.nz
         Lvar = nlp.Lvar ; Uvar = nlp.Uvar

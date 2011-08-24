@@ -10,6 +10,7 @@ from nlpy.optimize.solvers import lbfgs    # For preconditioning
 from nlpy.krylov.linop import SimpleLinearOperator
 from nlpy.tools import norms
 from nlpy.tools.timing import cputime
+from nlpy.tools.exceptions import UserExitRequest
 import numpy
 import logging
 from math import sqrt
@@ -44,7 +45,7 @@ class TrunkFramework:
         :monotone:     use monotone descent strategy     (default False)
         :nIterNonMono: number of iterations for which non-strict descent can
                        be tolerated if monotone=False    (default 25)
-        :logger:       a logger object that can be used in the post
+        :logger_name:  name of a logger object that can be used in the post
                        iteration                         (default None)
         :verbose:      print log if True                 (default True)
 
@@ -65,7 +66,7 @@ class TrunkFramework:
         self.solver   = None    # Will point to solver data in Solve()
         self.iter   = 0         # Iteration counter
         self.total_cgiter = 0
-        self.x      = kwargs.get('x0', self.nlp.x0)
+        self.x      = kwargs.get('x0', self.nlp.x0.copy())
         self.f      = None
         self.f0     = None
         self.g      = None
@@ -98,7 +99,7 @@ class TrunkFramework:
         # Setup the logger. Install a NullHandler if no output needed.
         logger_name = kwargs.get('logger_name', 'nlpy.trunk')
         self.log = logging.getLogger(logger_name)
-        self.log.addHandler(logging.NullHandler())
+        #self.log.addHandler(logging.NullHandler())
         if not self.verbose:
             self.log.propagate=False
 
@@ -107,7 +108,7 @@ class TrunkFramework:
         Default hprod based on nlp's hprod. User should overload to
         provide a custom routine, e.g., a quasi-Newton approximation.
         """
-        return self.nlp.hprod(self.nlp.pi0, v)
+        return self.nlp.hprod(self.x, self.nlp.pi0, v)
 
     def precon(self, v, **kwargs):
         """
@@ -131,7 +132,7 @@ class TrunkFramework:
         self.f      = self.nlp.obj(self.x)
         self.f0     = self.f
         self.g      = self.nlp.grad(self.x)  # Current  gradient
-        self.g_old  = self.g                   # Previous gradient
+        self.g_old  = self.g                 # Previous gradient
         self.gnorm  = norms.norm2(self.g)
         self.g0     = self.gnorm
 
@@ -330,10 +331,3 @@ class TrunkLbfgsFramework(TrunkFramework):
         s = self.alpha * self.solver.step
         y = self.g - self.g_old
         self.lbfgs.store(s, y)
-
-class UserExitRequest(Exception):
-    """
-    Exception that the caller can use to request clean exit.
-    """
-    def __init__(self):
-        pass
