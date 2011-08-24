@@ -567,31 +567,35 @@ class AmplModel(NLPModel):
         return pFeas
 
 
-    def dual_feasibility(self, x, y, z, g=None, J=None, obj_weight=1.0):
+    def dual_feasibility(self, x, y, z, g=None, J=None, **kwargs):
         """
         Evaluate the dual feasibility residual at (x,y,z).
 
-        The vector of multipliers `y` can either be of size `m + nrangeC` or of
-        size `m`, where `m` is the number of general constraints (counting
-        range constraints as a single constraint) and `nrangeC` is the number
-        of range constraints. In the first case, if `J` is specified, it should
-        conform to :meth:`jacPos` and the multipliers `y` should appear in the
-        same order. In the second case, if `J` is specified, it should conform
-        to :meth:`jac` and the multipliers `y` should appear in the same order.
-
         The multipliers `z` should conform to :meth:`get_bounds`.
+
+        :keywords:
+            :obj_weight: weight of the objective gradient in dual feasibility.
+                         Set to zero to check Fritz-John conditions instead
+                         of KKT conditions. (default: 1.0)
+            :all_pos:    if `True`, indicates that the multipliers `y` conform
+                         to :meth:`jacPos`. If `False`, `y` conforms to
+                         :meth:`jac`. In all cases, `y` should be appropriately
+                         ordered. If the positional argument `J` is specified,
+                         it must be consistent with the layout of `y`.
+                         (default: `True`)
         """
         # Shortcuts.
         lB  = self.lowerB  ; uB  = self.upperB  ; rB  = self.rangeB
         nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
         nB = self.nbounds ; n = self.n ; m = self.m ; nrC = self.nrangeC
 
+        obj_weight = kwargs.get('obj_weight', 1.0)
+        all_pos = kwargs.get('all_pos', True)
+
         if J is None:
-            if len(y) == m+nrC:
-                J = self.jacPos(x)
-            else:
-                J = self.jac(x)
+            J = self.jacPos(x) if all_pos else self.jac(x)
         Jop = PysparseLinearOperator(J, symmetric=False)
+
         if obj_weight == 0.0:   # Checking Fritz-John conditions.
             dFeas = -(Jop.T * y)
         else:
@@ -633,10 +637,21 @@ class AmplModel(NLPModel):
         return (cy,xz)
 
 
-    def kkt_residuals(self, x, y, z, c=None, g=None, J=None):
+    def kkt_residuals(self, x, y, z, c=None, g=None, J=None, **kwargs):
         """
         Return the first-order residuals. There is no check on the sign of the
-        multipliers. See :meth:`kkt`.
+        multipliers unless `check` is set to `True`. Keyword arguments not
+        specified below are passed directly to :meth:`primal_feasibility`,
+        :meth:`dual_feasibility` and :meth:`complementarity`.
+
+        :keywords:
+            :all_pos:    if `True`, indicates that the multipliers `y` conform
+                         to :meth:`jacPos`. If `False`, `y` conforms to
+                         :meth:`jac`. In all cases, `y` should be appropriately
+                         ordered. If the positional argument `J` is specified,
+                         it must be consistent with the layout of `y`.
+                         (default: `True`)
+            :check:  check sign of multipliers.
 
         :returns:
             :pFeas:  primal feasibility residual
@@ -644,24 +659,30 @@ class AmplModel(NLPModel):
             :cy:     complementarity for general constraints
             :xz:     complementarity for bound constraints.
         """
-        pFeas = self.primal_feasibility(x, c=c)
-        dFeas = self.dual_feasibility(x, y, z, g=g, J=J)
-        cy, xz = self.complementarity(x, y, z, c=c)
-        return (pFeas, dFeas, cy, xz)
-
-
-    def kkt(self, x, y, z, c=None, g=None, J=None):
         # Shortcuts.
-        m = self.m ; nrC = self.nrangeC
+        m = self.m ; nrC = self.nrangeC ; lC = self.lowerC ; uC = self.upperC
 
-        # Check multipliers sign.
-        not_eC = [i for i in range(m+nrC) if i not in eC]
-        if len(np.where(y[not_eC] < 0)[0]) > 0:
-            raise ValueError, 'Multipliers for inequalities must be >= 0.'
-        if not z >= 0:
-            raise ValueError, 'Multipliers for bounds must be >= 0.'
+        check = kwargs.get('check', True)
+        all_pos = kwargs.get('all_pos', True)
 
-        (pFeas, dFeas, cy, xz) = self.kkt_residuals(x, y, z, c=c, g=g, J=J)
+        if check:
+            # Check multipliers sign.
+            if all_pos:
+                not_eC = [i for i in range(m+nrC) if i not in eC]
+                wrong_sign = len(np.where(y[not_eC] < 0)[0]) > 0
+            else:
+                lC_wrong = len(np.where(y[lC] < 0)[0]) > 0
+                uC_wrong = len(np.where(y[uC] > 0)[0]) > 0
+                wrong_sign = lC_wrong or uC_wrong
+            if wrong_sign:
+                raise ValueError, 'Multipliers for inequalities must be >= 0.'
+            if not z >= 0:
+                raise ValueError, 'Multipliers for bounds must be >= 0.'
+
+        pFeas = self.primal_feasibility(x, c=c)
+        dFeas = self.dual_feasibility(x, y, z, g=g, J=J, **kwargs)
+        cy, xz = self.complementarity(x, y, z, c=c)
+        return KKTresidual(dFeas, pFeas[:m+nrC], pFeas[m+nrC:], cy, xz)
 
 
 ###############################################################################
