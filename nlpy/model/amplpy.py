@@ -680,7 +680,8 @@ class AmplModel(NLPModel):
 
 
     def compute_scaling_obj(self, x=None, g_max=1.0e2, reset=False):
-        """Compute objective scaling.
+        """
+        Compute objective scaling.
 
         :parameters:
 
@@ -734,8 +735,8 @@ class AmplModel(NLPModel):
         # Remove scaling if requested
         if reset:
             self.scale_con = None
-            self.Lcon = self.model.get_Lcon()        # lower bounds on constraints
-            self.Ucon = self.model.get_Ucon()        # upper bounds on constraints
+            self.Lcon = self.model.get_Lcon()  # lower bounds on constraints
+            self.Ucon = self.model.get_Ucon()  # upper bounds on constraints
             return
 
         # Quick return if the problem is already scaled
