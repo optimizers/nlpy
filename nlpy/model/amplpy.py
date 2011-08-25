@@ -1153,10 +1153,9 @@ class AmplModel(NLPModel):
         """
         Determines whether problem is a linear programming problem.
         """
-        if self.nlo or self.nlc or self.nlnc:
-            return True
-        else:
+        if self.model.nlo or self.model.nlc or self.model.nlnc:
             return False
+        return True
 
 
     def set_x(self,x):
