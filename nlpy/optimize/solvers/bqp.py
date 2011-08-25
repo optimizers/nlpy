@@ -15,6 +15,7 @@ implemented is that of More and Toraldo described in
 from nlpy.krylov.pcg   import TruncatedCG
 from nlpy.krylov.linop import SimpleLinearOperator
 from nlpy.krylov.linop import SymmetricallyReducedLinearOperator as ReducedHessian
+from nlpy.tools import identical, where
 from nlpy.tools.exceptions import InfeasibleError, UserExitRequest
 import numpy as np
 import logging
@@ -22,25 +23,6 @@ import logging
 import pdb
 
 __docformat__ = 'restructuredtext'
-
-
-# Helper functions.
-def identical(a,b):
-    """
-    Check that two arrays or lists are identical. Must be cautious because
-    of Numpy's strange behavior:
-    >>> a = np.array([]) ; b = np.array([0])
-    >>> np.all(a==b)
-    True
-    """
-    if a.shape == b.shape:
-        return np.all(a==b)
-    return False
-
-
-def where(cond):
-    "Bypass Numpy's annoyances. Gee does someone need to write a proper Numpy!"
-    return np.where(cond)[0]
 
 
 class SufficientDecreaseCG(TruncatedCG):
