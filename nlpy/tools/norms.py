@@ -3,16 +3,24 @@ from numpy import infty
 from numpy.linalg import norm
 
 def norm1(x):
-    return norm(x,ord=1)
+    if len(x) > 0:
+        return norm(x,ord=1)
+    return 0.0
 
 def norm2(x):
-    return norm(x)
+    if len(x) > 0:
+        return norm(x)
+    return 0.0
 
 def normp(x,p):
-    return norm(x,ord=p)
+    if len(x) > 0:
+        return norm(x,ord=p)
+    return 0.0
 
 def norm_infty(x):
-    return norm(x,ord=infty)
+    if len(x) > 0:
+        return norm(x,ord=infty)
+    return 0.0
 
 def normest(A, tol=1.0e-6, maxits=100):
     """
@@ -57,7 +65,7 @@ if __name__ == '__main__':
     from nlpy.krylov.linop import SimpleLinearOperator as aslinop
 
     tol = 1e-6 ; maxits = 100
-    
+
     print "Unsymmetric matrices"
     for n in xrange(1,100):
         m = n/2 + 1
