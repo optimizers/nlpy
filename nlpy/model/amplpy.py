@@ -670,7 +670,7 @@ class AmplModel(NLPModel):
                 wrong_sign = lC_wrong or uC_wrong
             if wrong_sign:
                 raise ValueError, 'Multipliers for inequalities must be >= 0.'
-            if not z >= 0:
+            if not np.all(z >= 0):
                 raise ValueError, 'Multipliers for bounds must be >= 0.'
 
         pFeas = self.primal_feasibility(x, c=c)
