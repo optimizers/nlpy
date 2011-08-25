@@ -313,7 +313,7 @@ cdef class ampl:
         lin = range(self.nlc + self.nlnc, self.n_con)
         return (lin, nln, net)
 
-    def eval_obj(self, ndarray[np.double_t] x):
+    def eval_obj(self, ndarray[np.double_t] x, obj_num):
         cdef:
             int nerror
             double val
@@ -321,7 +321,7 @@ cdef class ampl:
         # Ensure contiguous input.
         if not PyArray_ISCARRAY(x): x = x.copy()
 
-        val = ampl_objval(self.asl, 0, <double*>x.data, &nerror)
+        val = ampl_objval(self.asl, obj_num, <double*>x.data, &nerror)
         if nerror:
             raise ValueError
         return val

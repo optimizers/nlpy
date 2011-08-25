@@ -779,13 +779,18 @@ class AmplModel(NLPModel):
 
     # The following methods mirror the module functions defined in _amplpy.c.
 
-    def obj(self, x):
+    def obj(self, x, obj_num=0):
         """
         Evaluate objective function value at x.
         Returns a floating-point number. This method changes the sign of the
         objective value if the problem is a maximization problem.
         """
-        f = self.model.eval_obj(x)
+
+        # AMPL doesn't exactly exit gracefully if obj_num is out of range.
+        if obj_num < 0 or obj_num >= self.model.n_obj:
+            raise ValueError, 'Objective number is out of range.'
+
+        f = self.model.eval_obj(x, obj_num)
         self.feval += 1
         if self.scale_obj:    f *= self.scale_obj
         if not self.minimize: f *= -1
