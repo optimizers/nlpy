@@ -89,9 +89,9 @@ class NLPModel:
 
     def __init__(self, n=0, m=0, name='Generic', **kwargs):
 
-        self.n = n          # Number of variables
-        self.m = m          # Number of general constraints
-        self.name = name    # Problem name
+        self.nvar = self.n = n   # Number of variables
+        self.ncon = self.m = m   # Number of general constraints
+        self.name = name         # Problem name
 
         # Initialize local value for Infinity
         self.Infinity = 1e+20
