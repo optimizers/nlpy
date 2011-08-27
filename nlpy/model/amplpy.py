@@ -538,6 +538,7 @@ class AmplModel(NLPModel):
         b[nlB:nlB+nuB] = Uvar[uB] - x[uB]
         b[nlB+nuB:nlB+nuB+nrB] = x[rB] - Lvar[rB]
         b[nlB+nuB+nrB:] = Uvar[rB] - x[rB]
+
         return b
 
 
@@ -558,6 +559,7 @@ class AmplModel(NLPModel):
         pFeas[m:m+nrC] = np.maximum(0, pFeas[m:m+nrC])
         pFeas[m+nrC:] = -self.get_bounds(x)
         pFeas[m+nrC:] = np.maximum(0, pFeas[m+nrC:])
+
         return pFeas
 
 
@@ -618,13 +620,11 @@ class AmplModel(NLPModel):
         # Shortcuts.
         m = self.m ; eC = self.equalC
         lC = self.lowerC ; uC = self.upperC ; rC = self.rangeC
-        nrC = self.nrangeC
-        lB  = self.lowerB  ; uB  = self.upperB  ; rB  = self.rangeB
-        nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
-        nB = self.nbounds ; Lvar = self.Lvar ; Uvar = self.Uvar
+        nlC = self.nlowerC ; nuC = self.nupperC ; nrC = self.nrangeC
 
+        not_eC = lC+uC+rC + range(nlC+nuC+nrC,nlC+nuC+nrC+nrC)
         if c is None: c = self.consPos(x)
-        not_eC = [i for i in range(m+nrC) if i not in eC]
+
         cy = c[not_eC] * y[not_eC]
         xz = self.get_bounds(x) * z
 
@@ -638,13 +638,10 @@ class AmplModel(NLPModel):
         specified below are passed directly to :meth:`primal_feasibility`,
         :meth:`dual_feasibility` and :meth:`complementarity`.
 
+        If `J` is specified, it should conform to :meth:`jacPos` and the
+        multipliers `y` should be consistent with the Jacobian.
+
         :keywords:
-            :all_pos:    if `True`, indicates that the multipliers `y` conform
-                         to :meth:`jacPos`. If `False`, `y` conforms to
-                         :meth:`jac`. In all cases, `y` should be appropriately
-                         ordered. If the positional argument `J` is specified,
-                         it must be consistent with the layout of `y`.
-                         (default: `True`)
             :check:  check sign of multipliers.
 
         :returns:
@@ -655,27 +652,21 @@ class AmplModel(NLPModel):
         """
         # Shortcuts.
         m = self.m ; nrC = self.nrangeC ; lC = self.lowerC ; uC = self.upperC
+        eC = self.equalC
 
         check = kwargs.get('check', True)
-        all_pos = kwargs.get('all_pos', True)
 
         if check:
-            # Check multipliers sign.
-            if all_pos:
-                not_eC = [i for i in range(m+nrC) if i not in eC]
-                wrong_sign = len(np.where(y[not_eC] < 0)[0]) > 0
-            else:
-                lC_wrong = len(np.where(y[lC] < 0)[0]) > 0
-                uC_wrong = len(np.where(y[uC] > 0)[0]) > 0
-                wrong_sign = lC_wrong or uC_wrong
-            if wrong_sign:
+            not_eC = [i for i in range(m+nrC) if i not in eC]
+            if len(np.where(y[not_eC] < 0)[0]) > 0:
                 raise ValueError, 'Multipliers for inequalities must be >= 0.'
             if not np.all(z >= 0):
                 raise ValueError, 'Multipliers for bounds must be >= 0.'
 
         pFeas = self.primal_feasibility(x, c=c)
-        dFeas = self.dual_feasibility(x, y, z, g=g, J=J, **kwargs)
+        dFeas = self.dual_feasibility(x, y, z, g=g, J=J)
         cy, xz = self.complementarity(x, y, z, c=c)
+
         return KKTresidual(dFeas, pFeas[:m+nrC], pFeas[m+nrC:], cy, xz)
 
 
