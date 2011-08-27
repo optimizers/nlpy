@@ -105,8 +105,8 @@ class AmplModel(NLPModel):
 
         # Get basic info on problem
         self.minimize = (model.objtype == 0)
-        self.n    = model.n_var
-        self.m    = model.n_con
+        self.nvar = self.n  = model.n_var
+        self.ncon = self.m  = model.n_con
         self.x0   = model.get_x0()          # initial primal estimate
         self.pi0  = model.get_pi0()         # initial dual estimate
         self.Lvar = model.get_Lvar()        # lower bounds on variables
