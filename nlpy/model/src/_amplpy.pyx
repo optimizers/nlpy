@@ -315,7 +315,7 @@ cdef class ampl:
 
     def eval_obj(self, ndarray[np.double_t] x, obj_num):
         cdef:
-            int nerror
+            int nerror = 0
             double val
 
         # Ensure contiguous input.
@@ -374,7 +374,7 @@ cdef class ampl:
 
     def eval_ci(self, int i, ndarray[np.double_t] x):
         """Evaluate ith constraint."""
-        cdef double ci
+        cdef double ci = 0.0
         if i < 0 or i >= self.n_con:
             raise ValueError('Got i = %d; exected 0 <= i < %d' %
                              (i, self.n_con))
