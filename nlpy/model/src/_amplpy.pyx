@@ -672,7 +672,7 @@ cdef class ampl:
         # of x, or to call Set_x again with an updated value of x.
 
         # Ensure contiguous input.
-        if not PyArray_ISCARRAY(g): g = g.copy()
+        if not PyArray_ISCARRAY(x): x = x.copy()
 
         ampl_xknown(self.asl, <double*>x.data)
 
