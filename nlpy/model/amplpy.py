@@ -781,19 +781,24 @@ class AmplModel(NLPModel):
         if obj_num < 0 or obj_num >= self.model.n_obj:
             raise ValueError, 'Objective number is out of range.'
 
-        f = self.model.eval_obj(x, obj_num)
+        f = self.model.eval_obj(x)
         self.feval += 1
         if self.scale_obj:    f *= self.scale_obj
         if not self.minimize: f *= -1
         return f
 
 
-    def grad(self, x):
+    def grad(self, x, obj_num=0):
         """
         Evaluate objective gradient at x.
         Returns a Numpy array. This method changes the sign of the objective
         gradient if the problem is a maximization problem.
         """
+
+        # AMPL doesn't exactly exit gracefully if obj_num is out of range.
+        if obj_num < 0 or obj_num >= self.model.n_obj:
+            raise ValueError, 'Objective number is out of range.'
+
         g = self.model.grad_obj(x)
         self.geval += 1
         if self.scale_obj:    g *= self.scale_obj
@@ -1050,7 +1055,7 @@ class AmplModel(NLPModel):
         return J
 
 
-    def hess(self, x, z=None, *args, **kwargs):
+    def hess(self, x, z=None, obj_num=0, *args, **kwargs):
         """
         Evaluate sparse lower triangular Hessian at (x, z).
         Returns a sparse matrix in format self.mformat
@@ -1062,12 +1067,13 @@ class AmplModel(NLPModel):
         if z is None: z = np.zeros(self.m)
         if len(args) > 0:
             if type(args[0]).__name__ == 'll_mat':
-                H = self.model.eval_H(x, z, self.mformat, obj_weight, args[0],
-                                      store_zeros)
+                H = self.model.eval_H(x, z, self.mformat, obj_weight,
+                                      args[0], store_zeros)
             else:
                 return None
         else:
-            H = self.model.eval_H(x, z, self.mformat, obj_weight, store_zeros)
+            H = self.model.eval_H(x, z, self.mformat, obj_weight,
+                                  store_zeros)
         self.Heval += 1
 
         if self.scale_obj:
