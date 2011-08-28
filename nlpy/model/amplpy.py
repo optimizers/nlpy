@@ -1077,15 +1077,15 @@ class AmplModel(NLPModel):
         self.Heval += 1
 
         if self.scale_obj:
-            if self.mformat == 0: # compressed sparse
+            if self.mformat == 1: # compressed sparse
                 H[0] *= self.scale_obj
             else:
-                H *= self.scale_obj
+                H.scale(self.scale_obj)
         if not self.minimize:
-            if self.mformat == 0: # compressed sparse
+            if self.mformat == 1: # compressed sparse
                 H[0] *= -1
             else:
-                H *= -1
+                H.scale(-1)
         return H
 
 
