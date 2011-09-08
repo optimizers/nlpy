@@ -712,7 +712,7 @@ class AmplModel(NLPModel):
 
         return gNorm
 
-    def compute_scaling_con(self, x=None, g_max=1.0e2, reset=False):
+    def compute_scaling_cons(self, x=None, g_max=1.0e2, reset=False):
         """
         Compute constraint scaling.
 
