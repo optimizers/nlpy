@@ -26,7 +26,7 @@ def parse_cmdline( arglist ):
 
     return fname[0]
 
-ProblemName = parse_cmdline(sys.argv[1:]) 
+ProblemName = parse_cmdline(sys.argv[1:])
 
 # Create a model
 print 'Problem', ProblemName
@@ -89,12 +89,12 @@ for i in range(max_m):
 
 print
 print ' Testing matrix-vector product:'
-print 
+print
 
 e = numpy.ones( n, 'd' )
 e[0] = 2
 e[1] = -1
-He = nlp.hprod( pi0, e )
+He = nlp.hprod(x0, pi0, e)
 print 'He = ', He[:max_n]
 
 
