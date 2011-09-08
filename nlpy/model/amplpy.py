@@ -191,7 +191,7 @@ class AmplModel(NLPModel):
         self.stop_c = 1.0e-5    # Complementarty
         self.stop_p = 1.0e-5    # Primal feasibility
 
-        # Initializze scaling attributes
+        # Initialize scaling attributes
         self.scale_obj = None   # Objective scaling
         self.scale_con = None   # Constraint scaling
 
