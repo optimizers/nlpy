@@ -229,6 +229,15 @@ class NLPModel:
         self.Jprod = 0
         return None
 
+    def get_stopping_tolerances(self):
+        return (self.stop_d, self.stop_p, self.stop_c)
+
+    def set_stopping_tolerances(self, stop_d, stop_p, stop_c):
+        self.stop_d = stop_d
+        self.stop_p = stop_p
+        self.stop_c = stop_c
+        return
+
     # Evaluate optimality residuals
     def OptimalityResiduals(self, x, z, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
