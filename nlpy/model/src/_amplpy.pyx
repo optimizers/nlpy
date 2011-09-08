@@ -313,7 +313,7 @@ cdef class ampl:
         lin = range(self.nlc + self.nlnc, self.n_con)
         return (lin, nln, net)
 
-    def eval_obj(self, ndarray[np.double_t] x, obj_num=0):
+    def eval_obj(self, ndarray[np.double_t] x, int obj_num=0):
         cdef:
             int nerror = 0
             double val
