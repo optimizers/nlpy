@@ -5,7 +5,7 @@
 import numpy as np
 
 
-class KKTresidual:
+class KKTresidual(object):
     """
     A generic class to package KKT residuals and corresponding scalings.
     """
@@ -47,7 +47,7 @@ class KKTresidual:
         return
 
 
-class NLPModel:
+class NLPModel(object):
     """
     Instances of class NLPModel represent an abstract nonlinear optimization
     problem. It features methods to evaluate the objective and constraint
