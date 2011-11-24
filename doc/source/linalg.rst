@@ -19,8 +19,6 @@ The :mod:`scaling` Module
 .. todo:: Write Python wrapper.
 
 
-.. _sils-section:
-
 -------------------------------------------------
 Direct Solution of Symmetric Systems of Equations
 -------------------------------------------------
@@ -28,7 +26,9 @@ Direct Solution of Symmetric Systems of Equations
 The :mod:`sils` Module
 ======================
 
-.. automodule:: sils
+.. _sils-section:
+
+.. automodule:: nlpy.linalg.sils
 
 .. autoclass:: Sils
    :show-inheritance:
@@ -40,7 +40,7 @@ The :mod:`sils` Module
 The :mod:`pyma27` Module
 ========================
 
-.. automodule:: pyma27
+.. automodule:: nlpy.linalg.pyma27
 
 .. autoclass:: PyMa27Context
    :show-inheritance:
@@ -52,7 +52,7 @@ The :mod:`pyma27` Module
 The :mod:`pyma57` Module
 ========================
 
-.. automodule:: pyma57
+.. automodule:: nlpy.linalg.pyma57
 
 .. autoclass:: PyMa57Context
    :show-inheritance:
