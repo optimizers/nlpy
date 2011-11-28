@@ -26,8 +26,7 @@ Subroutine PyGLTR(N, f, G, VECTOR, radius, stop_relative, stop_absolute, &
   ! Initialization
   !  initial /= 0 in the initial call only
   If( initial /= 0 ) Then
-     Call GLTR_initialize(Data, control)
-     !Call GLTR_initialize(Data, control, info)   ! For GALAHAD-dev
+     Call GLTR_initialize(Data, control, info)
 
      ! Non-default values come here
      control%out = 6
