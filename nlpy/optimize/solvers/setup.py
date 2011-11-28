@@ -10,7 +10,8 @@ def configuration(parent_package='',top_path=None):
                         'nlpy_lbfgs.py',
                         'nlpy_ldfp.py',
                         'nlpy_reglp.py',
-                        'nlpy_regqp.py'])
+                        'nlpy_regqp.py',
+                        'nlpy_funnel.py'])
 
     config.make_config_py()
     return config
