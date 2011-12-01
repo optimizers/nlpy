@@ -104,9 +104,13 @@ class RegLPInteriorPointSolver:
             self.t_scale = cputime()
             self.scale()
             self.t_scale = cputime() - self.t_scale
+        else:
+            # scale() sets self.normA to the Frobenius norm of A as a
+            # by-product. Set it manually here if scaling is not enabled.
+            self.normA = self.A.matrix.norm('fro')
 
-        self.normb  = norm2(self.b)
-        self.normc  = norm2(self.c)
+        self.normb  = norm_infty(self.b) #norm2(self.b)
+        self.normc  = norm_infty(self.c) #norm2(self.c)
         self.normbc = 1 + max(self.normb, self.normc)
 
         # Initialize augmented matrix
@@ -166,6 +170,7 @@ class RegLPInteriorPointSolver:
         w('Constant term in objective: %8.2e\n' % self.c0)
         w('Cost vector norm: %8.2e\n' % self.normc)
         w('Right-hand side norm: %8.2e\n' % self.normb)
+        w('Jacobian norm: %8.2e\n' % self.normA)
         w('Initial primal regularization: %8.2e\n' % self.regpr)
         w('Initial dual   regularization: %8.2e\n' % self.regdu)
         if self.prob_scaled:
@@ -242,6 +247,7 @@ class RegLPInteriorPointSolver:
 
         # Overwrite A with scaled values.
         self.A.put(values,irow,jcol)
+        self.normA = norm2(values)   # Frobenius norm of scaled A.
 
         # Save row and column scaling.
         self.row_scale = row_scale
@@ -356,19 +362,14 @@ class RegLPInteriorPointSolver:
             mu = sz/ns
 
             # Compute residual norms and scaled residual norms.
-            # We don't need to keep both the scaled and unscaled residuals
-            # store.
-            #pResid = norm_infty(pFeas + regdu * r)/(1+self.normc)
-            #dResid = norm_infty(dFeas - regpr * q)/(1+self.normb)
-            pResid = norm2(pFeas) ; spResid = pResid/(1+self.normc)
+            pResid = norm2(pFeas) ; spResid = pResid/(1+self.normb+self.normA)
             cResid = norm2(comp)  ; scResid = cResid/self.normbc
-            dResid = norm2(dFeas) ; sdResid = dResid/(1+self.normb)
+            dResid = norm2(dFeas) ; sdResid = dResid/(1+self.normc+self.normA)
 
             # Compute relative duality gap.
             cx = np.dot(c,x[:on])
             by = np.dot(b,y)
             rgap  = cx - by
-            #rgap += regdu * (rNorm**2 + np.dot(r,y))
             rgap  = abs(rgap) / (1 + abs(cx))
             rgap2 = mu /(1 + abs(cx))
 

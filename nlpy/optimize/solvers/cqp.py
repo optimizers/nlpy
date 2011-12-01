@@ -107,8 +107,10 @@ class RegQPInteriorPointSolver:
             self.t_scale = cputime() - self.t_scale
         else:
             # self.scale() sets self.normQ to the Frobenius norm of Q
-            # as a by-product. If we're not scaling, set normQ manually.
+            # and self.normA to the Frobenius norm of A as a by-product.
+            # If we're not scaling, set normQ and normA manually.
             self.normQ = self.Q.matrix.norm('fro')
+            self.normA = self.A.matrix.norm('fro')
 
         self.normb  = norm_infty(self.b)
         self.normc  = norm_infty(self.c)
@@ -176,6 +178,8 @@ class RegQPInteriorPointSolver:
         w('Constant term in objective: %8.2e\n' % self.c0)
         w('Cost vector norm: %8.2e\n' % self.normc)
         w('Right-hand side norm: %8.2e\n' % self.normb)
+        w('Hessian norm: %8.2e\n' % self.normQ)
+        w('Jacobian norm: %8.2e\n' % self.normA)
         w('Initial primal regularization: %8.2e\n' % self.regpr)
         w('Initial dual   regularization: %8.2e\n' % self.regdu)
         if self.prob_scaled:
@@ -254,13 +258,14 @@ class RegQPInteriorPointSolver:
 
         # Overwrite A with scaled values.
         self.A.put(values,irow,jcol)
+        self.normA = norm2(values)   # Frobenius norm of A.
 
         # Apply scaling to Hessian matrix Q.
         (values,irow,jcol) = self.Q.find()
-        self.normQ = norm2(values)  # Frobenius norm of Q
         values /= col_scale[irow]
         values /= col_scale[jcol]
         self.Q.put(values,irow,jcol)
+        self.normQ = norm2(values)  # Frobenius norm of Q
 
         # Save row and column scaling.
         self.row_scale = row_scale
@@ -387,10 +392,12 @@ class RegQPInteriorPointSolver:
             # Compute residual norms and scaled residual norms.
             #pResid = norm_infty(pFeas + regdu * r)/(1+self.normc+self.normQ)
             #dResid = norm_infty(dFeas - regpr * q)/(1+self.normb+self.normQ)
-            pResid = norm2(pFeas) ; spResid = pResid/(1+self.normc+self.normQ)
-            dResid = norm2(dFeas) ; sdResid = dResid/(1+self.normb+self.normQ)
+            pResid = norm2(pFeas)
+            spResid = pResid/(1+self.normb+self.normA+self.normQ)
+            dResid = norm2(dFeas)
+            sdResid = dResid/(1+self.normc+self.normA+self.normQ)
             if ns > 0:
-                cResid = norm_infty(comp)/(self.normbc+self.normQ)
+                cResid = norm_infty(comp)/(self.normbc+self.normA+self.normQ)
             else:
                 cResid = 0.0
 
@@ -400,8 +407,8 @@ class RegQPInteriorPointSolver:
             by = np.dot(b,y)
             rgap  = cx + xQx - by
             #rgap += regdu * (rNorm**2 + np.dot(r,y))
-            rgap  = abs(rgap) / (1 + abs(cx) + self.normQ)
-            rgap2 = mu / (1 + abs(cx) + self.normQ)
+            rgap  = abs(rgap) / (1 + abs(cx) + self.normA + self.normQ)
+            rgap2 = mu / (1 + abs(cx) + self.normA + self.normQ)
 
             # Compute overall residual for stopping condition.
             kktResid = max(spResid, sdResid, rgap2)
@@ -434,7 +441,7 @@ class RegQPInteriorPointSolver:
 
                 # Check for infeasible problem.
                 if check_infeasible:
-                    if mu < 1.0e-8 * mu0 and rho_q > 1.0e+2 * rho_q_min:
+                    if mu < 1.0e-8 * mu0 and rho_q > 1.0e+4 * rho_q_min:
                         pr_infeas_count += 1
                         if pr_infeas_count > 1 and pr_last_iter == iter-1:
                             if pr_infeas_count > 6:
@@ -444,7 +451,7 @@ class RegQPInteriorPointSolver:
                                 continue
                         pr_last_iter = iter
 
-                    if mu < 1.0e-8 * mu0 and del_r > 1.0e+2 * del_r_min:
+                    if mu < 1.0e-8 * mu0 and del_r > 1.0e+4 * del_r_min:
                         du_infeas_count += 1
                         if du_infeas_count > 1 and du_last_iter == iter-1:
                             if du_infeas_count > 6:
