@@ -145,7 +145,9 @@ class TrunkFramework:
             cgtol = -1.0
         stoptol = max(self.abstol, self.reltol * self.g0)
         step_status = None
-        exitOptimal = exitIter = exitUser = False
+        exitIter = exitUser = False
+        exitOptimal = self.gnorm <= stoptol
+        status = ''
 
         # Initialize non-monotonicity parameters.
         if not self.monotone:
@@ -285,7 +287,7 @@ class TrunkFramework:
                           self.gnorm, cgiter, rho,
                           self.TR.Delta, pstatus))
 
-            exitOptimal = self.gnorm < stoptol
+            exitOptimal = self.gnorm <= stoptol
             exitIter    = self.iter > self.maxiter
             exitUser    = status == 'usr'
 
