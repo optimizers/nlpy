@@ -42,7 +42,7 @@ extensions += ['sphinx.ext.todo']
 extensions += ['ipython_console_highlighting']
 extensions += ['inheritance_diagram']
 extensions += ['mathjax']
-mathjax_path = 'http://mathjax.connectmv.com/MathJax.js'
+mathjax_path = 'https://d3eoax9i5htok0.cloudfront.net/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'
 
 latex_preamble = '\\usepackage{nlpy}'
 latex_elements = {
