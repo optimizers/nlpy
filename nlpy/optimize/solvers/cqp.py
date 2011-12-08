@@ -116,16 +116,8 @@ class RegQPInteriorPointSolver:
         self.normc  = norm_infty(self.c)
         self.normbc = 1 + max(self.normb, self.normc)
 
-        # Initialize augmented matrix
-        self.H = PysparseMatrix(size=n+m,
-                                sizeHint=n+m+self.A.nnz+self.Q.nnz,
-                                symmetric=True)
-
-        # The (1,1) block will always be Q (save for its diagonal).
-        self.H[:on,:on] = -self.Q
-
-        # The (2,1) block will always be A. We store it now once and for all.
-        self.H[n:,:n] = self.A
+        # Initialize augmented matrix.
+        self.H = self.initialize_kkt_matrix()
 
         # It will be more efficient to keep the diagonal of Q around.
         self.diagQ = self.Q.take(range(qp.original_n))
@@ -156,6 +148,20 @@ class RegQPInteriorPointSolver:
         if self.verbose: self.display_stats()
 
         return
+
+    def initialize_kkt_matrix(self):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        H = PysparseMatrix(size=n+m,
+                           sizeHint=n+m+self.A.nnz+self.Q.nnz,
+                           symmetric=True)
+
+        # The (1,1) block will always be Q (save for its diagonal).
+        H[:on,:on] = -self.Q
+
+        # The (2,1) block will always be A. We store it now once and for all.
+        H[n:,:n] = self.A
+        return H
 
     def display_stats(self):
         """
@@ -351,7 +357,7 @@ class RegQPInteriorPointSolver:
         regpr_min = self.regpr_min ; regdu_min = self.regdu_min
 
         # Obtain initial point from Mehrotra's heuristic.
-        (x,y,z) = self.set_initial_guess(self.qp, **kwargs)
+        (x,y,z) = self.set_initial_guess(**kwargs)
 
         # Slack variables are the trailing variables in x.
         s = x[on:] ; ns = self.nSlacks
@@ -441,7 +447,7 @@ class RegQPInteriorPointSolver:
 
                 # Check for infeasible problem.
                 if check_infeasible:
-                    if mu < 1.0e-8 * mu0 and rho_q > 1.0e+4 * rho_q_min:
+                    if mu < tolerance/100 * mu0 and rho_q > 1./tolerance/100 * rho_q_min:
                         pr_infeas_count += 1
                         if pr_infeas_count > 1 and pr_last_iter == iter-1:
                             if pr_infeas_count > 6:
@@ -451,7 +457,7 @@ class RegQPInteriorPointSolver:
                                 continue
                         pr_last_iter = iter
 
-                    if mu < 1.0e-8 * mu0 and del_r > 1.0e+4 * del_r_min:
+                    if mu < tolerance/100 * mu0 and del_r > 1./tolerance/100 * del_r_min:
                         du_infeas_count += 1
                         if du_infeas_count > 1 and du_last_iter == iter-1:
                             if du_infeas_count > 6:
@@ -489,12 +495,12 @@ class RegQPInteriorPointSolver:
 
             # Solve the linear system
             #
-            # [ -(Q+pI)      0             A1' ] [∆x] = [c + Q x - A1' y       ]
-            # [  0      -(S^{-1} Z + pI)   A2' ] [∆s]   [  - A2' y - µ S^{-1} e]
-            # [  A1          A2            dI  ] [∆y]   [ b - A1 x - A2 s      ]
+            # [ -(Q+ρI)      0             A1' ] [∆x] = [c + Q x - A1' y       ]
+            # [  0      -(S^{-1} Z + ρI)   A2' ] [∆s]   [  - A2' y - µ S^{-1} e]
+            # [  A1          A2            δI  ] [∆y]   [ b - A1 x - A2 s      ]
             #
-            # where s are the slack variables, p is the primal regularization
-            # parameter, d is the dual regularization parameter, and
+            # where s are the slack variables, ρ is the primal regularization
+            # parameter, δ is the dual regularization parameter, and
             # A = [ A1  A2 ]  where the columns of A1 correspond to the original
             # problem variables and those of A2 correspond to slack variables.
             #
@@ -505,9 +511,10 @@ class RegQPInteriorPointSolver:
             nb_bump = 0
             while not factorized and nb_bump < 5:
 
-                H.put(-diagQ - regpr,    range(on))
-                H.put(-z/s   - regpr,  range(on,n))
-                H.put(regdu,          range(n,n+m))
+                self.update_linear_system(s, z, regpr, regdu)
+                #H.put(-diagQ - regpr,    range(on))
+                #H.put(-z/s   - regpr,  range(on,n))
+                #H.put(regdu,          range(n,n+m))
                 self.LBL.factorize(H)
                 factorized = True
 
@@ -656,7 +663,15 @@ class RegQPInteriorPointSolver:
 
         return
 
-    def set_initial_guess(self, qp, **kwargs):
+    def update_linear_system(self, s, z, regpr, regdu, **kwargs):
+        qp = self.qp ; n = qp.n ; m = qp.m ; on = qp.original_n
+        diagQ = self.diagQ
+        self.H.put(-diagQ - regpr,    range(on))
+        self.H.put(-z/s   - regpr,  range(on,n))
+        self.H.put(regdu,          range(n,n+m))
+        return
+
+    def set_initial_guess(self, **kwargs):
         """
         Compute initial guess according the Mehrotra's heuristic. Initial values
         of x are computed as the solution to the least-squares problem::
@@ -687,6 +702,7 @@ class RegQPInteriorPointSolver:
         The values of s and z are subsequently adjusted to ensure they are
         positive. See [Methrotra, 1992] for details.
         """
+        qp = self.qp
         n = qp.n ; m = qp.m ; ns = self.nSlacks ; on = qp.original_n
 
         # Set up augmented system matrix and factorize it.
