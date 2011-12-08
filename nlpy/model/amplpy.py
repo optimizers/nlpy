@@ -81,6 +81,10 @@ class AmplModel(NLPModel):
     If only the `.mod` file is available, set the positional parameter
     `neednl` to `True` so AMPL generates the `nl` file, as in
     `AmplModel('elec.mod', data='elec.dat', neednl=True)`.
+
+    Among important attributes of this class are :attr:`nvar`, the number of
+    variables, :attr:`ncon`, the number of constraints, and :attr:`nbounds`,
+    the number of variables subject to at least one bound constraint.
     """
 
     def __init__(self, stub, **kwargs):

@@ -12,13 +12,13 @@ class KKTresidual(object):
     def __init__(self, dFeas, pFeas, bFeas, gComp, bComp, **kwargs):
         """
         :parameters:
-            dFeas: dual feasibility residual
-            pFeas: primal feasibility residual, taking into account
-                   constraints that are not bound constraints,
-            bFeas: primal feasibility with respect to bounds,
-            gComp: complementarity residual with respect to constraints
-                   that are not bound constraints,
-            bComp: complementarity residual with respect to bounds.
+            :dFeas: dual feasibility residual
+            :pFeas: primal feasibility residual, taking into account
+                    constraints that are not bound constraints,
+            :bFeas: primal feasibility with respect to bounds,
+            :gComp: complementarity residual with respect to constraints
+                    that are not bound constraints,
+            :bComp: complementarity residual with respect to bounds.
         """
         self.dFeas = dFeas
         self.pFeas = pFeas
