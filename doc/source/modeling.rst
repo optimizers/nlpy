@@ -5,28 +5,20 @@
 Modeling in NLPy
 ================
 
-.. _amplpy-section:
+.. _nlp:
 
-------------------------------------------
-Using Models in the AMPL Modeling Language
-------------------------------------------
+The general problem consists in minimizing an objective :math:`f(x)` subject to
+general constraints and bounds:
 
-The :mod:`amplpy` Module
-========================
+.. math::
 
-.. automodule:: amplpy
+    c_i(x) = a_i,                 & \qquad i = 1, \ldots, m, \\
+    g_j^L \leq g_j(x) \leq g_j^U, & \qquad j = 1, \ldots, p, \\
+    x_k^L \leq x_k \leq x_k^U,    & \qquad k = 1, \ldots, n,
 
-.. autoclass:: AmplModel
-   :show-inheritance:
-   :members:
-   :undoc-members:
-
-
-Example
-=======
-
-.. literalinclude:: ../../examples/demo_amplpy.py
-   :linenos:
+where some or all lower bounds :math:`g_j^L` and :math:`x_k^L` may be equal to
+:math:`-\infty`, and some or all upper bounds :math:`g_j^U` and :math:`x_k^U`
+may be equal to :math:`+\infty`.
 
 
 .. _nlp-section:
@@ -51,6 +43,34 @@ Example
 
 .. todo:: Insert example.
 
+
+.. _amplpy-section:
+
+------------------------------------------
+Using Models in the AMPL Modeling Language
+------------------------------------------
+
+See the `AMPL home page <http://www.ampl.com>`_ for more information on the
+AMPL algebraic modeling language.
+
+The :mod:`amplpy` Module
+========================
+
+.. automodule:: amplpy
+
+.. autoclass:: AmplModel
+   :show-inheritance:
+   :members:
+   :undoc-members:
+
+
+Example
+=======
+
+.. literalinclude:: ../../examples/demo_amplpy.py
+   :linenos:
+
+
 .. _slacks-section:
 
 --------------------------------------
@@ -63,21 +83,8 @@ The :mod:`slacks` Module
 .. automodule:: slacks
 
 
-`SlackFramework` is a general framework for converting a nonlinear optimization
-problem to a form using slack variables.
-
-The initial problem consists in minimizing an objective :math:`f(x)` subject to
-the constraints
-
-.. math::
-
-    c_i(x) = a_i,  & \qquad i = 1, \ldots, m, \\
-    g_j^L \leq g_j(x) \leq g_j^U, & \qquad j = 1, \ldots, p, \\
-    x_k^L \leq x_k \leq x_k^U,    & \qquad k = 1, \ldots, n,
-
-where some or all lower bounds :math:`g_j^L` and :math:`x_k^L` may be equal to
-:math:`-\infty`, and some or all upper bounds :math:`g_j^U` and :math:`x_k^U`
-may be equal to :math:`+\infty`.
+`SlackFramework` is a general framework for converting the :ref:`general
+nonlinear optimization problem <nlp>` to a form using slack variables.
 
 The transformed problem is in the variables `x`, `s` and `t` and its
 constraints have the form
@@ -150,4 +157,5 @@ Example
 Inheritance Diagram
 ===================
 
-.. .. inheritance-diagram:: nlpy.model.slacks
+.. inheritance-diagram:: nlpy.model.slacks
+
