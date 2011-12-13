@@ -163,6 +163,19 @@ class RegQPInteriorPointSolver:
         H[n:,:n] = self.A
         return H
 
+    def initialize_rhs(self):
+        m, n = self.A.shape
+        return np.zeros(n+m)
+
+    def set_affine_scaling_rhs(self, rhs, pFeas, dFeas, s, z):
+        "Set rhs for affine-scaling step."
+        m, n = self.A.shape
+        on = self.qp.original_n
+        rhs[:n]    = -dFeas
+        rhs[on:n] += z
+        rhs[n:]    = -pFeas
+        return
+
     def display_stats(self):
         """
         Display vital statistics about the input problem.
@@ -365,10 +378,8 @@ class RegQPInteriorPointSolver:
         # Initialize steps in dual variables.
         dz = np.zeros(ns)
 
-        col_scale = np.empty(n)
-
         # Allocate room for right-hand side of linear systems.
-        rhs = np.zeros(n+m)
+        rhs = self.initialize_rhs()
         finished = False
         iter = 0
 
@@ -538,16 +549,18 @@ class RegQPInteriorPointSolver:
             if PredictorCorrector:
                 # Use Mehrotra predictor-corrector method.
                 # Compute affine-scaling step, i.e. with centering = 0.
-                rhs[:n]    = -dFeas
-                rhs[on:n] += z
-                rhs[n:]    = -pFeas
+                self.set_affine_scaling_rhs(rhs, pFeas, dFeas, s, z)
+                #rhs[:n]    = -dFeas
+                #rhs[on:n] += z
+                #rhs[n:]    = -pFeas
 
                 (step, nres, neig) = self.solveSystem(rhs)
 
                 # Recover dx and dz.
-                dx = step[:n]
-                ds = dx[on:]
-                dz = -z * (1 + ds/s)
+                dx, ds, dy, dz = self.get_affine_scaling_dxsyz(step, x, s, y, z)
+                #dx = step[:n]
+                #ds = dx[on:]
+                #dz = -z * (1 + ds/s)
 
                 # Compute largest allowed primal and dual stepsizes.
                 (alpha_p, ip) = self.maxStepLength(s, ds)
@@ -777,10 +790,18 @@ class RegQPInteriorPointSolver:
 
     def solveSystem(self, rhs, itref_threshold=1.0e-5, nitrefmax=5):
         self.LBL.solve(rhs)
-        #nr = norm2(self.LBL.residual)
         self.LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
         nr = norm2(self.LBL.residual)
         return (self.LBL.x, nr, self.LBL.neig)
+
+    def get_affine_scaling_dxsyz(self, step, x, s, y, z):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        dx = step[:n]
+        ds = dx[on:]
+        dy = step[n:]
+        dz = -z * (1 + ds/s)
+        return (dx, ds, dy, dz)
 
 
 class RegQPInteriorPointSolver29(RegQPInteriorPointSolver):
