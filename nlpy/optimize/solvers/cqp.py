@@ -5,7 +5,7 @@
 # The method uses the augmented system formulation. These systems
 # are solved using PyMa27 or PyMa57.
 #
-# D. Orban, Montreal 2009.
+# D. Orban, Montreal 2009-2011.
 
 from nlpy.model import SlackFramework
 try:                            # To solve augmented systems
@@ -23,8 +23,10 @@ import numpy as np
 from math import sqrt
 import sys
 
+import pdb
 
-class RegQPInteriorPointSolver:
+
+class RegQPInteriorPointSolver(object):
 
     def __init__(self, qp, **kwargs):
         """
