@@ -953,3 +953,99 @@ class RegQPInteriorPointSolver29(RegQPInteriorPointSolver):
         self.prob_scaled = False
 
         return
+
+
+class RegQPInteriorPointSolver3x3(RegQPInteriorPointSolver):
+    """
+    A variant of the regularized interior-point method based on the 3x3 block
+    system instead of the reduced 2x2 block system.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(RegQPInteriorPointSolver3x3, self).__init__(*args, **kwargs)
+
+    def initialize_kkt_matrix(self):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        H = PysparseMatrix(size=2*n+m-on,
+                           sizeHint=4*on+m+self.A.nnz+self.Q.nnz,
+                           symmetric=True)
+
+        # The (1,1) block will always be Q (save for its diagonal).
+        H[:on,:on] = -self.Q
+
+        # The (2,1) block will always be A. We store it now once and for all.
+        H[n:n+m,:n] = self.A
+        return H
+
+    def set_initial_guess_system(self):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        self.H.put(-self.diagQ - 1.0e-4, range(on))
+        self.H.put(-1.0, range(on,n))
+        self.H.put( 1.0e-4, range(n, n+m))
+        self.H.put( 1.0, range(n+m,2*n+m-on))
+        return
+
+    def set_initial_guess_rhs(self):
+        m, n = self.A.shape
+        rhs = self.initialize_rhs()
+        rhs[n:n+m] = self.b
+        return rhs
+
+    def update_initial_guess_rhs(self, rhs):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        rhs[:on] = self.c
+        rhs[on:] = 0.0
+        return
+
+    def initialize_rhs(self):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        return np.zeros(2*n+m-on)
+
+    def update_linear_system(self, s, z, regpr, regdu, **kwargs):
+        qp = self.qp ; n = qp.n ; m = qp.m ; on = qp.original_n
+        diagQ = self.diagQ
+        self.H.put(-diagQ - regpr, range(on))
+        self.H.put(-regpr,         range(on,n))
+        self.H.put( regdu,         range(n,n+m))
+        self.H.put( np.sqrt(z),    range(n+m,2*n+m-on), range(on,n))
+        self.H.put( s,             range(n+m,2*n+m-on))
+        return
+
+    def set_affine_scaling_rhs(self, rhs, pFeas, dFeas, s, z):
+        "Set rhs for affine-scaling step."
+        m, n = self.A.shape
+        on = self.qp.original_n
+        rhs[:n]    = -dFeas
+        rhs[n:n+m] = -pFeas
+        rhs[n+m:]  = -s * np.sqrt(z)
+        return
+
+    def get_affine_scaling_dxsyz(self, step, x, s, y, z):
+        return self.get_dxsyz(step, x, s, y, z, 0)
+
+    def update_corrector_rhs(self, rhs, s, z, comp):
+        m, n = self.A.shape
+        rhs[n+m:] = -comp/np.sqrt(z)
+        return
+
+    def update_long_step_rhs(self, rhs, pFeas, dFeas, comp, s):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        rhs[:n]    = -dFeas
+        #rhs[on:n] -=  z
+        rhs[n:n+m] = -pFeas
+        rhs[n+m:]  = -comp
+        return
+
+    def get_dxsyz(self, step, x, s, y, z, comp):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        dx = step[:n]
+        ds = step[on:n]
+        dy = step[n:n+m]
+        dz = np.sqrt(z) * step[n+m:]
+        return (dx, ds, dy, dz)
