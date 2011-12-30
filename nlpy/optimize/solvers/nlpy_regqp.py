@@ -3,6 +3,7 @@
 from nlpy import __version__
 from nlpy.model import SlackFramework
 from nlpy.optimize.solvers.cqp import RegQPInteriorPointSolver
+from nlpy.optimize.solvers.cqp import RegQPInteriorPointSolver3x3
 from nlpy.tools.norms import norm2
 from nlpy.tools.timing import cputime
 from optparse import OptionParser
@@ -33,6 +34,8 @@ parser.add_option("-d", "--regdu", action="store", type="float", default=None,
         dest="regdu", help="Specify initial dual regularization parameter")
 parser.add_option("-S", "--no-scale", action="store_true",
         dest="no_scale", default=False, help="Turn off problem scaling")
+parser.add_option("-3", "--3x3", action="store_true",
+        dest="sys3x3", default=False, help="Use 3x3 block linear system")
 parser.add_option("-l", "--long-step", action="store_true", default=False,
         dest="longstep", help="Use long-step method")
 parser.add_option("-f", "--assume-feasible", action="store_true",
@@ -43,6 +46,13 @@ parser.add_option("-V", "--verbose", action="store_true", default=False,
 
 # Parse command-line options
 (options, args) = parser.parse_args()
+
+# Decide which class to instantiate.
+if options.sys3x3:
+    print 'Brave man! Using 3x3 block system!'
+    Solver = RegQPInteriorPointSolver3x3
+else:
+    Solver = RegQPInteriorPointSolver
 
 opts_init = {}
 if options.regpr is not None:
@@ -75,11 +85,11 @@ for probname in args:
     #    continue
 
     # Pass problem to RegQP.
-    regqp = RegQPInteriorPointSolver(qp,
-                                     scale=not options.no_scale,
-                                     verbose=options.verbose,
-                                     **opts_init)
-    
+    regqp = Solver(qp,
+                   scale=not options.no_scale,
+                   verbose=options.verbose,
+                   **opts_init)
+
     regqp.solve(PredictorCorrector=not options.longstep,
                 check_infeasible=not options.assume_feasible,
                 **opts_solve)
