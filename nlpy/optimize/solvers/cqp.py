@@ -577,30 +577,31 @@ class RegQPInteriorPointSolver(object):
                 sigma = (muAff/mu)**3
 
                 # Incorporate predictor information for corrector step.
+                # Only update rhs[on:n]; the rest of the vector did not change.
                 comp += ds*dz
+                comp -= sigma * mu
+                self.update_corrector_rhs(rhs, s, z, comp)
+                #rhs[on:n] += comp/s - z
             else:
                 # Use long-step method: Compute centering parameter.
                 sigma = min(0.1, 100*mu)
+                comp -= sigma * mu
 
-            # Assemble right-hand side with centering information.
-            comp -= sigma * mu
-
-            if PredictorCorrector:
-                # Only update rhs[on:n]; the rest of the vector did not change.
-                rhs[on:n] += comp/s - z
-            else:
-                rhs[:n]    = -dFeas
-                rhs[on:n] += comp/s
-                rhs[n:]    = -pFeas
+                # Assemble rhs.
+                self.update_long_step_rhs(rhs, pFeas, dFeas, comp, s)
+                #rhs[:n]    = -dFeas
+                #rhs[on:n] += comp/s
+                #rhs[n:]    = -pFeas
 
             # Solve augmented system.
             (step, nres, neig) = self.solveSystem(rhs)
 
             # Recover step.
-            dx = step[:n]
-            ds = dx[on:]
-            dy = step[n:]
-            dz = -(comp + z*ds)/s
+            dx, ds, dy, dz = self.get_dxsyz(step, x, s, y, z, comp)
+            #dx = step[:n]
+            #ds = dx[on:]
+            #dy = step[n:]
+            #dz = -(comp + z*ds)/s
 
             normds = norm2(ds) ; normdy = norm2(dy) ; normdx = norm2(dx)
 
@@ -612,7 +613,7 @@ class RegQPInteriorPointSolver(object):
             tau = max(.9995, 1.0-mu)
 
             if PredictorCorrector:
-                # Compute actual stepsize using Mehrotra's heuristic
+                # Compute actual stepsize using Mehrotra's heuristic.
                 mult = 0.1
 
                 # ip=-1 if ds ≥ 0, and id=-1 if dz ≥ 0
@@ -682,14 +683,6 @@ class RegQPInteriorPointSolver(object):
 
         return
 
-    def update_linear_system(self, s, z, regpr, regdu, **kwargs):
-        qp = self.qp ; n = qp.n ; m = qp.m ; on = qp.original_n
-        diagQ = self.diagQ
-        self.H.put(-diagQ - regpr,    range(on))
-        self.H.put(-z/s   - regpr,  range(on,n))
-        self.H.put(regdu,          range(n,n+m))
-        return
-
     def set_initial_guess(self, **kwargs):
         """
         Compute initial guess according the Mehrotra's heuristic. Initial values
@@ -699,7 +692,7 @@ class RegQPInteriorPointSolver(object):
 
         which is also the solution to the augmented system::
 
-            [ 0   0   A1' ] [x]   [0]
+            [ Q   0   A1' ] [x]   [0]
             [ 0   I   A2' ] [s] = [0]
             [ A1  A2   0  ] [w]   [b].
 
@@ -710,7 +703,7 @@ class RegQPInteriorPointSolver(object):
 
         which can be computed as the solution to the augmented system::
 
-            [ 0   0   A1' ] [w]   [c]
+            [ Q   0   A1' ] [w]   [c]
             [ 0   I   A2' ] [z] = [0]
             [ A1  A2   0  ] [y]   [0].
 
@@ -725,27 +718,38 @@ class RegQPInteriorPointSolver(object):
         n = qp.n ; m = qp.m ; ns = self.nSlacks ; on = qp.original_n
 
         # Set up augmented system matrix and factorize it.
-        self.H.put(-self.diagQ - 1.0e-4, range(on))
-        self.H.put(-1.0, range(on,n))
-        self.H.put( 1.0e-4, range(n,n+m))
+        self.set_initial_guess_system()
+        #self.H.put(-self.diagQ - 1.0e-4, range(on))
+        #self.H.put(-1.0, range(on,n))
+        #self.H.put( 1.0e-4, range(n,n+m))
         self.LBL = LBLContext(self.H, sqd=True) # Perform analyze and factorize
 
         # Assemble first right-hand side and solve.
-        rhs = np.zeros(n+m)
-        rhs[n:] = self.b
+        rhs = self.set_initial_guess_rhs()
+        #rhs = np.zeros(n+m)
+        #rhs[n:] = self.b
         (step, nres, neig) = self.solveSystem(rhs)
-        x = step[:n].copy()
+
+        dx, ds, _, _ = self.get_dxsyz(step, 0, 1, 0, 0, 0)
+
+        x = dx.copy()
         s = x[on:]  # Slack variables. Must be positive.
 
         # Assemble second right-hand side and solve.
-        rhs[:on] = self.c
-        rhs[on:] = 0.0
+        self.update_initial_guess_rhs(rhs)
+        #rhs[:on] = self.c
+        #rhs[on:] = 0.0
 
         (step, nres, neig) = self.solveSystem(rhs)
-        y = step[n:].copy()
-        z = step[on:n].copy()
 
-        # If there are no inequality constraints, this is it
+        _, dz, dy, _ = self.get_dxsyz(step, 0, 1, 0, 0, 0)
+
+        y = dy.copy()
+        z = -dz #.copy()
+        #y = step[n:].copy()
+        #z = step[on:n].copy()
+
+        # If there are no inequality constraints, this is it.
         if n == on: return (x,y,z)
 
         # Use Mehrotra's heuristic to ensure (s,z) > 0.
@@ -794,6 +798,34 @@ class RegQPInteriorPointSolver(object):
             kmin = -1
         return (stepmax, kmin)
 
+    def set_initial_guess_system(self):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        self.H.put(-self.diagQ - 1.0e-4, range(on))
+        self.H.put(-1.0, range(on,n))
+        self.H.put( 1.0e-4, range(n,n+m))
+        return
+
+    def set_initial_guess_rhs(self):
+        m, n = self.A.shape
+        rhs = np.zeros(n+m)
+        rhs[n:] = self.b
+        return rhs
+
+    def update_initial_guess_rhs(self, rhs):
+        on = self.qp.original_n
+        rhs[:on] = self.c
+        rhs[on:] = 0.0
+        return
+
+    def update_linear_system(self, s, z, regpr, regdu, **kwargs):
+        qp = self.qp ; n = qp.n ; m = qp.m ; on = qp.original_n
+        diagQ = self.diagQ
+        self.H.put(-diagQ - regpr,    range(on))
+        self.H.put(-z/s   - regpr,  range(on,n))
+        self.H.put(regdu,          range(n,n+m))
+        return
+
     def solveSystem(self, rhs, itref_threshold=1.0e-5, nitrefmax=5):
         self.LBL.solve(rhs)
         self.LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
@@ -807,6 +839,29 @@ class RegQPInteriorPointSolver(object):
         ds = dx[on:]
         dy = step[n:]
         dz = -z * (1 + ds/s)
+        return (dx, ds, dy, dz)
+
+    def update_corrector_rhs(self, rhs, s, z, comp):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        rhs[on:n] += comp/s - z
+        return
+
+    def update_long_step_rhs(self, rhs, pFeas, dFeas, comp, s):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        rhs[:n]    = -dFeas
+        rhs[on:n] += comp/s
+        rhs[n:]    = -pFeas
+        return
+
+    def get_dxsyz(self, step, x, s, y, z, comp):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        dx = step[:n]
+        ds = dx[on:]
+        dy = step[n:]
+        dz = -(comp + z*ds)/s
         return (dx, ds, dy, dz)
 
 
