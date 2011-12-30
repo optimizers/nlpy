@@ -298,7 +298,7 @@ class ProjectedCG( ProjectedKrylov ):
                 self.dir = p
                 continue
 
-            alpha = rg/pHp
+            alpha = rg/pHp if pHp != 0.0 else numpy.inf
 
             if self.radius is not None and (pHp <= 0.0 or alpha > sigma):
                 # p is a direction of singularity or negative curvature or
