@@ -453,14 +453,14 @@ class RegQPInteriorPointSolver(object):
                 du_last_iter = 0
                 mu0 = mu
             else:
-                regdu = min(regdu/10, sz/normdy/10, (sz/normdy)**(1.1))
+                regdu = regdu/10 #min(regdu/10, sz/normdy/10, (sz/normdy)**(1.1))
                 regdu = max(regdu, regdu_min)
-                regpr = min(regpr/10, sz/normdx/10, (sz/normdx)**(1.1))
+                regpr = regpr/10 #min(regpr/10, sz/normdx/10, (sz/normdx)**(1.1))
                 regpr = max(regpr, regpr_min)
 
                 # Check for infeasible problem.
                 if check_infeasible:
-                    if mu < tolerance/100 * mu0 and rho_q > 1./tolerance/100 * rho_q_min:
+                    if mu < tolerance/100 * mu0 and rho_q > 1./tolerance/1.0e+6 * rho_q_min:
                         pr_infeas_count += 1
                         if pr_infeas_count > 1 and pr_last_iter == iter-1:
                             if pr_infeas_count > 6:
@@ -469,8 +469,10 @@ class RegQPInteriorPointSolver(object):
                                 finished = True
                                 continue
                         pr_last_iter = iter
+                    else:
+                        pr_infeas_count = 0
 
-                    if mu < tolerance/100 * mu0 and del_r > 1./tolerance/100 * del_r_min:
+                    if mu < tolerance/100 * mu0 and del_r > 1./tolerance/1.0e+6 * del_r_min:
                         du_infeas_count += 1
                         if du_infeas_count > 1 and du_last_iter == iter-1:
                             if du_infeas_count > 6:
@@ -479,6 +481,8 @@ class RegQPInteriorPointSolver(object):
                                 finished = True
                                 continue
                         du_last_iter = iter
+                    else:
+                        du_infeas_count = 0
 
             # Display objective and residual data.
             if self.verbose:
