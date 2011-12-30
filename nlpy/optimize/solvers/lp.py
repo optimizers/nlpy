@@ -755,7 +755,7 @@ class RegLPInteriorPointSolver:
 
         (step, nres, neig) = self.solveSystem(rhs)
         y = step[n:].copy()
-        z = step[on:n].copy()
+        z = -step[on:n] #.copy()
 
         # Use Mehrotra's heuristic to ensure (s,z) > 0.
         if np.all(s >= 0):
