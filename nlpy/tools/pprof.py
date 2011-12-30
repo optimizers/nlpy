@@ -10,6 +10,8 @@ import numpy
 import numpy.ma as ma
 from   string import atoi, atof
 
+numpy.seterr(invalid='raise')
+
 PROGNAME = "nlpy_pprof.py"
 
 def usage():
@@ -308,6 +310,10 @@ class PerformanceProfile:
 
         # Set the x-axis ranges
         self.xmax = self.pprofs.maxrat + 1.0e-3
+        if self.opts.logscale is not None:
+            self.xmax = max(self.opts.logscale, self.xmax)
+        else:
+            self.xmax = max(1, self.xmax)
         self.epsilon = 0.0
         if self.opts.logscale is not None:
             self.mmplotcmd = self.ax.semilogx
