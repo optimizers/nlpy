@@ -960,6 +960,10 @@ class RegQPInteriorPointSolver3x3(RegQPInteriorPointSolver):
         super(RegQPInteriorPointSolver3x3, self).__init__(*args, **kwargs)
 
     def initialize_kkt_matrix(self):
+        # [ -(Q+ρI)   0        A1'     0   ]
+        # [  0       -ρI       A2'  Z^{1/2}]
+        # [  A1       A2       δI      0   ]
+        # [  0        Z^{1/2}  0       S   ]
         m, n = self.A.shape
         on = self.qp.original_n
         H = PysparseMatrix(size=2*n+m-on,
@@ -980,6 +984,7 @@ class RegQPInteriorPointSolver3x3(RegQPInteriorPointSolver):
         self.H.put(-1.0, range(on,n))
         self.H.put( 1.0e-4, range(n, n+m))
         self.H.put( 1.0, range(n+m,2*n+m-on))
+        self.H.put( 1.0, range(n+m,2*n+m-on), range(on,n))
         return
 
     def set_initial_guess_rhs(self):
