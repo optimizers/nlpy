@@ -21,7 +21,7 @@ from pysparse.sparse import spmatrix
 from pysparse.sparse.pysparseMatrix import PysparseMatrix
 import numpy as np
 from math import sqrt
-import sys
+import sys, logging
 
 import pdb
 
@@ -79,6 +79,10 @@ class RegQPInteriorPointSolver(object):
         if not isinstance(qp, SlackFramework):
             msg = 'Input problem must be an instance of SlackFramework'
             raise ValueError, msg
+
+        # Grab logger if one was configured.
+        logger_name = kwargs.get('logger_name', 'cqp.solver')
+        self.log = logging.getLogger(logger_name)
 
         self.verbose = kwargs.get('verbose', True)
         scale = kwargs.get('scale', True)
@@ -145,7 +149,7 @@ class RegQPInteriorPointSolver(object):
         self.format1  = '%-4d  %9.2e'
         self.format1 += '  %-8.2e' * 6
         self.format2  = '  %-7.1e  %-4.2f  %-4.2f'
-        self.format2 += '  %-8.2e' * 8 + '\n'
+        self.format2 += '  %-8.2e' * 8
 
         if self.verbose: self.display_stats()
 
@@ -184,28 +188,27 @@ class RegQPInteriorPointSolver(object):
         """
         import os
         qp = self.qp
-        w = sys.stdout.write
-        w('\n')
-        w('Problem Path: %s\n' % qp.name)
-        w('Problem Name: %s\n' % os.path.basename(qp.name))
-        w('Number of problem variables: %d\n' % qp.original_n)
-        w('Number of free variables: %d\n' % qp.nfreeB)
-        w('Number of problem constraints excluding bounds: %d\n' %qp.original_m)
-        w('Number of slack variables: %d\n' % (qp.n - qp.original_n))
-        w('Adjusted number of variables: %d\n' % qp.n)
-        w('Adjusted number of constraints excluding bounds: %d\n' % qp.m)
-        w('Number of nonzeros in Hessian matrix Q: %d\n' % self.Q.nnz)
-        w('Number of nonzeros in constraint matrix: %d\n' % self.A.nnz)
-        w('Constant term in objective: %8.2e\n' % self.c0)
-        w('Cost vector norm: %8.2e\n' % self.normc)
-        w('Right-hand side norm: %8.2e\n' % self.normb)
-        w('Hessian norm: %8.2e\n' % self.normQ)
-        w('Jacobian norm: %8.2e\n' % self.normA)
-        w('Initial primal regularization: %8.2e\n' % self.regpr)
-        w('Initial dual   regularization: %8.2e\n' % self.regdu)
+        log = self.log
+        log.info('Problem Path: %s' % qp.name)
+        log.info('Problem Name: %s' % os.path.basename(qp.name))
+        log.info('Number of problem variables: %d' % qp.original_n)
+        log.info('Number of free variables: %d' % qp.nfreeB)
+        log.info('Number of problem constraints excluding bounds: %d' % \
+                qp.original_m)
+        log.info('Number of slack variables: %d' % (qp.n - qp.original_n))
+        log.info('Adjusted number of variables: %d' % qp.n)
+        log.info('Adjusted number of constraints excluding bounds: %d' % qp.m)
+        log.info('Number of nonzeros in Hessian matrix Q: %d' % self.Q.nnz)
+        log.info('Number of nonzeros in constraint matrix: %d' % self.A.nnz)
+        log.info('Constant term in objective: %8.2e' % self.c0)
+        log.info('Cost vector norm: %8.2e' % self.normc)
+        log.info('Right-hand side norm: %8.2e' % self.normb)
+        log.info('Hessian norm: %8.2e' % self.normQ)
+        log.info('Jacobian norm: %8.2e' % self.normA)
+        log.info('Initial primal regularization: %8.2e' % self.regpr)
+        log.info('Initial dual   regularization: %8.2e' % self.regdu)
         if self.prob_scaled:
-            w('Time for scaling: %6.2fs\n' % self.t_scale)
-        w('\n')
+            log.info('Time for scaling: %6.2fs' % self.t_scale)
         return
 
     def scale(self, **kwargs):
@@ -235,15 +238,16 @@ class RegQPInteriorPointSolver(object):
         variables. Normally, the :meth:`solve` method takes care of unscaling
         the problem upon termination.
         """
-        w = sys.stdout.write
+        log = self.log
         m, n = self.A.shape
         row_scale = np.zeros(m)
         col_scale = np.zeros(n)
         (values,irow,jcol) = self.A.find()
 
         if self.verbose:
-            w('Smallest and largest elements of A prior to scaling: ')
-            w('%8.2e %8.2e\n' % (np.min(np.abs(values)),np.max(np.abs(values))))
+            log.info('Smallest and largest elements of A prior to scaling: ')
+            log.info('%8.2e %8.2e' % (np.min(np.abs(values)),
+                                      np.max(np.abs(values))))
 
         # Find row scaling.
         for k in range(len(values)):
@@ -253,7 +257,7 @@ class RegQPInteriorPointSolver(object):
         row_scale[row_scale == 0.0] = 1.0
 
         if self.verbose:
-            w('Largest row scaling factor = %8.2e\n' % np.max(row_scale))
+            log.info('Max row scaling factor = %8.2e' % np.max(row_scale))
 
         # Apply row scaling to A and b.
         values /= row_scale[irow]
@@ -267,15 +271,16 @@ class RegQPInteriorPointSolver(object):
         col_scale[col_scale == 0.0] = 1.0
 
         if self.verbose:
-            w('Largest column scaling factor = %8.2e\n' % np.max(col_scale))
+            log.info('Max column scaling factor = %8.2e' % np.max(col_scale))
 
         # Apply column scaling to A and c.
         values /= col_scale[jcol]
         self.c[:self.qp.original_n] /= col_scale[:self.qp.original_n]
 
         if self.verbose:
-            w('Smallest and largest elements of A after scaling: ')
-            w('%8.2e %8.2e\n' % (np.min(np.abs(values)),np.max(np.abs(values))))
+            log.info('Smallest and largest elements of A after scaling: ')
+            log.info('%8.2e %8.2e' % (np.min(np.abs(values)),
+                                      np.max(np.abs(values))))
 
         # Overwrite A with scaled values.
         self.A.put(values,irow,jcol)
@@ -391,9 +396,9 @@ class RegQPInteriorPointSolver(object):
         while not finished:
 
             # Display initial header every so often.
-            if self.verbose and iter % 20 == 0:
-                sys.stdout.write('\n' + self.header + '\n')
-                sys.stdout.write('-' * len(self.header) + '\n')
+            if iter % 50 == 0:
+                self.log.info(self.header)
+                self.log.info('-' * len(self.header))
 
             # Compute residuals.
             pFeas = A*x - b
@@ -485,10 +490,9 @@ class RegQPInteriorPointSolver(object):
                         du_infeas_count = 0
 
             # Display objective and residual data.
-            if self.verbose:
-                sys.stdout.write(self.format1 % (iter, cx + 0.5 * xQx, pResid,
-                                                 dResid, cResid, rgap, qNorm,
-                                                 rNorm))
+            output_line = self.format1 % (iter, cx + 0.5 * xQx, pResid,
+                                          dResid, cResid, rgap, qNorm,
+                                          rNorm)
 
             if kktResid <= tolerance:
                 status = 'Optimal solution found'
@@ -536,8 +540,8 @@ class RegQPInteriorPointSolver(object):
                 # regularization parameters.
                 if not self.LBL.isFullRank:
                     if self.verbose:
-                        sys.stderr.write('Primal-Dual Matrix Rank Deficient')
-                        sys.stderr.write('... bumping up reg parameters\n')
+                        self.log.info('Primal-Dual Matrix Rank Deficient' + \
+                                      '... bumping up reg parameters')
                     regpr *= 100 ; regdu *= 100
                     nb_bump += 1
                     factorized = False
@@ -624,10 +628,10 @@ class RegQPInteriorPointSolver(object):
                 alpha_d *= tau
 
             # Display data.
-            if self.verbose:
-                sys.stdout.write(self.format2 % (mu, alpha_p, alpha_d,
-                                                 nres, regpr, regdu, rho_q,
-                                                 del_r, mins, minz, maxs))
+            output_line += self.format2 % (mu, alpha_p, alpha_d,
+                                           nres, regpr, regdu, rho_q,
+                                           del_r, mins, minz, maxs)
+            self.log.info(output_line)
 
             # Update iterates and perturbation vectors.
             x += alpha_p * dx    # This also updates slack variables.
@@ -644,9 +648,7 @@ class RegQPInteriorPointSolver(object):
 
         solve_time = cputime() - setup_time
 
-        if self.verbose:
-            sys.stdout.write('\n')
-            sys.stdout.write('-' * len(self.header) + '\n')
+        self.log.info('-' * len(self.header))
 
         # Transfer final values to class members.
         self.x = x
