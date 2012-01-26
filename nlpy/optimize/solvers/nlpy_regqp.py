@@ -10,6 +10,21 @@ from optparse import OptionParser
 import numpy
 import os
 import sys
+import logging
+
+# Create root logger.
+log = logging.getLogger('cqp')
+log.setLevel(logging.INFO)
+fmt = logging.Formatter('%(name)-10s %(levelname)-8s %(message)s')
+hndlr = logging.StreamHandler(sys.stdout)
+hndlr.setFormatter(fmt)
+log.addHandler(hndlr)
+
+# Configure the solver logger.
+sublogger = logging.getLogger('cqp.solver')
+sublogger.setLevel(logging.INFO)
+sublogger.addHandler(hndlr)
+sublogger.propagate = False
 
 usage_msg = """%prog [options] problem1 [... problemN]
 where problem1 through problemN represent convex quadratic programs."""
@@ -67,10 +82,13 @@ if options.tol is not None:
     opts_solve['tolerance'] = options.tol
 
 # Set printing standards for arrays.
-numpy.set_printoptions(precision=3, linewidth=80, threshold=10, edgeitems=3)
+numpy.set_printoptions(precision=3, linewidth=70, threshold=10, edgeitems=2)
+
+multiple_problems = len(args) > 1
 
 if not options.verbose:
-    sys.stderr.write(hdr + '\n' + '-'*len(hdr) + '\n')
+    log.info(hdr)
+    log.info('-'*len(hdr))
 
 for probname in args:
 
@@ -80,7 +98,7 @@ for probname in args:
 
     # isqp() should be implemented in the near future.
     #if not qp.isqp():
-    #    sys.stderr.write('Problem %s is not a linear program\n' % probname)
+    #    log.info('Problem %s is not a quadratic program\n' % probname)
     #    qp.close()
     #    continue
 
@@ -99,26 +117,25 @@ for probname in args:
     if probname[-3:] == '.nl': probname = probname[:-3]
 
     if not options.verbose:
-        sys.stdout.write(fmt % (probname, regqp.iter, regqp.obj_value,
-                                regqp.pResid, regqp.dResid, regqp.rgap,
-                                t_setup, regqp.solve_time, regqp.short_status))
+        log.info(fmt % (probname, regqp.iter, regqp.obj_value,
+                        regqp.pResid, regqp.dResid, regqp.rgap,
+                        t_setup, regqp.solve_time, regqp.short_status))
         if regqp.short_status == 'degn':
-            sys.stdout.write(' F')  # Could not regularize sufficiently.
-        sys.stdout.write('\n')
+            log.info(' F')  # Could not regularize sufficiently.
 
     qp.close()
 
-if not options.verbose:
-    sys.stderr.write('-'*len(hdr) + '\n')
-else:
-    x = regqp.x[:qp.original_n]
-    print 'Final x: ', x, ', |x| = %7.1e' % norm2(x)
-    print 'Final y: ', regqp.y, ', |y| = %7.1e' % norm2(regqp.y)
-    print 'Final z: ', regqp.z, ', |z| = %7.1e' % norm2(regqp.z)
+    log.info('-'*len(hdr))
 
-    sys.stdout.write('\n' + regqp.status + '\n')
-    sys.stdout.write(' #Iterations: %-d\n' % regqp.iter)
-    sys.stdout.write(' RelResidual: %7.1e\n' % regqp.kktResid)
-    sys.stdout.write(' Final cost : %21.15e\n' % regqp.obj_value)
-    sys.stdout.write(' Setup time : %6.2fs\n' % t_setup)
-    sys.stdout.write(' Solve time : %6.2fs\n' % regqp.solve_time)
+if not multiple_problems:
+    x = regqp.x[:qp.original_n]
+    log.info('Final x: %s, |x| = %7.1e' % (repr(x),norm2(x)))
+    log.info('Final y: %s, |y| = %7.1e' % (repr(regqp.y),norm2(regqp.y)))
+    log.info('Final z: %s, |z| = %7.1e' % (repr(regqp.z),norm2(regqp.z)))
+
+    log.info(regqp.status)
+    log.info('#Iterations: %-d' % regqp.iter)
+    log.info('RelResidual: %7.1e' % regqp.kktResid)
+    log.info('Final cost : %21.15e' % regqp.obj_value)
+    log.info('Setup time : %6.2fs' % t_setup)
+    log.info('Solve time : %6.2fs' % regqp.solve_time)
