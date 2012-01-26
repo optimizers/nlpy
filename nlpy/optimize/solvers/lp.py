@@ -421,16 +421,20 @@ class RegLPInteriorPointSolver:
                 # 1) rho+ |dx| <= const * s'z
                 # 2) del+ |dy| <= const * s'z
                 if regdu > 0:
-                    regdu = min(regdu/10, sz/normdy/10, (sz/normdy)**(1.1))
+                    regdu = regdu/10
+                    #min(regdu/10, sz/normdy/10, (sz/normdy)**(1.1))
                     regdu = max(regdu, regdu_min)
                 if regpr > 0:
-                    regpr = min(regpr/10, sz/normdx/10, (sz/normdx)**(1.1))
+                    regpr = regpr/10
+                    #min(regpr/10, sz/normdx/10, (sz/normdx)**(1.1))
                     regpr = max(regpr, regpr_min)
 
                 # Check for infeasible problem.
                 if check_infeasible:
                     #if mu < 1.0e-8 * mu0 and rho_q > 1.0e+3 * kktResid * self.normbc: #* mu * self.normbc:
-                    if mu < 1.0e-8 * mu0 and rho_q > 1.0e+2 * rho_q_min:
+                    #if mu < 1.0e-8 * mu0 and rho_q > 1.0e+2 * rho_q_min:
+                    if mu < tolerance/100 * mu0 and \
+                            rho_q > 1./tolerance/1.0e+6 * rho_q_min:
                         pr_infeas_count += 1
                         if pr_infeas_count > 1 and pr_last_iter == iter-1:
                             if pr_infeas_count > 6:
@@ -441,7 +445,9 @@ class RegLPInteriorPointSolver:
                         pr_last_iter = iter
 
                     #if mu < 1.0e-8 * mu0 and del_r > 1.0e+3 * kktResid * self.normbc: # * mu * self.normbc:
-                    if mu < 1.0e-8 * mu0 and del_r > 1.0e+2 * del_r_min:
+                    #if mu < 1.0e-8 * mu0 and del_r > 1.0e+2 * del_r_min:
+                    if mu < tolerance/100 * mu0 and \
+                            del_r > 1./tolerance/1.0e+6 * del_r_min:
                         du_infeas_count += 1
                         if du_infeas_count > 1 and du_last_iter == iter-1:
                             if du_infeas_count > 6:
