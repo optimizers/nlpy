@@ -398,7 +398,6 @@ class RegLPInteriorPointSolver:
             # At the first iteration, initialize perturbation vectors
             # (q=primal, r=dual).
             if iter == 0:
-                regpr = self.regpr ; regdu = self.regdu
                 if regpr > 0:
                     q = dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
                 else:
@@ -416,17 +415,11 @@ class RegLPInteriorPointSolver:
                 mu0 = mu
             else:
                 # Adjust regularization parameters.
-                #regpr = max(min(regpr/10, regpr**(1.1)), regpr_min)
-                #regdu = max(min(regdu/10, regdu**(1.1)), regdu_min)
-                # 1) rho+ |dx| <= const * s'z
-                # 2) del+ |dy| <= const * s'z
                 if regdu > 0:
                     regdu = regdu/10
-                    #min(regdu/10, sz/normdy/10, (sz/normdy)**(1.1))
                     regdu = max(regdu, regdu_min)
                 if regpr > 0:
                     regpr = regpr/10
-                    #min(regpr/10, sz/normdx/10, (sz/normdx)**(1.1))
                     regpr = max(regpr, regpr_min)
 
                 # Check for infeasible problem.
@@ -469,11 +462,6 @@ class RegLPInteriorPointSolver:
 
             # Repeatedly assemble system and compute step until primal and
             # dual regularization parameters have appropriate values.
-
-            # Reset primal and dual regularization parameters to best guess
-            #if iter > 0:
-            #    regpr = max(regpr_min, 0.5*sigma*dResid/normds)
-            #    regdu = max(regdu_min, 0.5*sigma*pResid/normdy)
 
             step_acceptable = False
 
