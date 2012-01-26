@@ -449,9 +449,9 @@ class RegQPInteriorPointSolver(object):
                 du_last_iter = 0
                 mu0 = mu
             else:
-                regdu = regdu/10 #min(regdu/10,sz/normdy/10,(sz/normdy)**(1.1))
+                regdu = regdu/10
                 regdu = max(regdu, regdu_min)
-                regpr = regpr/10 #min(regpr/10,sz/normdx/10,(sz/normdx)**(1.1))
+                regpr = regpr/10
                 regpr = max(regpr, regpr_min)
 
                 # Check for infeasible problem.
@@ -802,7 +802,8 @@ class RegQPInteriorPointSolver(object):
         diagQ = self.diagQ
         self.H.put(-diagQ - regpr,    range(on))
         self.H.put(-z/s   - regpr,  range(on,n))
-        self.H.put(regdu,          range(n,n+m))
+        if regdu > 0:
+            self.H.put(regdu, range(n,n+m))
         return
 
     def solveSystem(self, rhs, itref_threshold=1.0e-5, nitrefmax=5):
@@ -1009,8 +1010,10 @@ class RegQPInteriorPointSolver3x3(RegQPInteriorPointSolver):
         qp = self.qp ; n = qp.n ; m = qp.m ; on = qp.original_n
         diagQ = self.diagQ
         self.H.put(-diagQ - regpr, range(on))
-        self.H.put(-regpr,         range(on,n))
-        self.H.put( regdu,         range(n,n+m))
+        if regpr > 0:
+            self.H.put(-regpr, range(on,n))
+        if regdu > 0:
+            self.H.put( regdu, range(n,n+m))
         self.H.put( np.sqrt(z),    range(n+m,2*n+m-on), range(on,n))
         self.H.put( s,             range(n+m,2*n+m-on))
         return
