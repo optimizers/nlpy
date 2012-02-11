@@ -156,6 +156,9 @@ class RegQPInteriorPointSolver(object):
         return
 
     def initialize_kkt_matrix(self):
+        # [ -(Q+ρI)      0             A1' ] [∆x]   [c + Q x - A1' y     ]
+        # [  0      -(S^{-1} Z + ρI)   A2' ] [∆s] = [- A2' y - µ S^{-1} e]
+        # [  A1          A2            δI  ] [∆y]   [b - A1 x - A2 s     ]
         m, n = self.A.shape
         on = self.qp.original_n
         H = PysparseMatrix(size=n+m,
@@ -165,7 +168,8 @@ class RegQPInteriorPointSolver(object):
         # The (1,1) block will always be Q (save for its diagonal).
         H[:on,:on] = -self.Q
 
-        # The (2,1) block will always be A. We store it now once and for all.
+        # The (3,1) and (3,2) blocks will always be A.
+        # We store it now once and for all.
         H[n:,:n] = self.A
         return H
 
@@ -402,10 +406,10 @@ class RegQPInteriorPointSolver(object):
 
             # Compute residuals.
             pFeas = A*x - b
-            comp = s*z ; sz = sum(comp)                 # comp   = S z
+            comp = s*z ; sz = sum(comp)                # comp   = Sz
             Qx = Q*x[:on]
-            dFeas = y*A ; dFeas[:on] -= self.c + Qx     # dFeas1 = A1'y - c - Qx
-            dFeas[on:] += z                             # dFeas2 = A2'y + z
+            dFeas = y*A ; dFeas[:on] -= self.c + Qx    # dFeas1 = A1'y - c - Qx
+            dFeas[on:] += z                            # dFeas2 = A2'y + z
 
             # Compute duality measure.
             if ns > 0:
@@ -514,25 +518,14 @@ class RegQPInteriorPointSolver(object):
             else:
                 mins = minz = maxs = 0
 
-            # Solve the linear system
-            #
-            # [ -(Q+ρI)      0             A1' ] [∆x] = [c + Q x - A1' y     ]
-            # [  0      -(S^{-1} Z + ρI)   A2' ] [∆s]   [- A2' y - µ S^{-1} e]
-            # [  A1          A2            δI  ] [∆y]   [b - A1 x - A2 s     ]
-            #
-            # where s are the slack variables, ρ is the primal regularization
-            # parameter, δ is the dual regularization parameter, and
-            # A = [ A1  A2 ]  where the columns of A1 correspond to the original
-            # problem variables and those of A2 correspond to slack variables.
-            #
-            # We recover ∆z = -z - S^{-1} (Z ∆s + µ e).
-
             # Compute augmented matrix and factorize it.
+
             factorized = False
             nb_bump = 0
             while not factorized and nb_bump < 5:
 
                 self.update_linear_system(s, z, regpr, regdu)
+                self.log.debug('Factorizing')
                 self.LBL.factorize(H)
                 factorized = True
 
@@ -704,6 +697,8 @@ class RegQPInteriorPointSolver(object):
         qp = self.qp
         n = qp.n ; m = qp.m ; ns = self.nSlacks ; on = qp.original_n
 
+        self.log.debug('Computing initial guess')
+
         # Set up augmented system matrix and factorize it.
         self.set_initial_guess_system()
         self.LBL = LBLContext(self.H, sqd=True) # Perform analyze and factorize
@@ -765,6 +760,7 @@ class RegQPInteriorPointSolver(object):
         orthant in the direction d. Also return the component index responsible
         for cutting the steplength the most (or -1 if no such index exists).
         """
+        self.log.debug('Computing step length to boundary')
         whereneg = np.where(d < 0)[0]
         if len(whereneg) > 0:
             dxneg = -x[whereneg]/d[whereneg]
@@ -780,6 +776,7 @@ class RegQPInteriorPointSolver(object):
         return (stepmax, kmin)
 
     def set_initial_guess_system(self):
+        self.log.debug('Setting up linear system for initial guess')
         m, n = self.A.shape
         on = self.qp.original_n
         self.H.put(-self.diagQ - 1.0e-4, range(on))
@@ -788,18 +785,21 @@ class RegQPInteriorPointSolver(object):
         return
 
     def set_initial_guess_rhs(self):
+        self.log.debug('Setting up right-hand side for initial guess')
         m, n = self.A.shape
         rhs = np.zeros(n+m)
         rhs[n:] = self.b
         return rhs
 
     def update_initial_guess_rhs(self, rhs):
+        self.log.debug('Updating right-hand side for initial guess')
         on = self.qp.original_n
         rhs[:on] = self.c
         rhs[on:] = 0.0
         return
 
     def update_linear_system(self, s, z, regpr, regdu, **kwargs):
+        self.log.debug('Updating linear system for current iteration')
         qp = self.qp ; n = qp.n ; m = qp.m ; on = qp.original_n
         diagQ = self.diagQ
         self.H.put(-diagQ - regpr,    range(on))
@@ -815,6 +815,7 @@ class RegQPInteriorPointSolver(object):
         Return the solution vector (as a reference), the 2-norm of the residual
         and the number of negative eigenvalues of the coefficient matrix.
         """
+        self.log.debug('Solving linear system')
         self.LBL.solve(rhs)
         self.LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
         nr = norm2(self.LBL.residual)
@@ -826,6 +827,7 @@ class RegQPInteriorPointSolver(object):
         *references*, not copies. Only dz is computed from `step` without being
         a subvector of `step`.
         """
+        self.log.debug('Recovering affine-scaling step')
         m, n = self.A.shape
         on = self.qp.original_n
         dx = step[:n]
@@ -835,12 +837,14 @@ class RegQPInteriorPointSolver(object):
         return (dx, ds, dy, dz)
 
     def update_corrector_rhs(self, rhs, s, z, comp):
+        self.log.debug('Updating right-hand side for corrector step')
         m, n = self.A.shape
         on = self.qp.original_n
         rhs[on:n] += comp/s - z
         return
 
     def update_long_step_rhs(self, rhs, pFeas, dFeas, comp, s):
+        self.log.debug('Updating right-hand side for long step')
         m, n = self.A.shape
         on = self.qp.original_n
         rhs[:n]    = -dFeas
@@ -854,6 +858,7 @@ class RegQPInteriorPointSolver(object):
         *references*, not copies. Only dz is computed from `step` without being
         a subvector of `step`.
         """
+        self.log.debug('Recovering step')
         m, n = self.A.shape
         on = self.qp.original_n
         dx = step[:n]
