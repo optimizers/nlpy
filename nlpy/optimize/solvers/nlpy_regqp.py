@@ -22,7 +22,7 @@ log.addHandler(hndlr)
 
 # Configure the solver logger.
 sublogger = logging.getLogger('cqp.solver')
-sublogger.setLevel(logging.INFO)
+sublogger.setLevel(logging.DEBUG)
 sublogger.addHandler(hndlr)
 sublogger.propagate = False
 
@@ -125,7 +125,7 @@ for probname in args:
 
     qp.close()
 
-    log.info('-'*len(hdr))
+log.info('-'*len(hdr))
 
 if not multiple_problems:
     x = regqp.x[:qp.original_n]
