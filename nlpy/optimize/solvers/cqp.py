@@ -151,6 +151,12 @@ class RegQPInteriorPointSolver(object):
         self.format2  = '  %-7.1e  %-4.2f  %-4.2f'
         self.format2 += '  %-8.2e' * 8
 
+        self.cond_history = []
+        self.berr_history = []
+        self.derr_history = []
+        self.nrms_history = []
+        self.lres_history = []
+
         if self.verbose: self.display_stats()
 
         return
@@ -709,7 +715,7 @@ class RegQPInteriorPointSolver(object):
 
         dx, _, _, _ = self.get_dxsyz(step, 0, 1, 0, 0, 0)
 
-        # dx is just references; we need to make a copy.
+        # dx is just a reference; we need to make a copy.
         x = dx.copy()
         s = x[on:]  # Slack variables. Must be positive.
 
@@ -818,6 +824,14 @@ class RegQPInteriorPointSolver(object):
         self.log.debug('Solving linear system')
         self.LBL.solve(rhs)
         self.LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
+
+        # Collect statistics on the linear system solve.
+        self.cond_history.append((self.LBL.cond, self.LBL.cond2))
+        self.berr_history.append((self.LBL.berr, self.LBL.berr2))
+        self.derr_history.append(self.LBL.dirError)
+        self.nrms_history.append((self.LBL.matNorm, self.LBL.xNorm))
+        self.lres_history.append(self.LBL.relRes)
+
         nr = norm2(self.LBL.residual)
         return (self.LBL.x, nr, self.LBL.neig)
 
