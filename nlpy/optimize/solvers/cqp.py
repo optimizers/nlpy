@@ -5,7 +5,7 @@
 # The method uses the augmented system formulation. These systems
 # are solved using PyMa27 or PyMa57.
 #
-# D. Orban, Montreal 2009.
+# D. Orban, Montreal 2009-2011.
 
 from nlpy.model import SlackFramework
 try:                            # To solve augmented systems
@@ -21,10 +21,12 @@ from pysparse.sparse import spmatrix
 from pysparse.sparse.pysparseMatrix import PysparseMatrix
 import numpy as np
 from math import sqrt
-import sys
+import sys, logging
+
+import pdb
 
 
-class RegQPInteriorPointSolver:
+class RegQPInteriorPointSolver(object):
 
     def __init__(self, qp, **kwargs):
         """
@@ -71,12 +73,21 @@ class RegQPInteriorPointSolver:
             :regdu: Initial value of dual regularization parameter
                     (default: `1.0`).
 
+            :bump_max: Max number of times regularization parameters are
+                       increased when a factorization fails (default 5).
+
+            :logger_name: Name of a logger to control output.
+
             :verbose: Turn on verbose mode (default `False`).
         """
 
         if not isinstance(qp, SlackFramework):
             msg = 'Input problem must be an instance of SlackFramework'
             raise ValueError, msg
+
+        # Grab logger if one was configured.
+        logger_name = kwargs.get('logger_name', 'cqp.solver')
+        self.log = logging.getLogger(logger_name)
 
         self.verbose = kwargs.get('verbose', True)
         scale = kwargs.get('scale', True)
@@ -116,16 +127,8 @@ class RegQPInteriorPointSolver:
         self.normc  = norm_infty(self.c)
         self.normbc = 1 + max(self.normb, self.normc)
 
-        # Initialize augmented matrix
-        self.H = PysparseMatrix(size=n+m,
-                                sizeHint=n+m+self.A.nnz+self.Q.nnz,
-                                symmetric=True)
-
-        # The (1,1) block will always be Q (save for its diagonal).
-        self.H[:on,:on] = -self.Q
-
-        # The (2,1) block will always be A. We store it now once and for all.
-        self.H[n:,:n] = self.A
+        # Initialize augmented matrix.
+        self.H = self.initialize_kkt_matrix()
 
         # It will be more efficient to keep the diagonal of Q around.
         self.diagQ = self.Q.take(range(qp.original_n))
@@ -137,6 +140,9 @@ class RegQPInteriorPointSolver:
         # Set regularization parameters.
         self.regpr = kwargs.get('regpr', 1.0) ; self.regpr_min = 1.0e-8
         self.regdu = kwargs.get('regdu', 1.0) ; self.regdu_min = 1.0e-8
+
+        # Max number of times regularization parameters are increased.
+        self.bump_max = kwargs.get('bump_max', 5)
 
         # Check input parameters.
         if self.regpr < 0.0: self.regpr = 0.0
@@ -151,10 +157,47 @@ class RegQPInteriorPointSolver:
         self.format1  = '%-4d  %9.2e'
         self.format1 += '  %-8.2e' * 6
         self.format2  = '  %-7.1e  %-4.2f  %-4.2f'
-        self.format2 += '  %-8.2e' * 8 + '\n'
+        self.format2 += '  %-8.2e' * 8
+
+        self.cond_history = []
+        self.berr_history = []
+        self.derr_history = []
+        self.nrms_history = []
+        self.lres_history = []
 
         if self.verbose: self.display_stats()
 
+        return
+
+    def initialize_kkt_matrix(self):
+        # [ -(Q+ρI)      0             A1' ] [∆x]   [c + Q x - A1' y     ]
+        # [  0      -(S^{-1} Z + ρI)   A2' ] [∆s] = [- A2' y - µ S^{-1} e]
+        # [  A1          A2            δI  ] [∆y]   [b - A1 x - A2 s     ]
+        m, n = self.A.shape
+        on = self.qp.original_n
+        H = PysparseMatrix(size=n+m,
+                           sizeHint=n+m+self.A.nnz+self.Q.nnz,
+                           symmetric=True)
+
+        # The (1,1) block will always be Q (save for its diagonal).
+        H[:on,:on] = -self.Q
+
+        # The (3,1) and (3,2) blocks will always be A.
+        # We store it now once and for all.
+        H[n:,:n] = self.A
+        return H
+
+    def initialize_rhs(self):
+        m, n = self.A.shape
+        return np.zeros(n+m)
+
+    def set_affine_scaling_rhs(self, rhs, pFeas, dFeas, s, z):
+        "Set rhs for affine-scaling step."
+        m, n = self.A.shape
+        on = self.qp.original_n
+        rhs[:n]    = -dFeas
+        rhs[on:n] += z
+        rhs[n:]    = -pFeas
         return
 
     def display_stats(self):
@@ -163,28 +206,27 @@ class RegQPInteriorPointSolver:
         """
         import os
         qp = self.qp
-        w = sys.stdout.write
-        w('\n')
-        w('Problem Path: %s\n' % qp.name)
-        w('Problem Name: %s\n' % os.path.basename(qp.name))
-        w('Number of problem variables: %d\n' % qp.original_n)
-        w('Number of free variables: %d\n' % qp.nfreeB)
-        w('Number of problem constraints excluding bounds: %d\n' %qp.original_m)
-        w('Number of slack variables: %d\n' % (qp.n - qp.original_n))
-        w('Adjusted number of variables: %d\n' % qp.n)
-        w('Adjusted number of constraints excluding bounds: %d\n' % qp.m)
-        w('Number of nonzeros in Hessian matrix Q: %d\n' % self.Q.nnz)
-        w('Number of nonzeros in constraint matrix: %d\n' % self.A.nnz)
-        w('Constant term in objective: %8.2e\n' % self.c0)
-        w('Cost vector norm: %8.2e\n' % self.normc)
-        w('Right-hand side norm: %8.2e\n' % self.normb)
-        w('Hessian norm: %8.2e\n' % self.normQ)
-        w('Jacobian norm: %8.2e\n' % self.normA)
-        w('Initial primal regularization: %8.2e\n' % self.regpr)
-        w('Initial dual   regularization: %8.2e\n' % self.regdu)
+        log = self.log
+        log.info('Problem Path: %s' % qp.name)
+        log.info('Problem Name: %s' % os.path.basename(qp.name))
+        log.info('Number of problem variables: %d' % qp.original_n)
+        log.info('Number of free variables: %d' % qp.nfreeB)
+        log.info('Number of problem constraints excluding bounds: %d' % \
+                qp.original_m)
+        log.info('Number of slack variables: %d' % (qp.n - qp.original_n))
+        log.info('Adjusted number of variables: %d' % qp.n)
+        log.info('Adjusted number of constraints excluding bounds: %d' % qp.m)
+        log.info('Number of nonzeros in Hessian matrix Q: %d' % self.Q.nnz)
+        log.info('Number of nonzeros in constraint matrix: %d' % self.A.nnz)
+        log.info('Constant term in objective: %8.2e' % self.c0)
+        log.info('Cost vector norm: %8.2e' % self.normc)
+        log.info('Right-hand side norm: %8.2e' % self.normb)
+        log.info('Hessian norm: %8.2e' % self.normQ)
+        log.info('Jacobian norm: %8.2e' % self.normA)
+        log.info('Initial primal regularization: %8.2e' % self.regpr)
+        log.info('Initial dual   regularization: %8.2e' % self.regdu)
         if self.prob_scaled:
-            w('Time for scaling: %6.2fs\n' % self.t_scale)
-        w('\n')
+            log.info('Time for scaling: %6.2fs' % self.t_scale)
         return
 
     def scale(self, **kwargs):
@@ -214,15 +256,16 @@ class RegQPInteriorPointSolver:
         variables. Normally, the :meth:`solve` method takes care of unscaling
         the problem upon termination.
         """
-        w = sys.stdout.write
+        log = self.log
         m, n = self.A.shape
         row_scale = np.zeros(m)
         col_scale = np.zeros(n)
         (values,irow,jcol) = self.A.find()
 
         if self.verbose:
-            w('Smallest and largest elements of A prior to scaling: ')
-            w('%8.2e %8.2e\n' % (np.min(np.abs(values)),np.max(np.abs(values))))
+            log.info('Smallest and largest elements of A prior to scaling: ')
+            log.info('%8.2e %8.2e' % (np.min(np.abs(values)),
+                                      np.max(np.abs(values))))
 
         # Find row scaling.
         for k in range(len(values)):
@@ -232,7 +275,7 @@ class RegQPInteriorPointSolver:
         row_scale[row_scale == 0.0] = 1.0
 
         if self.verbose:
-            w('Largest row scaling factor = %8.2e\n' % np.max(row_scale))
+            log.info('Max row scaling factor = %8.2e' % np.max(row_scale))
 
         # Apply row scaling to A and b.
         values /= row_scale[irow]
@@ -246,15 +289,16 @@ class RegQPInteriorPointSolver:
         col_scale[col_scale == 0.0] = 1.0
 
         if self.verbose:
-            w('Largest column scaling factor = %8.2e\n' % np.max(col_scale))
+            log.info('Max column scaling factor = %8.2e' % np.max(col_scale))
 
         # Apply column scaling to A and c.
         values /= col_scale[jcol]
         self.c[:self.qp.original_n] /= col_scale[:self.qp.original_n]
 
         if self.verbose:
-            w('Smallest and largest elements of A after scaling: ')
-            w('%8.2e %8.2e\n' % (np.min(np.abs(values)),np.max(np.abs(values))))
+            log.info('Smallest and largest elements of A after scaling: ')
+            log.info('%8.2e %8.2e' % (np.min(np.abs(values)),
+                                      np.max(np.abs(values))))
 
         # Overwrite A with scaled values.
         self.A.put(values,irow,jcol)
@@ -351,7 +395,7 @@ class RegQPInteriorPointSolver:
         regpr_min = self.regpr_min ; regdu_min = self.regdu_min
 
         # Obtain initial point from Mehrotra's heuristic.
-        (x,y,z) = self.set_initial_guess(self.qp, **kwargs)
+        (x,y,z) = self.set_initial_guess(**kwargs)
 
         # Slack variables are the trailing variables in x.
         s = x[on:] ; ns = self.nSlacks
@@ -359,10 +403,8 @@ class RegQPInteriorPointSolver:
         # Initialize steps in dual variables.
         dz = np.zeros(ns)
 
-        col_scale = np.empty(n)
-
         # Allocate room for right-hand side of linear systems.
-        rhs = np.zeros(n+m)
+        rhs = self.initialize_rhs()
         finished = False
         iter = 0
 
@@ -372,16 +414,16 @@ class RegQPInteriorPointSolver:
         while not finished:
 
             # Display initial header every so often.
-            if self.verbose and iter % 20 == 0:
-                sys.stdout.write('\n' + self.header + '\n')
-                sys.stdout.write('-' * len(self.header) + '\n')
+            if iter % 50 == 0:
+                self.log.info(self.header)
+                self.log.info('-' * len(self.header))
 
             # Compute residuals.
             pFeas = A*x - b
-            comp = s*z ; sz = sum(comp)                 # comp   = S z
+            comp = s*z ; sz = sum(comp)                # comp   = Sz
             Qx = Q*x[:on]
-            dFeas = y*A ; dFeas[:on] -= self.c + Qx     # dFeas1 = A1'y - c - Qx
-            dFeas[on:] += z                             # dFeas2 = A2'y + z
+            dFeas = y*A ; dFeas[:on] -= self.c + Qx    # dFeas1 = A1'y - c - Qx
+            dFeas[on:] += z                            # dFeas2 = A2'y + z
 
             # Compute duality measure.
             if ns > 0:
@@ -390,8 +432,6 @@ class RegQPInteriorPointSolver:
                 mu = 0.0
 
             # Compute residual norms and scaled residual norms.
-            #pResid = norm_infty(pFeas + regdu * r)/(1+self.normc+self.normQ)
-            #dResid = norm_infty(dFeas - regpr * q)/(1+self.normb+self.normQ)
             pResid = norm2(pFeas)
             spResid = pResid/(1+self.normb+self.normA+self.normQ)
             dResid = norm2(dFeas)
@@ -406,13 +446,11 @@ class RegQPInteriorPointSolver:
             xQx = np.dot(x[:on],Qx)
             by = np.dot(b,y)
             rgap  = cx + xQx - by
-            #rgap += regdu * (rNorm**2 + np.dot(r,y))
             rgap  = abs(rgap) / (1 + abs(cx) + self.normA + self.normQ)
             rgap2 = mu / (1 + abs(cx) + self.normA + self.normQ)
 
             # Compute overall residual for stopping condition.
             kktResid = max(spResid, sdResid, rgap2)
-            #kktResid = max(pResid, cResid, dResid)
 
             # At the first iteration, initialize perturbation vectors
             # (q=primal, r=dual).
@@ -433,39 +471,50 @@ class RegQPInteriorPointSolver:
                 pr_last_iter = 0
                 du_last_iter = 0
                 mu0 = mu
+
             else:
-                regdu = min(regdu/10, sz/normdy/10, (sz/normdy)**(1.1))
-                regdu = max(regdu, regdu_min)
-                regpr = min(regpr/10, sz/normdx/10, (sz/normdx)**(1.1))
-                regpr = max(regpr, regpr_min)
+
+                if regdu > 0:
+                    regdu = regdu/10
+                    regdu = max(regdu, regdu_min)
+                if regpr > 0:
+                    regpr = regpr/10
+                    regpr = max(regpr, regpr_min)
 
                 # Check for infeasible problem.
                 if check_infeasible:
-                    if mu < 1.0e-8 * mu0 and rho_q > 1.0e+4 * rho_q_min:
+                    if mu < tolerance/100 * mu0 and \
+                            rho_q > 1./tolerance/1.0e+6 * rho_q_min:
                         pr_infeas_count += 1
                         if pr_infeas_count > 1 and pr_last_iter == iter-1:
                             if pr_infeas_count > 6:
-                                status = 'Problem seems to be (locally) dual infeasible'
+                                status  = 'Problem seems to be (locally) dual'
+                                status += ' infeasible'
                                 short_status = 'dInf'
                                 finished = True
                                 continue
                         pr_last_iter = iter
+                    else:
+                        pr_infeas_count = 0
 
-                    if mu < 1.0e-8 * mu0 and del_r > 1.0e+4 * del_r_min:
+                    if mu < tolerance/100 * mu0 and \
+                            del_r > 1./tolerance/1.0e+6 * del_r_min:
                         du_infeas_count += 1
                         if du_infeas_count > 1 and du_last_iter == iter-1:
                             if du_infeas_count > 6:
-                                status='Problem seems to be (locally) primal infeasible'
+                                status = 'Problem seems to be (locally) primal'
+                                status += ' infeasible'
                                 short_status = 'pInf'
                                 finished = True
                                 continue
                         du_last_iter = iter
+                    else:
+                        du_infeas_count = 0
 
             # Display objective and residual data.
-            if self.verbose:
-                sys.stdout.write(self.format1 % (iter, cx + 0.5 * xQx, pResid,
-                                                 dResid, cResid, rgap, qNorm,
-                                                 rNorm))
+            output_line = self.format1 % (iter, cx + 0.5 * xQx, pResid,
+                                          dResid, cResid, rgap, qNorm,
+                                          rNorm)
 
             if kktResid <= tolerance:
                 status = 'Optimal solution found'
@@ -487,27 +536,15 @@ class RegQPInteriorPointSolver:
             else:
                 mins = minz = maxs = 0
 
-            # Solve the linear system
-            #
-            # [ -(Q+pI)      0             A1' ] [∆x] = [c + Q x - A1' y       ]
-            # [  0      -(S^{-1} Z + pI)   A2' ] [∆s]   [  - A2' y - µ S^{-1} e]
-            # [  A1          A2            dI  ] [∆y]   [ b - A1 x - A2 s      ]
-            #
-            # where s are the slack variables, p is the primal regularization
-            # parameter, d is the dual regularization parameter, and
-            # A = [ A1  A2 ]  where the columns of A1 correspond to the original
-            # problem variables and those of A2 correspond to slack variables.
-            #
-            # We recover ∆z = -z - S^{-1} (Z ∆s + µ e).
-
             # Compute augmented matrix and factorize it.
-            factorized = False
-            nb_bump = 0
-            while not factorized and nb_bump < 5:
 
-                H.put(-diagQ - regpr,    range(on))
-                H.put(-z/s   - regpr,  range(on,n))
-                H.put(regdu,          range(n,n+m))
+            factorized = False
+            degenerate = False
+            nb_bump = 0
+            while not factorized and not degenerate:
+
+                self.update_linear_system(s, z, regpr, regdu)
+                self.log.debug('Factorizing')
                 self.LBL.factorize(H)
                 factorized = True
 
@@ -515,14 +552,22 @@ class RegQPInteriorPointSolver:
                 # regularization parameters.
                 if not self.LBL.isFullRank:
                     if self.verbose:
-                        sys.stderr.write('Primal-Dual Matrix Rank Deficient')
-                        sys.stderr.write('... bumping up reg parameters\n')
-                    regpr *= 100 ; regdu *= 100
-                    nb_bump += 1
+                        self.log.info('Primal-Dual Matrix Rank Deficient' + \
+                                      '... bumping up reg parameters')
+
+                    if regpr == 0. and regdu == 0.:
+                        degenerate = True
+                    else:
+                        if regpr > 0:
+                            regpr *= 100
+                        if regdu > 0:
+                            regdu *= 100
+                        nb_bump += 1
+                        degenerate = nb_bump > self.bump_max
                     factorized = False
 
             # Abandon if regularization is unsuccessful.
-            if not self.LBL.isFullRank and nb_bump == 5:
+            if not self.LBL.isFullRank and degenerate:
                 status = 'Unable to regularize sufficiently.'
                 short_status = 'degn'
                 finished = True
@@ -531,16 +576,12 @@ class RegQPInteriorPointSolver:
             if PredictorCorrector:
                 # Use Mehrotra predictor-corrector method.
                 # Compute affine-scaling step, i.e. with centering = 0.
-                rhs[:n]    = -dFeas
-                rhs[on:n] += z
-                rhs[n:]    = -pFeas
+                self.set_affine_scaling_rhs(rhs, pFeas, dFeas, s, z)
 
                 (step, nres, neig) = self.solveSystem(rhs)
 
                 # Recover dx and dz.
-                dx = step[:n]
-                ds = dx[on:]
-                dz = -z * (1 + ds/s)
+                dx, ds, dy, dz = self.get_affine_scaling_dxsyz(step, x, s, y, z)
 
                 # Compute largest allowed primal and dual stepsizes.
                 (alpha_p, ip) = self.maxStepLength(s, ds)
@@ -551,30 +592,23 @@ class RegQPInteriorPointSolver:
                 sigma = (muAff/mu)**3
 
                 # Incorporate predictor information for corrector step.
+                # Only update rhs[on:n]; the rest of the vector did not change.
                 comp += ds*dz
+                comp -= sigma * mu
+                self.update_corrector_rhs(rhs, s, z, comp)
             else:
                 # Use long-step method: Compute centering parameter.
                 sigma = min(0.1, 100*mu)
+                comp -= sigma * mu
 
-            # Assemble right-hand side with centering information.
-            comp -= sigma * mu
-
-            if PredictorCorrector:
-                # Only update rhs[on:n]; the rest of the vector did not change.
-                rhs[on:n] += comp/s - z
-            else:
-                rhs[:n]    = -dFeas
-                rhs[on:n] += comp/s
-                rhs[n:]    = -pFeas
+                # Assemble rhs.
+                self.update_long_step_rhs(rhs, pFeas, dFeas, comp, s)
 
             # Solve augmented system.
             (step, nres, neig) = self.solveSystem(rhs)
 
             # Recover step.
-            dx = step[:n]
-            ds = dx[on:]
-            dy = step[n:]
-            dz = -(comp + z*ds)/s
+            dx, ds, dy, dz = self.get_dxsyz(step, x, s, y, z, comp)
 
             normds = norm2(ds) ; normdy = norm2(dy) ; normdx = norm2(dx)
 
@@ -586,7 +620,7 @@ class RegQPInteriorPointSolver:
             tau = max(.9995, 1.0-mu)
 
             if PredictorCorrector:
-                # Compute actual stepsize using Mehrotra's heuristic
+                # Compute actual stepsize using Mehrotra's heuristic.
                 mult = 0.1
 
                 # ip=-1 if ds ≥ 0, and id=-1 if dz ≥ 0
@@ -614,10 +648,10 @@ class RegQPInteriorPointSolver:
                 alpha_d *= tau
 
             # Display data.
-            if self.verbose:
-                sys.stdout.write(self.format2 % (mu, alpha_p, alpha_d,
-                                                 nres, regpr, regdu, rho_q,
-                                                 del_r, mins, minz, maxs))
+            output_line += self.format2 % (mu, alpha_p, alpha_d,
+                                           nres, regpr, regdu, rho_q,
+                                           del_r, mins, minz, maxs)
+            self.log.info(output_line)
 
             # Update iterates and perturbation vectors.
             x += alpha_p * dx    # This also updates slack variables.
@@ -626,15 +660,21 @@ class RegQPInteriorPointSolver:
             q *= (1-alpha_p) ; q += alpha_p * dx
             r *= (1-alpha_d) ; r += alpha_d * dy
             qNorm = norm2(q) ; rNorm = norm2(r)
-            rho_q = regpr * qNorm/(1+self.normc) ; rho_q_min = min(rho_q_min, rho_q)
-            del_r = regdu * rNorm/(1+self.normb) ; del_r_min = min(del_r_min, del_r)
+            if regpr > 0:
+                rho_q = regpr * qNorm/(1+self.normc)
+                rho_q_min = min(rho_q_min, rho_q)
+            else:
+                rho_q = 0.0
+            if regdu > 0:
+                del_r = regdu * rNorm/(1+self.normb)
+                del_r_min = min(del_r_min, del_r)
+            else:
+                del_r = 0.0
             iter += 1
 
         solve_time = cputime() - setup_time
 
-        if self.verbose:
-            sys.stdout.write('\n')
-            sys.stdout.write('-' * len(self.header) + '\n')
+        self.log.info('-' * len(self.header))
 
         # Transfer final values to class members.
         self.x = x
@@ -656,7 +696,7 @@ class RegQPInteriorPointSolver:
 
         return
 
-    def set_initial_guess(self, qp, **kwargs):
+    def set_initial_guess(self, **kwargs):
         """
         Compute initial guess according the Mehrotra's heuristic. Initial values
         of x are computed as the solution to the least-squares problem::
@@ -665,7 +705,7 @@ class RegQPInteriorPointSolver:
 
         which is also the solution to the augmented system::
 
-            [ 0   0   A1' ] [x]   [0]
+            [ Q   0   A1' ] [x]   [0]
             [ 0   I   A2' ] [s] = [0]
             [ A1  A2   0  ] [w]   [b].
 
@@ -676,7 +716,7 @@ class RegQPInteriorPointSolver:
 
         which can be computed as the solution to the augmented system::
 
-            [ 0   0   A1' ] [w]   [c]
+            [ Q   0   A1' ] [w]   [c]
             [ 0   I   A2' ] [z] = [0]
             [ A1  A2   0  ] [y]   [0].
 
@@ -687,30 +727,37 @@ class RegQPInteriorPointSolver:
         The values of s and z are subsequently adjusted to ensure they are
         positive. See [Methrotra, 1992] for details.
         """
+        qp = self.qp
         n = qp.n ; m = qp.m ; ns = self.nSlacks ; on = qp.original_n
 
+        self.log.debug('Computing initial guess')
+
         # Set up augmented system matrix and factorize it.
-        self.H.put(-self.diagQ - 1.0e-4, range(on))
-        self.H.put(-1.0, range(on,n))
-        self.H.put( 1.0e-4, range(n,n+m))
-        self.LBL = LBLContext(self.H, sqd=True) # Perform analyze and factorize
+        self.set_initial_guess_system()
+        self.LBL = LBLContext(self.H, sqd=self.regdu > 0) # Analyze + factorize
 
         # Assemble first right-hand side and solve.
-        rhs = np.zeros(n+m)
-        rhs[n:] = self.b
+        rhs = self.set_initial_guess_rhs()
         (step, nres, neig) = self.solveSystem(rhs)
-        x = step[:n].copy()
+
+        dx, _, _, _ = self.get_dxsyz(step, 0, 1, 0, 0, 0)
+
+        # dx is just a reference; we need to make a copy.
+        x = dx.copy()
         s = x[on:]  # Slack variables. Must be positive.
 
         # Assemble second right-hand side and solve.
-        rhs[:on] = self.c
-        rhs[on:] = 0.0
+        self.update_initial_guess_rhs(rhs)
 
         (step, nres, neig) = self.solveSystem(rhs)
-        y = step[n:].copy()
-        z = step[on:n].copy()
 
-        # If there are no inequality constraints, this is it
+        _, dz, dy, _ = self.get_dxsyz(step, 0, 1, 0, 0, 0)
+
+        # dy and dz are just references; we need to make copies.
+        y = dy.copy()
+        z = -dz
+
+        # If there are no inequality constraints, this is it.
         if n == on: return (x,y,z)
 
         # Use Mehrotra's heuristic to ensure (s,z) > 0.
@@ -743,8 +790,10 @@ class RegQPInteriorPointSolver:
     def maxStepLength(self, x, d):
         """
         Returns the max step length from x to the boundary of the nonnegative
-        orthant in the direction d.
+        orthant in the direction d. Also return the component index responsible
+        for cutting the steplength the most (or -1 if no such index exists).
         """
+        self.log.debug('Computing step length to boundary')
         whereneg = np.where(d < 0)[0]
         if len(whereneg) > 0:
             dxneg = -x[whereneg]/d[whereneg]
@@ -759,12 +808,105 @@ class RegQPInteriorPointSolver:
             kmin = -1
         return (stepmax, kmin)
 
+    def set_initial_guess_system(self):
+        self.log.debug('Setting up linear system for initial guess')
+        m, n = self.A.shape
+        on = self.qp.original_n
+        self.H.put(-self.diagQ - 1.0e-4, range(on))
+        self.H.put(-1.0, range(on,n))
+        self.H.put( 1.0e-4, range(n,n+m))
+        return
+
+    def set_initial_guess_rhs(self):
+        self.log.debug('Setting up right-hand side for initial guess')
+        m, n = self.A.shape
+        rhs = np.zeros(n+m)
+        rhs[n:] = self.b
+        return rhs
+
+    def update_initial_guess_rhs(self, rhs):
+        self.log.debug('Updating right-hand side for initial guess')
+        on = self.qp.original_n
+        rhs[:on] = self.c
+        rhs[on:] = 0.0
+        return
+
+    def update_linear_system(self, s, z, regpr, regdu, **kwargs):
+        self.log.debug('Updating linear system for current iteration')
+        qp = self.qp ; n = qp.n ; m = qp.m ; on = qp.original_n
+        diagQ = self.diagQ
+        self.H.put(-diagQ - regpr,    range(on))
+        self.H.put(-z/s   - regpr,  range(on,n))
+        if regdu > 0:
+            self.H.put(regdu, range(n,n+m))
+        return
+
     def solveSystem(self, rhs, itref_threshold=1.0e-5, nitrefmax=5):
+        """
+        Solve the augmented system with right-hand side `rhs` and optionally
+        perform iterative refinement.
+        Return the solution vector (as a reference), the 2-norm of the residual
+        and the number of negative eigenvalues of the coefficient matrix.
+        """
+        self.log.debug('Solving linear system')
         self.LBL.solve(rhs)
-        #nr = norm2(self.LBL.residual)
         self.LBL.refine(rhs, tol=itref_threshold, nitref=nitrefmax)
+
+        # Collect statistics on the linear system solve.
+        self.cond_history.append((self.LBL.cond, self.LBL.cond2))
+        self.berr_history.append((self.LBL.berr, self.LBL.berr2))
+        self.derr_history.append(self.LBL.dirError)
+        self.nrms_history.append((self.LBL.matNorm, self.LBL.xNorm))
+        self.lres_history.append(self.LBL.relRes)
+
         nr = norm2(self.LBL.residual)
         return (self.LBL.x, nr, self.LBL.neig)
+
+    def get_affine_scaling_dxsyz(self, step, x, s, y, z):
+        """
+        Split `step` into steps along x, s, y and z. This function returns
+        *references*, not copies. Only dz is computed from `step` without being
+        a subvector of `step`.
+        """
+        self.log.debug('Recovering affine-scaling step')
+        m, n = self.A.shape
+        on = self.qp.original_n
+        dx = step[:n]
+        ds = dx[on:]
+        dy = step[n:]
+        dz = -z * (1 + ds/s)
+        return (dx, ds, dy, dz)
+
+    def update_corrector_rhs(self, rhs, s, z, comp):
+        self.log.debug('Updating right-hand side for corrector step')
+        m, n = self.A.shape
+        on = self.qp.original_n
+        rhs[on:n] += comp/s - z
+        return
+
+    def update_long_step_rhs(self, rhs, pFeas, dFeas, comp, s):
+        self.log.debug('Updating right-hand side for long step')
+        m, n = self.A.shape
+        on = self.qp.original_n
+        rhs[:n]    = -dFeas
+        rhs[on:n] += comp/s
+        rhs[n:]    = -pFeas
+        return
+
+    def get_dxsyz(self, step, x, s, y, z, comp):
+        """
+        Split `step` into steps along x, s, y and z. This function returns
+        *references*, not copies. Only dz is computed from `step` without being
+        a subvector of `step`.
+        """
+        self.log.debug('Recovering step')
+        m, n = self.A.shape
+        on = self.qp.original_n
+        dx = step[:n]
+        ds = dx[on:]
+        dy = step[n:]
+        dz = -(comp + z*ds)/s
+        return (dx, ds, dy, dz)
 
 
 class RegQPInteriorPointSolver29(RegQPInteriorPointSolver):
@@ -855,3 +997,106 @@ class RegQPInteriorPointSolver29(RegQPInteriorPointSolver):
         self.prob_scaled = False
 
         return
+
+
+class RegQPInteriorPointSolver3x3(RegQPInteriorPointSolver):
+    """
+    A variant of the regularized interior-point method based on the 3x3 block
+    system instead of the reduced 2x2 block system.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(RegQPInteriorPointSolver3x3, self).__init__(*args, **kwargs)
+
+    def initialize_kkt_matrix(self):
+        # [ -(Q+ρI)   0        A1'     0   ]
+        # [  0       -ρI       A2'  Z^{1/2}]
+        # [  A1       A2       δI      0   ]
+        # [  0        Z^{1/2}  0       S   ]
+        m, n = self.A.shape
+        on = self.qp.original_n
+        H = PysparseMatrix(size=2*n+m-on,
+                           sizeHint=4*on+m+self.A.nnz+self.Q.nnz,
+                           symmetric=True)
+
+        # The (1,1) block will always be Q (save for its diagonal).
+        H[:on,:on] = -self.Q
+
+        # The (2,1) block will always be A. We store it now once and for all.
+        H[n:n+m,:n] = self.A
+        return H
+
+    def set_initial_guess_system(self):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        self.H.put(-self.diagQ - 1.0e-4, range(on))
+        self.H.put(-1.0, range(on,n))
+        self.H.put( 1.0e-4, range(n, n+m))
+        self.H.put( 1.0, range(n+m,2*n+m-on))
+        self.H.put( 1.0, range(n+m,2*n+m-on), range(on,n))
+        return
+
+    def set_initial_guess_rhs(self):
+        m, n = self.A.shape
+        rhs = self.initialize_rhs()
+        rhs[n:n+m] = self.b
+        return rhs
+
+    def update_initial_guess_rhs(self, rhs):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        rhs[:on] = self.c
+        rhs[on:] = 0.0
+        return
+
+    def initialize_rhs(self):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        return np.zeros(2*n+m-on)
+
+    def update_linear_system(self, s, z, regpr, regdu, **kwargs):
+        qp = self.qp ; n = qp.n ; m = qp.m ; on = qp.original_n
+        diagQ = self.diagQ
+        self.H.put(-diagQ - regpr, range(on))
+        if regpr > 0:
+            self.H.put(-regpr, range(on,n))
+        if regdu > 0:
+            self.H.put( regdu, range(n,n+m))
+        self.H.put( np.sqrt(z),    range(n+m,2*n+m-on), range(on,n))
+        self.H.put( s,             range(n+m,2*n+m-on))
+        return
+
+    def set_affine_scaling_rhs(self, rhs, pFeas, dFeas, s, z):
+        "Set rhs for affine-scaling step."
+        m, n = self.A.shape
+        on = self.qp.original_n
+        rhs[:n]    = -dFeas
+        rhs[n:n+m] = -pFeas
+        rhs[n+m:]  = -s * np.sqrt(z)
+        return
+
+    def get_affine_scaling_dxsyz(self, step, x, s, y, z):
+        return self.get_dxsyz(step, x, s, y, z, 0)
+
+    def update_corrector_rhs(self, rhs, s, z, comp):
+        m, n = self.A.shape
+        rhs[n+m:] = -comp/np.sqrt(z)
+        return
+
+    def update_long_step_rhs(self, rhs, pFeas, dFeas, comp, s):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        rhs[:n]    = -dFeas
+        #rhs[on:n] -=  z
+        rhs[n:n+m] = -pFeas
+        rhs[n+m:]  = -comp
+        return
+
+    def get_dxsyz(self, step, x, s, y, z, comp):
+        m, n = self.A.shape
+        on = self.qp.original_n
+        dx = step[:n]
+        ds = step[on:n]
+        dy = step[n:n+m]
+        dz = np.sqrt(z) * step[n+m:]
+        return (dx, ds, dy, dz)

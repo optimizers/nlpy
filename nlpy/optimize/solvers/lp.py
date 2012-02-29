@@ -398,7 +398,6 @@ class RegLPInteriorPointSolver:
             # At the first iteration, initialize perturbation vectors
             # (q=primal, r=dual).
             if iter == 0:
-                regpr = self.regpr ; regdu = self.regdu
                 if regpr > 0:
                     q = dFeas/regpr ; qNorm = norm2(q) ; rho_q = regpr * qNorm
                 else:
@@ -416,21 +415,19 @@ class RegLPInteriorPointSolver:
                 mu0 = mu
             else:
                 # Adjust regularization parameters.
-                #regpr = max(min(regpr/10, regpr**(1.1)), regpr_min)
-                #regdu = max(min(regdu/10, regdu**(1.1)), regdu_min)
-                # 1) rho+ |dx| <= const * s'z
-                # 2) del+ |dy| <= const * s'z
                 if regdu > 0:
-                    regdu = min(regdu/10, sz/normdy/10, (sz/normdy)**(1.1))
+                    regdu = regdu/10
                     regdu = max(regdu, regdu_min)
                 if regpr > 0:
-                    regpr = min(regpr/10, sz/normdx/10, (sz/normdx)**(1.1))
+                    regpr = regpr/10
                     regpr = max(regpr, regpr_min)
 
                 # Check for infeasible problem.
                 if check_infeasible:
                     #if mu < 1.0e-8 * mu0 and rho_q > 1.0e+3 * kktResid * self.normbc: #* mu * self.normbc:
-                    if mu < 1.0e-8 * mu0 and rho_q > 1.0e+2 * rho_q_min:
+                    #if mu < 1.0e-8 * mu0 and rho_q > 1.0e+2 * rho_q_min:
+                    if mu < tolerance/100 * mu0 and \
+                            rho_q > 1./tolerance/1.0e+6 * rho_q_min:
                         pr_infeas_count += 1
                         if pr_infeas_count > 1 and pr_last_iter == iter-1:
                             if pr_infeas_count > 6:
@@ -441,7 +438,9 @@ class RegLPInteriorPointSolver:
                         pr_last_iter = iter
 
                     #if mu < 1.0e-8 * mu0 and del_r > 1.0e+3 * kktResid * self.normbc: # * mu * self.normbc:
-                    if mu < 1.0e-8 * mu0 and del_r > 1.0e+2 * del_r_min:
+                    #if mu < 1.0e-8 * mu0 and del_r > 1.0e+2 * del_r_min:
+                    if mu < tolerance/100 * mu0 and \
+                            del_r > 1./tolerance/1.0e+6 * del_r_min:
                         du_infeas_count += 1
                         if du_infeas_count > 1 and du_last_iter == iter-1:
                             if du_infeas_count > 6:
@@ -463,11 +462,6 @@ class RegLPInteriorPointSolver:
 
             # Repeatedly assemble system and compute step until primal and
             # dual regularization parameters have appropriate values.
-
-            # Reset primal and dual regularization parameters to best guess
-            #if iter > 0:
-            #    regpr = max(regpr_min, 0.5*sigma*dResid/normds)
-            #    regdu = max(regdu_min, 0.5*sigma*pResid/normdy)
 
             step_acceptable = False
 
@@ -755,7 +749,7 @@ class RegLPInteriorPointSolver:
 
         (step, nres, neig) = self.solveSystem(rhs)
         y = step[n:].copy()
-        z = step[on:n].copy()
+        z = -step[on:n] #.copy()
 
         # Use Mehrotra's heuristic to ensure (s,z) > 0.
         if np.all(s >= 0):

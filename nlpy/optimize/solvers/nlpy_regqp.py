@@ -3,12 +3,28 @@
 from nlpy import __version__
 from nlpy.model import SlackFramework
 from nlpy.optimize.solvers.cqp import RegQPInteriorPointSolver
+from nlpy.optimize.solvers.cqp import RegQPInteriorPointSolver3x3
 from nlpy.tools.norms import norm2
 from nlpy.tools.timing import cputime
 from optparse import OptionParser
 import numpy
 import os
 import sys
+import logging
+
+# Create root logger.
+log = logging.getLogger('cqp')
+log.setLevel(logging.INFO)
+fmt = logging.Formatter('%(name)-10s %(levelname)-8s %(message)s')
+hndlr = logging.StreamHandler(sys.stdout)
+hndlr.setFormatter(fmt)
+log.addHandler(hndlr)
+
+# Configure the solver logger.
+sublogger = logging.getLogger('cqp.solver')
+sublogger.setLevel(logging.INFO)
+sublogger.addHandler(hndlr)
+sublogger.propagate = False
 
 usage_msg = """%prog [options] problem1 [... problemN]
 where problem1 through problemN represent convex quadratic programs."""
@@ -33,6 +49,8 @@ parser.add_option("-d", "--regdu", action="store", type="float", default=None,
         dest="regdu", help="Specify initial dual regularization parameter")
 parser.add_option("-S", "--no-scale", action="store_true",
         dest="no_scale", default=False, help="Turn off problem scaling")
+parser.add_option("-3", "--3x3", action="store_true",
+        dest="sys3x3", default=False, help="Use 3x3 block linear system")
 parser.add_option("-l", "--long-step", action="store_true", default=False,
         dest="longstep", help="Use long-step method")
 parser.add_option("-f", "--assume-feasible", action="store_true",
@@ -43,6 +61,13 @@ parser.add_option("-V", "--verbose", action="store_true", default=False,
 
 # Parse command-line options
 (options, args) = parser.parse_args()
+
+# Decide which class to instantiate.
+if options.sys3x3:
+    print 'Brave man! Using 3x3 block system!'
+    Solver = RegQPInteriorPointSolver3x3
+else:
+    Solver = RegQPInteriorPointSolver
 
 opts_init = {}
 if options.regpr is not None:
@@ -57,10 +82,13 @@ if options.tol is not None:
     opts_solve['tolerance'] = options.tol
 
 # Set printing standards for arrays.
-numpy.set_printoptions(precision=3, linewidth=80, threshold=10, edgeitems=3)
+numpy.set_printoptions(precision=3, linewidth=70, threshold=10, edgeitems=2)
+
+multiple_problems = len(args) > 1
 
 if not options.verbose:
-    sys.stderr.write(hdr + '\n' + '-'*len(hdr) + '\n')
+    log.info(hdr)
+    log.info('-'*len(hdr))
 
 for probname in args:
 
@@ -70,16 +98,16 @@ for probname in args:
 
     # isqp() should be implemented in the near future.
     #if not qp.isqp():
-    #    sys.stderr.write('Problem %s is not a linear program\n' % probname)
+    #    log.info('Problem %s is not a quadratic program\n' % probname)
     #    qp.close()
     #    continue
 
     # Pass problem to RegQP.
-    regqp = RegQPInteriorPointSolver(qp,
-                                     scale=not options.no_scale,
-                                     verbose=options.verbose,
-                                     **opts_init)
-    
+    regqp = Solver(qp,
+                   scale=not options.no_scale,
+                   verbose=options.verbose,
+                   **opts_init)
+
     regqp.solve(PredictorCorrector=not options.longstep,
                 check_infeasible=not options.assume_feasible,
                 **opts_solve)
@@ -89,26 +117,55 @@ for probname in args:
     if probname[-3:] == '.nl': probname = probname[:-3]
 
     if not options.verbose:
-        sys.stdout.write(fmt % (probname, regqp.iter, regqp.obj_value,
-                                regqp.pResid, regqp.dResid, regqp.rgap,
-                                t_setup, regqp.solve_time, regqp.short_status))
+        log.info(fmt % (probname, regqp.iter, regqp.obj_value,
+                        regqp.pResid, regqp.dResid, regqp.rgap,
+                        t_setup, regqp.solve_time, regqp.short_status))
         if regqp.short_status == 'degn':
-            sys.stdout.write(' F')  # Could not regularize sufficiently.
-        sys.stdout.write('\n')
+            log.info(' F')  # Could not regularize sufficiently.
 
     qp.close()
 
-if not options.verbose:
-    sys.stderr.write('-'*len(hdr) + '\n')
-else:
-    x = regqp.x[:qp.original_n]
-    print 'Final x: ', x, ', |x| = %7.1e' % norm2(x)
-    print 'Final y: ', regqp.y, ', |y| = %7.1e' % norm2(regqp.y)
-    print 'Final z: ', regqp.z, ', |z| = %7.1e' % norm2(regqp.z)
+log.info('-'*len(hdr))
 
-    sys.stdout.write('\n' + regqp.status + '\n')
-    sys.stdout.write(' #Iterations: %-d\n' % regqp.iter)
-    sys.stdout.write(' RelResidual: %7.1e\n' % regqp.kktResid)
-    sys.stdout.write(' Final cost : %21.15e\n' % regqp.obj_value)
-    sys.stdout.write(' Setup time : %6.2fs\n' % t_setup)
-    sys.stdout.write(' Solve time : %6.2fs\n' % regqp.solve_time)
+if not multiple_problems:
+    x = regqp.x[:qp.original_n]
+    log.info('Final x: %s, |x| = %7.1e' % (repr(x),norm2(x)))
+    log.info('Final y: %s, |y| = %7.1e' % (repr(regqp.y),norm2(regqp.y)))
+    log.info('Final z: %s, |z| = %7.1e' % (repr(regqp.z),norm2(regqp.z)))
+
+    log.info(regqp.status)
+    log.info('#Iterations: %-d' % regqp.iter)
+    log.info('RelResidual: %7.1e' % regqp.kktResid)
+    log.info('Final cost : %21.15e' % regqp.obj_value)
+    log.info('Setup time : %6.2fs' % t_setup)
+    log.info('Solve time : %6.2fs' % regqp.solve_time)
+
+    # Plot linear system statistics.
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    ax = fig.gca()
+    ax.semilogy(regqp.lres_history)
+    ax.set_title('LS Relative Residual')
+    fig2 = plt.figure()
+    ax2 = fig2.gca()
+    ax2.semilogy(regqp.derr_history)
+    ax2.set_title('Direct Error Estimate')
+    fig3 = plt.figure()
+    ax3 = fig3.gca()
+    ax3.semilogy([cond[0] for cond in regqp.cond_history], label='K1')
+    ax3.semilogy([cond[1] for cond in regqp.cond_history], label='K2')
+    ax3.legend(loc='upper left')
+    ax3.set_title('Condition number estimates of Arioli, Demmel, Duff')
+    fig4 = plt.figure()
+    ax4 = fig4.gca()
+    ax4.semilogy([berr[0] for berr in regqp.berr_history], label='bkwrd err1')
+    ax4.semilogy([berr[1] for berr in regqp.berr_history], label='bkwrd err2')
+    ax4.legend(loc='upper left')
+    ax4.set_title('Backward Error Estimates of Arioli, Demmel, Duff')
+    fig5 = plt.figure()
+    ax5 = fig5.gca()
+    ax5.semilogy([nrm[0] for nrm in regqp.nrms_history], label='Matrix norm')
+    ax5.semilogy([nrm[1] for nrm in regqp.nrms_history], label='Solution norm')
+    ax5.legend(loc='upper left')
+    ax5.set_title('Infinity Norm Estimates')
+    plt.show()

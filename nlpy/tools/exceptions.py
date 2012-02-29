@@ -16,3 +16,10 @@ class InfeasibleError(Exception):
     """
     def __init__(self):
         pass
+
+class ShapeError(Exception):
+    """
+    Error that can be raised to signal a dimension mismatch.
+    """
+    def __init__(self):
+        pass
