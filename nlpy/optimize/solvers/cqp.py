@@ -73,6 +73,11 @@ class RegQPInteriorPointSolver(object):
             :regdu: Initial value of dual regularization parameter
                     (default: `1.0`).
 
+            :bump_max: Max number of times regularization parameters are
+                       increased when a factorization fails (default 5).
+
+            :logger_name: Name of a logger to control output.
+
             :verbose: Turn on verbose mode (default `False`).
         """
 
@@ -135,6 +140,9 @@ class RegQPInteriorPointSolver(object):
         # Set regularization parameters.
         self.regpr = kwargs.get('regpr', 1.0) ; self.regpr_min = 1.0e-8
         self.regdu = kwargs.get('regdu', 1.0) ; self.regdu_min = 1.0e-8
+
+        # Max number of times regularization parameters are increased.
+        self.bump_max = kwargs.get('bump_max', 5)
 
         # Check input parameters.
         if self.regpr < 0.0: self.regpr = 0.0
@@ -463,11 +471,15 @@ class RegQPInteriorPointSolver(object):
                 pr_last_iter = 0
                 du_last_iter = 0
                 mu0 = mu
+
             else:
-                regdu = regdu/10
-                regdu = max(regdu, regdu_min)
-                regpr = regpr/10
-                regpr = max(regpr, regpr_min)
+
+                if regdu > 0:
+                    regdu = regdu/10
+                    regdu = max(regdu, regdu_min)
+                if regpr > 0:
+                    regpr = regpr/10
+                    regpr = max(regpr, regpr_min)
 
                 # Check for infeasible problem.
                 if check_infeasible:
@@ -527,8 +539,9 @@ class RegQPInteriorPointSolver(object):
             # Compute augmented matrix and factorize it.
 
             factorized = False
+            degenerate = False
             nb_bump = 0
-            while not factorized and nb_bump < 5:
+            while not factorized and not degenerate:
 
                 self.update_linear_system(s, z, regpr, regdu)
                 self.log.debug('Factorizing')
@@ -541,12 +554,20 @@ class RegQPInteriorPointSolver(object):
                     if self.verbose:
                         self.log.info('Primal-Dual Matrix Rank Deficient' + \
                                       '... bumping up reg parameters')
-                    regpr *= 100 ; regdu *= 100
-                    nb_bump += 1
+
+                    if regpr == 0. and regdu == 0.:
+                        degenerate = True
+                    else:
+                        if regpr > 0:
+                            regpr *= 100
+                        if regdu > 0:
+                            regdu *= 100
+                        nb_bump += 1
+                        degenerate = nb_bump > self.bump_max
                     factorized = False
 
             # Abandon if regularization is unsuccessful.
-            if not self.LBL.isFullRank and nb_bump == 5:
+            if not self.LBL.isFullRank and degenerate:
                 status = 'Unable to regularize sufficiently.'
                 short_status = 'degn'
                 finished = True
@@ -639,10 +660,16 @@ class RegQPInteriorPointSolver(object):
             q *= (1-alpha_p) ; q += alpha_p * dx
             r *= (1-alpha_d) ; r += alpha_d * dy
             qNorm = norm2(q) ; rNorm = norm2(r)
-            rho_q = regpr * qNorm/(1+self.normc)
-            rho_q_min = min(rho_q_min, rho_q)
-            del_r = regdu * rNorm/(1+self.normb)
-            del_r_min = min(del_r_min, del_r)
+            if regpr > 0:
+                rho_q = regpr * qNorm/(1+self.normc)
+                rho_q_min = min(rho_q_min, rho_q)
+            else:
+                rho_q = 0.0
+            if regdu > 0:
+                del_r = regdu * rNorm/(1+self.normb)
+                del_r_min = min(del_r_min, del_r)
+            else:
+                del_r = 0.0
             iter += 1
 
         solve_time = cputime() - setup_time
@@ -707,7 +734,7 @@ class RegQPInteriorPointSolver(object):
 
         # Set up augmented system matrix and factorize it.
         self.set_initial_guess_system()
-        self.LBL = LBLContext(self.H, sqd=True) # Perform analyze and factorize
+        self.LBL = LBLContext(self.H, sqd=self.regdu > 0) # Analyze + factorize
 
         # Assemble first right-hand side and solve.
         rhs = self.set_initial_guess_rhs()
