@@ -19,7 +19,7 @@ def pycfs_fact(ProblemList, bigp=500):
     if len(ProblemList) == 0:
         usage()
         sys.exit(1)
-    
+
     header = '%-12s  %-6s  %-6s  %-7s  %-6s  %-6s  %-8s  %-10s  %-3s' % ('Name', 'n', 'nnz(A)', 'nnz(L)', 'den(A)', 'den(L)', 'shift', 'mem', 'p*')
     lhead = len(header)
     print header
@@ -60,12 +60,12 @@ def pycfs_fact(ProblemList, bigp=500):
             plt.show()
         except:
             sys.stderr.write('Not plotting sparsity patterns.')
-            sys.stderr.write(' Did you install Matplotlib?\n')
-        
+            sys.stderr.write(' Did you install Matplotlib and pyorder?\n')
+
 
     print '-' * lhead
     return None
 
 if __name__ == '__main__':
 
-    pycfs_fact(sys.argv[1:])    
+    pycfs_fact(sys.argv[1:])
