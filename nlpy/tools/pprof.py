@@ -72,7 +72,7 @@ class OptionClass:
     def __init__(self):
         self.datacol  = 1
         self.ymin     = 0.0
-        self.ymax     = 1.0
+        self.ymax     = 1.1
         self.legend   = False
         self.linestyl = None
         self.logscale = None
@@ -216,14 +216,14 @@ class RatioClass:
         # Create empty ratio table
         nprobs = MetricTable.nprobs
         nsolvs = MetricTable.nsolvs
-        self.ratios = ma.zeros((nprobs+1, nsolvs), dtype=numpy.float)
+        self.ratios = ma.zeros((nprobs, nsolvs), dtype=numpy.float)
 
         # Compute best relative performance ratios across
         # solvers for each problem
         for prob in range(nprobs):
             metrics  = MetricTable.prob_mets(prob) + epsilon
             best_met = ma.minimum(metrics)
-            self.ratios[prob+1,:] = metrics * (1.0 / best_met)
+            self.ratios[prob,:] = metrics * (1.0 / best_met)
 
         # Sort each solvers performance ratios
         for solv in range(nsolvs):
@@ -231,7 +231,7 @@ class RatioClass:
 
         # Compute largest ratio and use to replace failure entries
         self.maxrat = ma.maximum(self.ratios)
-        self.ratios = ma.filled(self.ratios, 1.01 * self.maxrat)
+        self.ratios = ma.filled(self.ratios, 10 * self.maxrat)
 
     def solv_ratios(self, solver):
         return self.ratios[:,solver]
@@ -306,7 +306,7 @@ class PerformanceProfile:
         self.ax = MM.axes()
 
         # Generate the y-axis data
-        self.ydata = numpy.arange(self.nprobs+1) * (1.0 / self.nprobs)
+        self.ydata = numpy.arange(self.nprobs) * (1.0 / self.nprobs)
 
         # Set the x-axis ranges
         self.xmax = self.pprofs.maxrat + 1.0e-3
@@ -315,8 +315,11 @@ class PerformanceProfile:
         else:
             self.xmax = max(1, self.xmax)
         self.epsilon = 0.0
+
+        plotargs = {}
         if self.opts.logscale is not None:
             self.mmplotcmd = self.ax.semilogx
+            plotargs['basex'] = self.opts.logscale
             self.epsilon = 0.001
             self.xmin = 1.0
         else:
@@ -346,7 +349,8 @@ class PerformanceProfile:
                                                 curcolor + lstyle,
                                                 linewidth=2.5,
                                                 drawstyle='steps-pre',
-                                                antialiased=True))
+                                                antialiased=True,
+                                                **plotargs))
             #if self.bw: lscount += 1
             #if (lscount % self.nlstyles) == 0 and not self.bw:
             colcount += 1
