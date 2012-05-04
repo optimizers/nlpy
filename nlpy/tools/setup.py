@@ -6,7 +6,7 @@ def configuration(parent_package='',top_path=None):
 
     config = Configuration('tools', parent_package, top_path)
 
-    config.add_scripts(['nlpy_pprof.py'])
+    config.add_scripts(['nlpy_pprof2.py'])
 
     config.make_config_py()
     return config
