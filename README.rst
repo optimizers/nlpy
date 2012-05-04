@@ -94,3 +94,8 @@ Troubleshooting
 
       --f77flags="-ffixed-form -fno-second-underscore -fPIC -O"
       --f90flags="-fno-second-underscore -fPIC -O"
+
+Licensing
+---------
+
+.. image:: http://www.gnu.org/graphics/lgplv3-88x31.png
