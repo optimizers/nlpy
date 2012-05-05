@@ -96,11 +96,21 @@ class PerformanceProfile(object):
         y = np.arange(nprobs, dtype=np.float)/nprobs
         grays = ['0.0', '0.5', '0.8', '0.2', '0.6', '0.9', '0.4', '0.95']
         ngrays = len(grays)
+
+        xmax = 1.1 * self.max_ratio
+        if self.options['logscale']:
+            xmax = max(xmax, 2)
+
         pltcmd = plt.semilogx if self.options['logscale'] else plt.plot
         for solv in range(nsolvs):
             pltargs = ()
             if self.options['bw']:
                 pltargs = (grays[solv % ngrays],)
+            # If all ratios are equal, horizontal line won't be draw.
+            # This happens when a solver always dominates the others.
+            # Adjust by moving the last abscissa to xmax.
+            if reduce(lambda x,y: x==y, self.ratios[solv,:]):
+                self.ratios[solv,-1] = xmax
             pltcmd(self.ratios[solv,:], y,
                    linewidth=2.5,
                    drawstyle='steps-pre',
@@ -109,7 +119,6 @@ class PerformanceProfile(object):
 
         plt.legend(self.solvers, 'lower right')
         ax = plt.gca()
-        xmax = 1.1 * self.max_ratio
         if self.options['logscale']:
             ax.set_xscale('log', basex=2)
             xmax = max(xmax, 2)
