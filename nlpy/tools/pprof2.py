@@ -93,7 +93,7 @@ class PerformanceProfile(object):
 
         import matplotlib.pyplot as plt
         nsolvs, nprobs = self.ratios.shape
-        y = np.arange(nprobs, dtype=np.float)/nprobs
+        y = np.arange(1, nprobs+1, dtype=np.float)/nprobs
         grays = ['0.0', '0.5', '0.8', '0.2', '0.6', '0.9', '0.4', '0.95']
         ngrays = len(grays)
 
