@@ -4,6 +4,7 @@
 from nlpy import __version__
 from nlpy.tools.pprof2 import PerformanceProfile
 from optparse import OptionParser
+import matplotlib.pyplot as plt
 import sys
 
 usage_msg = """%prog [options] file1 file2 [... fileN]
@@ -26,4 +27,5 @@ parser.add_option('-b', '--bw', action='store_true', dest='bw', default=False,
 (options, args) = parser.parse_args()
 
 pprof = PerformanceProfile(args, **options.__dict__)
-pprof.plot()
+ax = pprof.plot()
+plt.show()

@@ -101,7 +101,10 @@ class PerformanceProfile(object):
         if self.options['logscale']:
             xmax = max(xmax, 2)
 
-        pltcmd = plt.semilogx if self.options['logscale'] else plt.plot
+        fig = plt.figure()
+        ax = fig.gca()
+
+        pltcmd = ax.semilogx if self.options['logscale'] else ax.plot
         for solv in range(nsolvs):
             pltargs = ()
             if self.options['bw']:
@@ -114,8 +117,8 @@ class PerformanceProfile(object):
                    antialiased=True,
                    *pltargs)
 
-        plt.legend(self.solvers, 'lower right')
-        ax = plt.gca()
+        ax.legend(self.solvers, 'lower right')
+        #ax = plt.gca()
         if self.options['logscale']:
             ax.set_xscale('log', basex=2)
             xmax = max(xmax, 2)
@@ -125,13 +128,15 @@ class PerformanceProfile(object):
         ax.set_ylabel('Proportion of problems')
         if self.options['title'] is not None:
             ax.set_title(self.options['title'])
-        plt.show()
+        return ax
 
 
 if __name__ == '__main__':
 
+    import matplotlib.pyplot as plt
     import sys
     # Only specify non-default options.
     options = {'bw': True}
     pprof = PerformanceProfile(sys.argv[1:], **options)
-    pprof.plot()
+    ax = pprof.plot()
+    plt.show()
