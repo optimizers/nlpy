@@ -106,11 +106,8 @@ class PerformanceProfile(object):
             pltargs = ()
             if self.options['bw']:
                 pltargs = (grays[solv % ngrays],)
-            # If all ratios are equal, horizontal line won't be draw.
-            # This happens when a solver always dominates the others.
-            # Adjust by moving the last abscissa to xmax.
-            if reduce(lambda x,y: x==y, self.ratios[solv,:]):
-                self.ratios[solv,-1] = xmax
+            # Draw profile tail all the way.
+            self.ratios[solv,-1] = xmax
             pltcmd(self.ratios[solv,:], y,
                    linewidth=2.5,
                    drawstyle='steps-pre',
