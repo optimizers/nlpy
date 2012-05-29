@@ -41,6 +41,7 @@
 #undef Uvx
 #undef LUrhs
 #undef Urhsx
+#undef filename
 
 int ampl_sphsetup(ASL* asl, int no, int ow, int y, int b);
 double ampl_objval(ASL* asl, int np, double x[], int* ne);
