@@ -38,6 +38,11 @@ void ampl_hvcomp(ASL* asl, double* hv, double* v, int nobj, double* ow, double* 
   hvpinit_ASL(asl, ihd_limit, nobj, ow, y);
   hvcomp(hv, v, nobj, ow, y);
 }
+int ampl_lagscale(ASL *asl, double sigma) {
+  int nerror;
+  lagscale_ASL(asl, sigma, &nerror);
+  return nerror;
+}
 void ampl_xknown(ASL* asl, double* x) {
   xknown(x);
 }
