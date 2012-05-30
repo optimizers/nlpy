@@ -27,7 +27,7 @@ class DerivativeChecker:
 
         # Finite difference interval. Scale by norm(x). Use the 1-norm
         # so as not to make small x "smaller".
-        self.step = kwargs.get('step', sqrt(macheps))
+        self.step = kwargs.get('step', (macheps/3)**(1./3))
         self.h = self.step * (1 + norm(x,1))
 
         self.nlp = nlp
