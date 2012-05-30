@@ -287,6 +287,14 @@ class NLPModel(object):
     def jac(self, x, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
 
+    # Evaluate Jacobian-vector product
+    def jprod(self, x, p, **kwargs):
+        raise NotImplementedError, 'This method must be subclassed'
+
+    # Evaluate transposed-Jacobian-vector product
+    def jtprod(self, x, p, **kwargs):
+        raise NotImplementedError, 'This method must be subclassed'
+
     # Evaluate Lagrangian Hessian at (x,z)
     def hess(self, x, z=None, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
@@ -300,6 +308,12 @@ class NLPModel(object):
     # the Hessian of the i-th constraint and a vector
     def hiprod(self, i, x, p, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
+
+    def islp(self):
+        return False
+
+    def isqp(self):
+        return False
 
     def display_basic_info(self):
         """
