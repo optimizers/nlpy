@@ -79,7 +79,6 @@ class TrunkFramework:
 
         self.reltol  = kwargs.get('reltol', self.nlp.stop_d)
         self.abstol  = kwargs.get('abstol', 1.0e-6)
-        self.maxiter = kwargs.get('maxiter', max(1000, 10*self.nlp.n))
         self.verbose = kwargs.get('verbose', True)
         self.ny      = kwargs.get('ny', False)
         self.nbk     = kwargs.get('nbk', 5)
@@ -88,12 +87,12 @@ class TrunkFramework:
         self.nIterNonMono = kwargs.get('nIterNonMono', 25)
         self.logger = kwargs.get('logger', None)
 
-        self.hformat = '%-5s  %8s  %7s  %5s  %8s  %8s  %4s'
-        self.header  = self.hformat % ('Iter','f(x)','|g(x)|','cg','rho','Radius','Stat')
+        self.hformat = '%-5s  %8s  %7s  %5s  %8s  %8s  %8s  %4s'
+        self.header  = self.hformat % ('Iter','f(x)','|g(x)|','cg','rho','Step','Radius','Stat')
         self.hlen   = len(self.header)
         self.hline  = '-' * self.hlen
-        self.format = '%-5d  %8.1e  %7.1e  %5d  %8.1e  %8.1e  %4s'
-        self.format0= '%-5d  %8.1e  %7.1e  %5s  %8s  %8.1e  %4s'
+        self.format = '%-5d  %8.1e  %7.1e  %5d  %8.1e  %8.1e  %8.1e  %4s'
+        self.format0= '%-5d  %8.1e  %7.1e  %5s  %8s  %8s  %8.1e  %4s'
         self.radii = [ TR.Delta ]
 
         # Setup the logger. Install a NullHandler if no output needed.
@@ -126,6 +125,8 @@ class TrunkFramework:
 
     def Solve(self, **kwargs):
 
+        self.maxiter = kwargs.get('maxiter', max(1000, 10*self.nlp.n))
+
         nlp = self.nlp
 
         # Gather initial information.
@@ -145,8 +146,9 @@ class TrunkFramework:
             cgtol = -1.0
         stoptol = max(self.abstol, self.reltol * self.g0)
         step_status = None
-        exitIter = exitUser = False
+        exitUser = False
         exitOptimal = self.gnorm <= stoptol
+        exitIter = self.iter >= self.maxiter
         status = ''
 
         # Initialize non-monotonicity parameters.
@@ -168,7 +170,7 @@ class TrunkFramework:
             self.log.info(self.header)
             self.log.info(self.hline)
             self.log.info(self.format0 % (self.iter, self.f,
-                                             self.gnorm, '', '',
+                                             self.gnorm, '', '', '',
                                              self.TR.Delta, ''))
 
         while not (exitUser or exitOptimal or exitIter):
@@ -263,6 +265,7 @@ class TrunkFramework:
                     self.g = nlp.grad(self.x)
                     self.gnorm = norms.norm2(self.g)
                     self.TR.Delta = self.alpha * snorm
+                    snorm /= self.alpha
                     step_status = 'N-Y'
                 else:
                     self.TR.UpdateRadius(rho, snorm)
@@ -284,11 +287,11 @@ class TrunkFramework:
             if self.verbose:
                 pstatus = step_status if step_status != 'Acc' else ''
                 self.log.info(self.format % (self.iter, self.f,
-                          self.gnorm, cgiter, rho,
+                          self.gnorm, cgiter, rho, snorm,
                           self.TR.Delta, pstatus))
 
             exitOptimal = self.gnorm <= stoptol
-            exitIter    = self.iter > self.maxiter
+            exitIter    = self.iter >= self.maxiter
             exitUser    = status == 'usr'
 
         self.tsolve = cputime() - t    # Solve time
@@ -298,7 +301,7 @@ class TrunkFramework:
             pass
         elif self.gnorm <= stoptol:
             status = 'opt'
-        else: # self.iter > self.maxiter:
+        else: # self.iter >= self.maxiter:
             status = 'itr'
         self.status = status
 
