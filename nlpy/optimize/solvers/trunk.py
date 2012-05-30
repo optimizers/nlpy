@@ -11,7 +11,7 @@ from nlpy.krylov.linop import SimpleLinearOperator
 from nlpy.tools import norms
 from nlpy.tools.timing import cputime
 from nlpy.tools.exceptions import UserExitRequest
-import numpy
+import numpy as np
 import logging
 from math import sqrt
 
@@ -181,7 +181,7 @@ class TrunkFramework:
                 self.g_old = self.g.copy()
 
             # Iteratively minimize the quadratic model in the trust region
-            # m(s) = <g, s> + 1/2 <s, Hs>
+            # m(s) = g's + 1/2 s'Hs
             # Note that m(s) does not include f(x): m(0) = 0.
 
             if self.inexact:
@@ -201,7 +201,7 @@ class TrunkFramework:
             # Obtain model value at next candidate
             m = self.solver.m
             if m is None:
-                m = numpy.dot(self.g, step) + 0.5*numpy.dot(step, H * step)
+                m = np.dot(self.g, step) + 0.5*np.dot(step, H * step)
 
             self.total_cgiter += cgiter
             x_trial = self.x + step
@@ -250,7 +250,7 @@ class TrunkFramework:
                 # Trust-region step is rejected.
 
                 if self.ny: # Backtracking linesearch following "Nocedal & Yuan"
-                    slope = numpy.dot(self.g, step)
+                    slope = np.dot(self.g, step)
                     bk = 0
                     while bk < self.nbk and \
                             f_trial >= self.f + 1.0e-4 * self.alpha * slope:
