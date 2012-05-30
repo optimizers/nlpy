@@ -81,33 +81,33 @@ class DerivativeChecker:
 
         if grad:
             if cheap:
-                self.grad_errs = self.cheap_check_obj_gradient(verbose)
-                self.display(self.grad_errs, self.head3)
+                self.grad_errs, log = self.cheap_check_obj_gradient(verbose)
+                if verbose: self.display(log, self.head3)
             else:
-                self.grad_errs = self.check_obj_gradient(verbose)
-                self.display(self.grad_errs, self.head)
+                self.grad_errs, log = self.check_obj_gradient(verbose)
+                if verbose: self.display(log, self.head)
         if jac:
             self.jac_errs = self.check_con_jacobian(verbose)
-            self.display(self.jac_errs, self.head)
+            if verbose: self.display(self.jac_errs, self.head)
         if hess:
             self.hess_errs = self.check_obj_hessian(verbose)
-            self.display(self.hess_errs, self.head2)
+            if verbose: self.display(self.hess_errs, self.head2)
         if chess:
             self.chess_errs = self.check_con_hessians(verbose)
-            self.display(self.chess_errs, self.head2)
+            if verbose: self.display(self.chess_errs, self.head2)
 
         return
 
 
-    def display(self, errs, header):
+    def display(self, log, header):
         name = self.nlp.name
-        nerrs = len(errs)
+        nerrs = len(log)
         sys.stderr.write('Problem %s: Found %d errors.\n' % (name,nerrs))
         if nerrs > 0:
             sys.stderr.write(header)
             sys.stderr.write('-' * len(header) + '\n')
 
-            for err in errs:
+            for err in log:
                 sys.stderr.write(err)
 
         return
@@ -136,11 +136,11 @@ class DerivativeChecker:
             sys.stderr.write(line)
 
         if err > self.tol:
-            errs = [line]
+            log = [line]
         else:
-            errs = []
+            log = []
 
-        return errs
+        return (err, log)
 
     def check_obj_gradient(self, verbose=False):
         nlp = self.nlp
@@ -148,7 +148,8 @@ class DerivativeChecker:
         fx = nlp.obj(self.x)
         gx = nlp.grad(self.x)
         h = self.h
-        errs = []
+        log = []
+        err = np.empty(n)
 
         if verbose:
             sys.stderr.write('Objective gradient\n')
@@ -160,16 +161,16 @@ class DerivativeChecker:
             xph = self.x.copy() ; xph[i] += h
             xmh = self.x.copy() ; xmh[i] -= h
             dfdxi = (nlp.obj(xph) - nlp.obj(xmh))/(2*h)
-            err = abs(gx[i] - dfdxi)/max(1, abs(gx[i]))
+            err[i] = abs(gx[i] - dfdxi)/max(1, abs(gx[i]))
 
-            line = self.d1fmt % (0, i, gx[i], dfdxi, err)
+            line = self.d1fmt % (0, i, gx[i], dfdxi, err[i])
             if verbose:
                 sys.stderr.write(line)
 
-            if err > self.tol:
-                errs.append(line)
+            if err[i] > self.tol:
+                log.append(line)
 
-        return errs
+        return (err, log)
 
 
     def check_obj_hessian(self, verbose=False):
