@@ -86,7 +86,6 @@ class TrunkFramework:
         self.inexact = kwargs.get('inexact', False)
         self.monotone = kwargs.get('monotone', False)
         self.nIterNonMono = kwargs.get('nIterNonMono', 25)
-        self.logger = kwargs.get('logger', None)
 
         self.hformat = '%-5s  %8s  %7s  %5s  %8s  %8s  %4s'
         self.header  = self.hformat % ('Iter','f(x)','|g(x)|','cg','rho','Radius','Stat')
