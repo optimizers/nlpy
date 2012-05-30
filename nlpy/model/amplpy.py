@@ -1143,7 +1143,7 @@ class AmplModel(NLPModel):
         """
         if self.nnln == 0:           # Quick exit if no nonlinear constraints
             return np.zeros(self.m)
-        self.Hprod += self.nnln      # Count all Hprods needed for this call
+        self.Hprod += 1
         gHi = self.model.gHi_prod(g, v)
         if self.scale_con is not None:
             gHi *= self.scale_con    # componentwise product
