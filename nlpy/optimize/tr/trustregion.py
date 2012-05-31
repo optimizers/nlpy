@@ -9,7 +9,7 @@ from math import sqrt
 
 __docformat__ = 'restructuredtext'
 
-class TrustRegionFramework:
+class TrustRegionFramework(object):
     """
     Initializes an object allowing management of a trust region.
 
@@ -39,17 +39,7 @@ class TrustRegionFramework:
         self.eta2   = kwargs.get('eta2', 0.99)     # Radius increase threshold
         self.gamma1 = kwargs.get('gamma1', 1.0/3)  # Radius decrease factor
         self.gamma2 = kwargs.get('gamma2', 2.5)    # Radius increase factor
-        self.eps    = self._Epsilon() # Machine epsilon
-
-    def _Epsilon(self):
-        """
-        Return approximate value of machine epsilon
-        """
-        one = 1.0
-        eps = 1.0
-        while (one + eps) > one:
-            eps = eps / 2.0
-        return eps*2.0
+        self.eps    = np.finfo(np.double).eps  # Machine epsilon.
 
     def Rho(self, f, f_trial, m, check_positive=True):
         """
@@ -61,10 +51,8 @@ class TrustRegionFramework:
         if pred > 0 or not check_positive:
             return ared/pred
         else:
-            # Error: Negative predicted reduction
             msg = 'TrustRegion:: Nonpositive predicted reduction: %8.1e' % pred
             raise ValueError, msg
-            return None
 
     def UpdateRadius(self, rho, stepNorm):
         """

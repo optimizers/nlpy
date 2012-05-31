@@ -103,7 +103,6 @@ class PerformanceProfile(object):
 
         fig = plt.figure()
         ax = fig.gca()
-
         pltcmd = ax.semilogx if self.options['logscale'] else ax.plot
         for solv in range(nsolvs):
             pltargs = ()
@@ -118,7 +117,6 @@ class PerformanceProfile(object):
                    *pltargs)
 
         ax.legend(self.solvers, 'lower right')
-        #ax = plt.gca()
         if self.options['logscale']:
             ax.set_xscale('log', basex=2)
             xmax = max(xmax, 2)
