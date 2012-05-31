@@ -6,6 +6,7 @@
  The Python version of the celebrated  F90/95 solver
  D. Orban                        Montreal Sept. 2003
 """
+from nlpy.model import QPModel
 from nlpy.optimize.solvers import lbfgs    # For preconditioning
 from nlpy.krylov.linop import SimpleLinearOperator
 from nlpy.tools import norms
@@ -187,12 +188,13 @@ class TrunkFramework:
             if self.inexact:
                 cgtol = max(1.0e-6, min(0.5 * cgtol, sqrt(self.gnorm)))
 
-            self.solver = self.TrSolver(self.g, H)
+            qp = QPModel(self.g, H)
+
+            #self.solver = self.TrSolver(self.g, H)
+            self.solver = self.TrSolver(qp)
             self.solver.Solve(prec=self.precon,
                               radius=self.TR.Delta,
-                              reltol=cgtol,
-                              #debug=True
-                              )
+                              reltol=cgtol)
 
             step = self.solver.step
             snorm = self.solver.stepNorm
@@ -201,7 +203,8 @@ class TrunkFramework:
             # Obtain model value at next candidate
             m = self.solver.m
             if m is None:
-                m = numpy.dot(self.g, step) + 0.5*numpy.dot(step, H * step)
+                #m = numpy.dot(self.g, step) + 0.5*numpy.dot(step, H * step)
+                m = qp.obj(step)
 
             self.total_cgiter += cgiter
             x_trial = self.x + step
