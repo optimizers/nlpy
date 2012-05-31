@@ -178,9 +178,6 @@ class TruncatedCG:
             if radius is not None:
                 sigma = self.to_boundary(s, p, radius, ss=snorm2)
 
-            # Compute CG steplength.
-            alpha = ry/pHp
-
             if pHp <= 0 and radius is None:
                 # p is direction of singularity or negative curvature.
                 self.status = 'infinite descent'
@@ -188,6 +185,9 @@ class TruncatedCG:
                 self.dir = p
                 infDescent = True
                 continue
+
+            # Compute CG steplength.
+            alpha = ry/pHp if pHp != 0 else 1
 
             if radius is not None and (pHp <= 0 or alpha > sigma):
                 # p leads past the trust-region boundary. Move to the boundary.
