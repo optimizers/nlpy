@@ -1061,9 +1061,9 @@ class AmplModel(NLPModel):
 
     def hess(self, x, z=None, obj_num=0, *args, **kwargs):
         """
-        Evaluate sparse lower triangular Hessian at (x, z).
-        Returns a sparse matrix in format self.mformat
-        (0 = compressed sparse row, 1 = linked list).
+        Evaluate sparse lower triangular Lagrangian Hessian at (x, z).
+        Returns a sparse matrix in format self.mformat (0 = compressed
+        sparse row, 1 = linked list).
         """
         obj_weight = kwargs.get('obj_weight', 1.0)
         store_zeros = kwargs.get('store_zeros', False)
