@@ -10,7 +10,7 @@ import sys
 np.random.seed(0)
 macheps = np.finfo(np.double).eps  # Machine epsilon.
 
-class DerivativeChecker:
+class DerivativeChecker(object):
 
     def __init__(self, nlp, x, **kwargs):
         """
@@ -31,7 +31,7 @@ class DerivativeChecker:
         self.h = self.step * (1 + norm(x,1))
 
         self.nlp = nlp
-        self.x = x
+        self.x = x.copy()
         self.grad_errs = []
         self.jac_errs = []
         self.hess_errs = []
