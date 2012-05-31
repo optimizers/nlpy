@@ -2,6 +2,7 @@
 # Define an abstract class to represent a general
 # nonlinear optimization problem.
 # D. Orban, 2004.
+from nlpy.krylov import SimpleLinearOperator
 import numpy as np
 
 
@@ -345,7 +346,7 @@ class NLPModel(object):
         return
 
 
-class LPModel(NLPmodel):
+class LPModel(NLPModel):
     """
     A generic class to represent a linear programming problem
 
@@ -354,7 +355,7 @@ class LPModel(NLPmodel):
                 l <=  x  <= u.
     """
 
-    def __init__(self, c, A, name='GenericLP', **kwargs):
+    def __init__(self, c, A=None, name='GenericLP', **kwargs):
         """
         :parameters:
             :c:   Numpy array to represent the linear objective
@@ -366,13 +367,22 @@ class LPModel(NLPmodel):
         """
 
         # Basic checks.
-        m, n = A.shape
+        if A is None:
+            n = H.shape[0]
+            m = 0
+            _A = SimpleLinearOperator(n, 0,
+                    lambda x: np.empty((0,1), dtype=np.float),
+                    matvec_transp=lambda y: np.empty((n,0), dtype=np.float))
+        else:
+            m, n = A.shape
+            _A = A
+
         if c.shape[0] != n:
             raise ValueError, 'Shapes are inconsistent'
 
         super(LPModel,self).__init__(n=n, m=m, name=name, **kwargs)
         self.c = c
-        self.A = A
+        self.A = _A
 
         # Default classification of constraints
         self.lin = range(self.m)             # Linear    constraints
@@ -416,13 +426,15 @@ class QPModel(NLPModel):
                 l <=  x  <= u.
     """
 
-    def __init__(self, c, A, H, n=0, m=0, name='GenericQP', **kwargs):
+    def __init__(self, c, H, A=None, name='GenericQP', **kwargs):
         """
         :parameters:
             :c:   Numpy array to represent the linear objective
             :A:   linear operator to represent the constraint matrix.
                   It must be possible to perform the operations `A*x`
                   and `A.T*y` for Numpy arrays `x` and `y` of appropriate size.
+                  If `A` is `None`, it will be replaced with an empty linear
+                  operator.
             :H:   linear operator to represent the objective Hessian.
                   It must be possible to perform the operation `H*x`
                   for a Numpy array `x` of appropriate size. The operator `H`
@@ -432,13 +444,22 @@ class QPModel(NLPModel):
         """
 
         # Basic checks.
-        m, n = A.shape
+        if A is None:
+            n = H.shape[0]
+            m = 0
+            _A = SimpleLinearOperator(n, 0,
+                    lambda x: np.empty((0,1), dtype=np.float),
+                    matvec_transp=lambda y: np.empty((n,0), dtype=np.float))
+        else:
+            m, n = A.shape
+            _A = A
+
         if c.shape[0] != n or H.shape[0] != n or H.shape[1] != n:
             raise ValueError, 'Shapes are inconsistent'
 
-        super(LPModel,self).__init__(n=n, m=m, name=name, **kwargs)
+        super(QPModel,self).__init__(n=n, m=m, name=name, **kwargs)
         self.c = c
-        self.A = A
+        self.A = _A
         self.H = H
 
         # Default classification of constraints
