@@ -398,6 +398,9 @@ class LPModel(NLPModel):
     def obj(self, x):
         return np.dot(self.c,x)
 
+    def grad(self, x):
+        return self.c
+
     def cons(self, x):
         return self.A * x
 
@@ -478,6 +481,11 @@ class QPModel(NLPModel):
         cHx *= 0.5
         cHx += self.c
         return np.dot(cHx,x)
+
+    def grad(self, x):
+        Hx = self.H * x
+        Hx += self.c
+        return Hx
 
     def cons(self, x):
         return self.A * x
