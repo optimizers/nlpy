@@ -141,6 +141,25 @@ class InverseLBFGS(object):
         """
         return self.matvec(v)
 
+    def __repr__(self):
+        s = 'InverseLBFGS instance\n'
+        s += ' dim = %d\n' % self.n
+        s += ' npairs = %d\n' % self.npairs
+        s += ' scaling = %s\n' % repr(self.scaling)
+        s += ' current insertion point = %d\n' % self.insert
+        for i in range(self.npairs):
+            k = (self.insert - 1 - i) % self.npairs
+            if self.ys[k] is not None:
+                s += 's[%d] = %s\n' % (k, self.s[:, k])
+
+        for i in range(self.npairs):
+            k = (self.insert - 1 - i) % self.npairs
+            if self.ys[k] is not None:
+                s += 'y[%d] = %s\n' % (k, self.y[:, k])
+        return s
+
+
+
 
 class LBFGSFramework(object):
     """
