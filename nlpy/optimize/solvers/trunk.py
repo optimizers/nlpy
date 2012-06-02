@@ -122,8 +122,17 @@ class TrunkFramework(object):
         return None
 
     def Solve(self, **kwargs):
+        """
+        :keywords:
+            :maxiter:  maximum number of iterations.
+
+        All other keyword arguments are passed directly to the constructor of
+        the trust-region solver.
+        """
 
         self.maxiter = kwargs.get('maxiter', max(1000, 10*self.nlp.n))
+        if 'maxiter' in kwargs:
+            kwargs.pop('maxiter')
 
         nlp = self.nlp
 
@@ -182,7 +191,7 @@ class TrunkFramework(object):
             if self.inexact:
                 cgtol = max(1.0e-6, min(0.5 * cgtol, sqrt(self.gnorm)))
 
-            self.solver = self.TrSolver(self.g, H)
+            self.solver = self.TrSolver(self.g, H, **kwargs)
             self.solver.Solve(prec=self.precon,
                               radius=self.TR.Delta,
                               reltol=cgtol,
