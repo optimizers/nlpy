@@ -305,35 +305,3 @@ class TrunkFramework(object):
             status = 'itr'
         self.status = status
 
-class TrunkLbfgsFramework(TrunkFramework):
-    """
-    Class TrunkLbfgsFramework is a subclass of TrunkFramework. The method is
-    based on the same trust-region algorithm with Nocedal-Yuan backtracking.
-    The only difference is that a limited-memory BFGS preconditioner is used
-    and maintained along the iterations. See class TrunkFramework for more
-    information.
-    """
-
-    def __init__(self, nlp, TR, TrSolver, **kwargs):
-
-        TrunkFramework.__init__(self, nlp, TR, TrSolver, **kwargs)
-        self.npairs = kwargs.get('npairs', 5)
-        self.lbfgs = lbfgs.InverseLBFGS(nlp.n, npairs=self.npairs)
-        self.save_g = True
-
-    def precon(self, v, **kwargs):
-        """
-        This method implements limited-memory BFGS preconditioning. It
-        overrides the default precon() of class TrunkFramework.
-        """
-        return self.lbfgs.solve(v)
-
-    def PostIteration(self, **kwargs):
-        """
-        This method updates the limited-memory BFGS preconditioner by appending
-        the most rencet (s,y) pair to it and possibly discarding the oldest one
-        if all the memory has been used.
-        """
-        s = self.alpha * self.solver.step
-        y = self.g - self.g_old
-        self.lbfgs.store(s, y)
