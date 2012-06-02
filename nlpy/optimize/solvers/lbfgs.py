@@ -6,7 +6,8 @@ import sys
 
 __docformat__ = 'restructuredtext'
 
-class InverseLBFGS:
+
+class InverseLBFGS(object):
     """
     Class InverseLBFGS is a container used to store and manipulate
     limited-memory BFGS matrices. It may be used, e.g., in a LBFGS solver for
@@ -80,8 +81,8 @@ class InverseLBFGS:
         ys = numpy.dot(new_s, new_y)
         if ys > self.accept_threshold:
             insert = self.insert
-            self.s[:,insert] = new_s.copy()
-            self.y[:,insert] = new_y.copy()
+            self.s[:, insert] = new_s.copy()
+            self.y[:, insert] = new_y.copy()
             self.ys[insert] = ys
             self.insert += 1
             self.insert = self.insert % self.npairs
@@ -101,25 +102,25 @@ class InverseLBFGS:
         self.numMatVecs += 1
 
         q = v.copy()
-        s = self.s ; y = self.y ; ys = self.ys ; alpha = self.alpha
+        s, y, ys, alpha = self.s, self.y, self.ys, self.alpha
         for i in range(self.npairs):
             k = (self.insert - 1 - i) % self.npairs
             if ys[k] is not None:
-                alpha[k] = numpy.dot(s[:,k], q)/ys[k]
-                q -= alpha[k] * y[:,k]
+                alpha[k] = numpy.dot(s[:, k], q) / ys[k]
+                q -= alpha[k] * y[:, k]
 
         r = q
         if self.scaling:
             last = (self.insert - 1) % self.npairs
             if ys[last] is not None:
-                self.gamma = ys[last]/numpy.dot(y[:,last],y[:,last])
+                self.gamma = ys[last] / numpy.dot(y[:, last], y[:, last])
                 r *= self.gamma
 
         for i in range(self.npairs):
             k = (self.insert + i) % self.npairs
             if ys[k] is not None:
-                beta = numpy.dot(y[:,k], r)/ys[k]
-                r += (alpha[k] - beta) * s[:,k]
+                beta = numpy.dot(y[:, k], r) / ys[k]
+                r += (alpha[k] - beta) * s[:, k]
         return r
 
     def solve(self, v):
@@ -134,14 +135,14 @@ class InverseLBFGS:
         """
         return self.matvec(v)
 
-    def __mult__(self, v):
+    def __mul__(self, v):
         """
         This is an alias for matvec.
         """
         return self.matvec(v)
 
 
-class LBFGSFramework:
+class LBFGSFramework(object):
     """
     Class LBFGSFramework provides a framework for solving unconstrained
     optimization problems by means of the limited-memory BFGS method.
@@ -177,7 +178,7 @@ class LBFGSFramework:
         self.silent = kwargs.get('silent', False)
         self.abstol = kwargs.get('abstol', 1.0e-6)
         self.reltol = kwargs.get('reltol', self.nlp.stop_d)
-        self.iter   = 0
+        self.iter = 0
         self.nresets = 0
         self.converged = False
 
@@ -191,7 +192,7 @@ class LBFGSFramework:
         self.g0 = self.gnorm
 
         # Optional arguments
-        self.maxiter = kwargs.get('maxiter', max(10*self.nlp.n, 1000))
+        self.maxiter = kwargs.get('maxiter', max(10 * self.nlp.n, 1000))
         self.tsolve = 0.0
 
     def solve(self):
@@ -215,7 +216,7 @@ class LBFGSFramework:
 
             # Prepare for modified More-Thuente linesearch
             if self.iter == 0:
-                stp0 = 1.0/self.gnorm
+                stp0 = 1.0 / self.gnorm
             else:
                 stp0 = 1.0
             SWLS = StrongWolfeLineSearch(self.f,
@@ -224,7 +225,7 @@ class LBFGSFramework:
                                          d,
                                          lambda z: self.nlp.obj(z),
                                          lambda z: self.nlp.grad(z),
-                                         stp = stp0)
+                                         stp=stp0)
             # Perform linesearch
             SWLS.search()
 
