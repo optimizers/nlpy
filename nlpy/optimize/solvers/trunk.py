@@ -17,7 +17,7 @@ from math import sqrt
 
 __docformat__ = 'restructuredtext'
 
-class TrunkFramework:
+class TrunkFramework(object):
     """
     An abstract framework for a trust-region-based algorithm for nonlinear
     unconstrained programming. Instantiate using
