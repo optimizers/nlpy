@@ -27,8 +27,8 @@ class TrunkFramework(object):
     :parameters:
 
         :nlp:   a :class:`NLPModel` object representing the problem. For
-                instance, nlp may arise from an AMPL model
-        :TR:    a :class:`TrustRegionFramework` object
+                instance, nlp may arise from an AMPL model.
+        :TR:    a :class:`TrustRegionFramework` instance.
         :TrSolver:   a :class:`TrustRegionSolver` object.
 
 
@@ -70,8 +70,6 @@ class TrunkFramework(object):
         self.f      = None
         self.f0     = None
         self.g      = None
-        self.g_old  = None
-        self.save_g = False              # For methods that need g_{k-1} and g_k
         self.gnorm  = None
         self.g0     = None
         self.alpha  = 1.0       # For Nocedal-Yuan backtracking linesearch
@@ -133,7 +131,6 @@ class TrunkFramework(object):
         self.f      = self.nlp.obj(self.x)
         self.f0     = self.f
         self.g      = self.nlp.grad(self.x)  # Current  gradient
-        self.g_old  = self.g                 # Previous gradient
         self.gnorm  = norms.norm2(self.g)
         self.g0     = self.gnorm
 
@@ -178,10 +175,6 @@ class TrunkFramework(object):
             self.iter += 1
             self.alpha = 1.0
 
-            # Save current gradient
-            if self.save_g:
-                self.g_old = self.g.copy()
-
             # Iteratively minimize the quadratic model in the trust region
             # m(s) = <g, s> + 1/2 <s, Hs>
             # Note that m(s) does not include f(x): m(0) = 0.
@@ -216,6 +209,7 @@ class TrunkFramework(object):
                 rho = max(rho, rhoHis)
 
             step_status = 'Rej'
+
             if rho >= self.TR.eta1:
 
                 # Trust-region step is accepted.
@@ -252,6 +246,7 @@ class TrunkFramework(object):
                 # Trust-region step is rejected.
 
                 if self.ny: # Backtracking linesearch following "Nocedal & Yuan"
+
                     slope = numpy.dot(self.g, step)
                     bk = 0
                     while bk < self.nbk and \
