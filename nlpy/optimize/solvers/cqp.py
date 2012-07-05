@@ -13,7 +13,8 @@ try:                            # To solve augmented systems
 except:
     from nlpy.linalg.pyma27 import PyMa27Context as LBLContext
 from nlpy.linalg.scaling import mc29ad
-from nlpy.tools.norms import norm2, norm_infty
+from nlpy.krylov.linop import PysparseLinearOperator
+from nlpy.tools.norms import norm2, norm_infty, normest
 from nlpy.tools import sparse_vector_class as sv
 from nlpy.tools.timing import cputime
 
@@ -159,11 +160,16 @@ class RegQPInteriorPointSolver(object):
         self.format2  = '  %-7.1e  %-4.2f  %-4.2f'
         self.format2 += '  %-8.2e' * 8
 
+        self.mu_history = []
         self.cond_history = []
         self.berr_history = []
         self.derr_history = []
         self.nrms_history = []
         self.lres_history = []
+
+        self.condest = kwargs.get('condest', False)
+        self.condest_history = []
+        self.normest_history = []
 
         if self.verbose: self.display_stats()
 
@@ -430,6 +436,8 @@ class RegQPInteriorPointSolver(object):
                 mu = sz/ns
             else:
                 mu = 0.0
+
+            self.mu_history.append(mu)
 
             # Compute residual norms and scaled residual norms.
             pResid = norm2(pFeas)
@@ -858,6 +866,18 @@ class RegQPInteriorPointSolver(object):
         self.derr_history.append(self.LBL.dirError)
         self.nrms_history.append((self.LBL.matNorm, self.LBL.xNorm))
         self.lres_history.append(self.LBL.relRes)
+
+        # Estimate matrix l2-norm condition number.
+        if self.condest:
+            rhsNorm = norm2(rhs)
+            solnNorm = norm2(self.LBL.x)
+            Hop = PysparseLinearOperator(self.H, symmetric=True)
+            normH, _ = normest(Hop, tol=1.0e-3)
+            if rhsNorm > 0 and solnNorm > 0:
+                self.condest_history.append(solnNorm * normH / rhsNorm)
+            else:
+                self.condest_history.append(1.)
+            self.normest_history.append(normH)
 
         nr = norm2(self.LBL.residual)
         return (self.LBL.x, nr, self.LBL.neig)
