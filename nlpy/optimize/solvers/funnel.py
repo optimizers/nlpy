@@ -1,6 +1,6 @@
 # An implementation of the trust-funnel method.
 
-from nlpy.model import NLPModel
+from nlpy.model import NLPModel, QPModel
 from nlpy.krylov.linop import PysparseLinearOperator, SimpleLinearOperator
 from nlpy.krylov import ProjectedCG, LSTRFramework
 from nlpy.optimize.solvers.lsqr import LSQRFramework
@@ -341,7 +341,8 @@ class Funnel:
 
                 # Evaluate the model of the obective after the normal step.
                 _Hv = self.hprod(x, y, nStep) # H*nStep
-                m_xpn = np.dot(g, nStep) + 0.5 * np.dot(nStep, _Hv)
+                #m_xpn = np.dot(g, nStep) + 0.5 * np.dot(nStep, _Hv)
+                m_xpn = qp.obj(nStep)
 
             self.log.debug('Normal step norm = %8.2e' % nStepNorm)
             self.log.debug('Model value: %9.2e' % m_xpn)
@@ -383,9 +384,11 @@ class Funnel:
                     Hop = SimpleLinearOperator(n, n,
                                                lambda v: self.hprod(x,y_new,v),
                                                symmetric=True)
-                    PPCG = ProjectedCG(gN, Hop,
-                                       A=J.matrix if m > 0 else None,
-                                       radius=Delta_within, dreg=reg)
+                    qp = QPModel(gN, Hop, A=J.matrix if m > 0 else None)
+                    #PPCG = ProjectedCG(gN, Hop,
+                    #                   A=J.matrix if m > 0 else None,
+                    #                   radius=Delta_within, dreg=reg)
+                    PPCG = ProjectedCG(qp, radius=Delta_within, dreg=reg)
                     PPCG.Solve()
                     tStep = PPCG.step
                     tStepNorm = PPCG.stepNorm
@@ -407,8 +410,9 @@ class Funnel:
                     # Compute total step and model decrease.
                     step = nStep + tStep
                     stepNorm = np.linalg.norm(step)
-                    _Hv = self.hprod(x,y,step)    # y or y_new?
-                    m_xps = np.dot(g, step) + 0.5 * np.dot(step, _Hv)
+                    #_Hv = self.hprod(x,y,step)    # y or y_new?
+                    #m_xps = np.dot(g, step) + 0.5 * np.dot(step, _Hv)
+                    m_xps = qp.obj(step)
 
                 else:
 
