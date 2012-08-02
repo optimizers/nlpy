@@ -158,8 +158,6 @@ class TrustRegionCG(TrustRegionSolver):
         self.stepNorm = self.cgSolver.stepNorm
         self.step= self.cgSolver.step
         self.m = self.qp.obj(self.step)        # Compute model reduction.
-        #self.m = np.dot(self.g, self.step)
-        #self.m += 0.5 * np.dot(self.step, self.cgSolver.H * self.step)
         return
 
 
@@ -211,8 +209,6 @@ class TrustRegionPCG(TrustRegionSolver):
         self.stepNorm = self.cgSolver.stepNorm
         self.step= self.cgSolver.x
         self.m = self.qp.obj(self.step)        # Compute model reduction.
-        #self.m = np.dot(self.g, self.step)
-        #self.m += 0.5 * np.dot(self.step, self.cgSolver.H * self.step)
         return
 
 
