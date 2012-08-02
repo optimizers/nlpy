@@ -18,7 +18,8 @@ from math import sqrt
 
 __docformat__ = 'restructuredtext'
 
-class TrunkFramework:
+
+class TrunkFramework(object):
     """
     An abstract framework for a trust-region-based algorithm for nonlinear
     unconstrained programming. Instantiate using
@@ -61,48 +62,49 @@ class TrunkFramework:
 
     def __init__(self, nlp, TR, TrSolver, **kwargs):
 
-        self.nlp    = nlp
-        self.TR     = TR
+        self.nlp = nlp
+        self.TR = TR
         self.TrSolver = TrSolver
-        self.solver   = None    # Will point to solver data in Solve()
-        self.iter   = 0         # Iteration counter
+        self.solver = None    # Will point to solver data in Solve()
+        self.iter = 0         # Iteration counter
         self.total_cgiter = 0
-        self.x      = kwargs.get('x0', self.nlp.x0.copy())
-        self.f      = None
-        self.f0     = None
-        self.g      = None
-        self.g_old  = None
+        self.x = kwargs.get('x0', self.nlp.x0.copy())
+        self.f = None
+        self.f0 = None
+        self.g = None
+        self.g_old = None
         self.save_g = False              # For methods that need g_{k-1} and g_k
-        self.gnorm  = None
-        self.g0     = None
-        self.alpha  = 1.0       # For Nocedal-Yuan backtracking linesearch
+        self.gnorm = None
+        self.g0 = None
+        self.alpha = 1.0       # For Nocedal-Yuan backtracking linesearch
         self.tsolve = 0.0
 
-        self.reltol  = kwargs.get('reltol', self.nlp.stop_d)
-        self.abstol  = kwargs.get('abstol', 1.0e-6)
-        self.maxiter = kwargs.get('maxiter', max(1000, 10*self.nlp.n))
+        self.reltol = kwargs.get('reltol', self.nlp.stop_d)
+        self.abstol = kwargs.get('abstol', 1.0e-6)
+        self.maxiter = kwargs.get('maxiter', max(1000, 10 * self.nlp.n))
         self.verbose = kwargs.get('verbose', True)
-        self.ny      = kwargs.get('ny', False)
-        self.nbk     = kwargs.get('nbk', 5)
+        self.ny = kwargs.get('ny', False)
+        self.nbk = kwargs.get('nbk', 5)
         self.inexact = kwargs.get('inexact', False)
         self.monotone = kwargs.get('monotone', False)
         self.nIterNonMono = kwargs.get('nIterNonMono', 25)
         self.logger = kwargs.get('logger', None)
 
         self.hformat = '%-5s  %8s  %7s  %5s  %8s  %8s  %4s'
-        self.header  = self.hformat % ('Iter','f(x)','|g(x)|','cg','rho','Radius','Stat')
-        self.hlen   = len(self.header)
-        self.hline  = '-' * self.hlen
+        self.header = self.hformat % ('Iter', 'f(x)', '|g(x)|', 'cg', \
+                                       'rho', 'Radius', 'Stat')
+        self.hlen = len(self.header)
+        self.hline = '-' * self.hlen
         self.format = '%-5d  %8.1e  %7.1e  %5d  %8.1e  %8.1e  %4s'
-        self.format0= '%-5d  %8.1e  %7.1e  %5s  %8s  %8.1e  %4s'
-        self.radii = [ TR.Delta ]
+        self.format0 = '%-5d  %8.1e  %7.1e  %5s  %8s  %8.1e  %4s'
+        self.radii = [TR.Delta]
 
         # Setup the logger. Install a NullHandler if no output needed.
         logger_name = kwargs.get('logger_name', 'nlpy.trunk')
         self.log = logging.getLogger(logger_name)
         #self.log.addHandler(logging.NullHandler())
         if not self.verbose:
-            self.log.propagate=False
+            self.log.propagate = False
 
     def hprod(self, v, **kwargs):
         """
@@ -130,12 +132,12 @@ class TrunkFramework:
         nlp = self.nlp
 
         # Gather initial information.
-        self.f      = self.nlp.obj(self.x)
-        self.f0     = self.f
-        self.g      = self.nlp.grad(self.x)  # Current  gradient
-        self.g_old  = self.g                 # Previous gradient
-        self.gnorm  = norms.norm2(self.g)
-        self.g0     = self.gnorm
+        self.f = self.nlp.obj(self.x)
+        self.f0 = self.f
+        self.g = self.nlp.grad(self.x)  # Current  gradient
+        self.g_old = self.g                 # Previous gradient
+        self.gnorm = norms.norm2(self.g)
+        self.g0 = self.gnorm
 
         # Reset initial trust-region radius.
         # self.TR.Delta = 0.1 * self.g0
@@ -190,7 +192,6 @@ class TrunkFramework:
 
             qp = QPModel(self.g, H)
 
-            #self.solver = self.TrSolver(self.g, H)
             self.solver = self.TrSolver(qp)
             self.solver.Solve(prec=self.precon,
                               radius=self.TR.Delta,
@@ -203,17 +204,16 @@ class TrunkFramework:
             # Obtain model value at next candidate
             m = self.solver.m
             if m is None:
-                #m = numpy.dot(self.g, step) + 0.5*numpy.dot(step, H * step)
                 m = qp.obj(step)
 
             self.total_cgiter += cgiter
             x_trial = self.x + step
             f_trial = nlp.obj(x_trial)
 
-            rho  = self.TR.Rho(self.f, f_trial, m)
+            rho = self.TR.Rho(self.f, f_trial, m)
 
             if not self.monotone:
-                rhoHis = (fRef - f_trial)/(sigRef - m)
+                rhoHis = (fRef - f_trial) / (sigRef - m)
                 rho = max(rho, rhoHis)
 
             step_status = 'Rej'
@@ -252,7 +252,7 @@ class TrunkFramework:
 
                 # Trust-region step is rejected.
 
-                if self.ny: # Backtracking linesearch following "Nocedal & Yuan"
+                if self.ny:  # Backtracking linesearch a la Nocedal & Yuan.
                     slope = numpy.dot(self.g, step)
                     bk = 0
                     while bk < self.nbk and \
@@ -291,8 +291,8 @@ class TrunkFramework:
                           self.TR.Delta, pstatus))
 
             exitOptimal = self.gnorm <= stoptol
-            exitIter    = self.iter > self.maxiter
-            exitUser    = status == 'usr'
+            exitIter = self.iter > self.maxiter
+            exitUser = status == 'usr'
 
         self.tsolve = cputime() - t    # Solve time
 
@@ -301,9 +301,10 @@ class TrunkFramework:
             pass
         elif self.gnorm <= stoptol:
             status = 'opt'
-        else: # self.iter > self.maxiter:
+        else:  # self.iter > self.maxiter:
             status = 'itr'
         self.status = status
+
 
 class TrunkLbfgsFramework(TrunkFramework):
     """
