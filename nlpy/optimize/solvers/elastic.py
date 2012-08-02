@@ -16,11 +16,11 @@ from nlpy.precon import GenericPreconditioner
 from nlpy.tools.utils import where
 from nlpy.tools.timing import cputime
 from nlpy.tools.norms import  norm2, norm_infty
-import nlpy.tools.logs
 
 from math import sqrt, log10
 import numpy as np
-import sys, logging
+import sys
+import logging
 
 
 __docformat__ = 'restructuredtext'
@@ -87,8 +87,8 @@ class L1MeritFunction(NLPModel, object):
                    to bounds.
         """
 
-        nB  = nlp.nlowerB + nlp.nupperB + nlp.nrangeB
-        nB2 = nlp.nlowerB + nlp.nupperB + 2*nlp.nrangeB
+        nB   = nlp.nlowerB + nlp.nupperB + nlp.nrangeB
+        nB2  = nlp.nlowerB + nlp.nupperB + 2*nlp.nrangeB
         nvar = nlp.n + nlp.m + nB
         ncon = nlp.m + nlp.nrangeC + nB2
 
@@ -110,12 +110,12 @@ class L1MeritFunction(NLPModel, object):
         self.nBounds  = nB
         self.nBounds2 = nB2
 
-        eqC = nlp.equalC ; lC = nlp.lowerC
-        uC = nlp.upperC ; rC = nlp.rangeC
-        neqC = nlp.nequalC ; nlC = nlp.nlowerC
-        nuC = nlp.nupperC ; nrC = nlp.nrangeC
-        Lvar = nlp.Lvar ; Uvar = nlp.Uvar
-        Lcon = nlp.Lcon ; Ucon = nlp.Ucon
+        eqC  = nlp.equalC  ; lC   = nlp.lowerC
+        uC   = nlp.upperC  ; rC   = nlp.rangeC
+        neqC = nlp.nequalC ; nlC  = nlp.nlowerC
+        nuC  = nlp.nupperC ; nrC  = nlp.nrangeC
+        Lvar = nlp.Lvar    ; Uvar = nlp.Uvar
+        Lcon = nlp.Lcon    ; Ucon = nlp.Ucon
 
         # Initial point.
         n = nlp.n ; m = nlp.m ; nB = self.nBounds
@@ -129,7 +129,7 @@ class L1MeritFunction(NLPModel, object):
         self.stop_c = 1.0e-6      # Complementarity.
 
         # Total number of constraints (range constraints count as two).
-        self.nConst = neqC + nlC + nuC + 2*nrC
+        self.nConst = neqC + nlC + nuC + 2 * nrC
 
         # Initial penalty parameters.
         self.nuE = nuE
@@ -143,7 +143,7 @@ class L1MeritFunction(NLPModel, object):
         # Note that a single elastic suffices for a range constraint.
         # s is ordered exactly like c.
         c = self.consPos(x0)
-        self.s = self.x0[n:n+m] #np.zeros(self.m)
+        self.s = self.x0[n:n+m]
         self.s[eqC] = np.maximum(0.0, -c[eqC])
         self.s[lC + uC] = np.maximum(0.0, -c[lC + uC])
         self.s[rC] = np.maximum(0.0, -c[m:])
@@ -151,13 +151,13 @@ class L1MeritFunction(NLPModel, object):
         self.s += self.ethresh
 
         # Shortcuts
-        lB = nlp.lowerB ; uB = nlp.upperB ; rB = nlp.rangeB
+        lB  = nlp.lowerB  ; uB  = nlp.upperB  ; rB  = nlp.rangeB
         nlB = nlp.nlowerB ; nuB = nlp.nupperB ; nrB = nlp.nrangeB
 
         # Set initial elastics for the bound constraints so (x0, t0)
         # strictly satisfies the bounds. Single elastic for 2-sided bounds.
         # t = [ lowerB | upperB | rangeB ].
-        self.t = self.x0[n+m:] #np.zeros(self.nBounds)
+        self.t = self.x0[n+m:]
         self.t[:nlB] = np.maximum(0.0, Lvar[lB]-x0[lB])
         self.t[nlB:nlB+nuB] = np.maximum(0.0, x0[uB] - Uvar[uB])
 
@@ -460,14 +460,14 @@ class L1MeritFunction(NLPModel, object):
 
         # Shortcuts.
         nlp = self.nlp ; n = nlp.n ; m = nlp.m
-        eqC = nlp.equalC ; neqC = nlp.nequalC
-        lC = nlp.lowerC ; nlC = nlp.nlowerC
-        uC = nlp.upperC ; nuC = nlp.nupperC
-        rC = nlp.rangeC ; nrC = nlp.nrangeC
-        lB = nlp.lowerB ; nlB = nlp.nlowerB
-        uB = nlp.upperB ; nuB = nlp.nupperB
-        rB = nlp.rangeB ; nrB = nlp.nrangeB
-        nB = self.nBounds ; nB2 = self.nBounds2
+        eqC = nlp.equalC   ; neqC = nlp.nequalC
+        lC  = nlp.lowerC   ; nlC  = nlp.nlowerC
+        uC  = nlp.upperC   ; nuC  = nlp.nupperC
+        rC  = nlp.rangeC   ; nrC  = nlp.nrangeC
+        lB  = nlp.lowerB   ; nlB  = nlp.nlowerB
+        uB  = nlp.upperB   ; nuB  = nlp.nupperB
+        rB  = nlp.rangeB   ; nrB  = nlp.nrangeB
+        nB  = self.nBounds ; nB2  = self.nBounds2
         (x,s,t) = self.get_xst(xst)
 
         # We order constraints and variables as follows:
@@ -820,7 +820,7 @@ class L1BarrierMeritFunction(NLPModel):
 
 ###############################################################################
 
-class ElasticInteriorFramework:
+class ElasticInteriorFramework(object):
     """
     ipm = ElasticInteriorFramework(problem)
     Instantiate an InteriorFramework class embedding the nonlinear
