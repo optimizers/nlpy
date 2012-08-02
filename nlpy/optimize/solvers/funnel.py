@@ -11,11 +11,12 @@ from pysparse.sparse.pysparseMatrix import PysparseMatrix
 
 from math import sqrt
 import numpy as np
-import sys, logging
+import logging
 
 __docformat__ = 'restructuredtext'
 
-class Funnel:
+
+class Funnel(object):
     """
     A trust-funnel framework for equality-constrained optimization.
     D. Orban and N. I. M. Gould, from N. I. M. Gould's original Matlab
@@ -42,16 +43,16 @@ class Funnel:
         # Bail out if nlp is not a NLPModel instance.
         if not isinstance(nlp, NLPModel):
             msg = 'Input problem must be a NLPModel instance.'
-            raise ValueError, msg
+            raise ValueError(msg)
 
         # Bail out if problem has bounds or general inequality constraints.
         if nlp.nlowerB + nlp.nupperB + nlp.nrangeB:
             msg = 'Problem has bound constraints.'
-            raise ValueError, msg
+            raise ValueError(msg)
 
         if nlp.nlowerC + nlp.nupperC + nlp.nrangeC:
             msg = 'Problem has general inequality constraints.'
-            raise ValueError, msg
+            raise ValueError(msg)
 
         self.nlp = nlp
         self.x = nlp.x0.copy()
@@ -88,7 +89,6 @@ class Funnel:
 
         return
 
-
     def display_basic_info(self):
         "Display basic info about current problem."
         nlp = self.nlp
@@ -104,7 +104,6 @@ class Funnel:
         self.log.info('tangent step: [0] (none), [r]esidual small, [b]oundary, [-] neg. curvature, [>] max iter or [?] (other)')
         return
 
-
     def cons(self, x):
         """
         Return the value of the equality constraints evaluated at x and
@@ -113,14 +112,12 @@ class Funnel:
         """
         return (self.nlp.cons(x) - self.nlp.Lcon)
 
-
     def jac(self, x):
         """
         Return the Jacobian matrix of the equality constraints at x as a PysparseMatrix.
         """
         _J = self.nlp.jac(x, store_zeros=True)  # Keep explicit zeros.
         return PysparseMatrix(matrix=_J)
-
 
     def hprod(self, x, y, v):
         """
@@ -131,7 +128,6 @@ class Funnel:
         """
         return self.nlp.hprod(x,y,v)
 
-
     def forcing(self, k, val):
         "Return forcing term number `k`."
         if k == 1:
@@ -140,10 +136,8 @@ class Funnel:
             return 1.0e-2 * min(1, min(abs(val), val*val))
         return 1.0e-2 * min(1, min(abs(val), val*val))
 
-
     def post_iteration(self, **kwargs):
         pass
-
 
     def lsq(self, A, b, reg=0.0, radius=None, **kwargs):
         """
@@ -158,7 +152,6 @@ class Funnel:
         LSQR = LSQRFramework(A)
         LSQR.solve(b, radius=radius, damp=reg, show=False)
         return (LSQR.x, LSQR.xnorm, LSQR.status)
-
 
     def nyf(self, x, f, fTrial, g, step, bkmax=5, armijo=1.0-4):
         """
@@ -179,7 +172,6 @@ class Funnel:
             xTrial = x + alpha * step
             fTrial = self.nlp.obj(xTrial)
         return (xTrial, fTrial, alpha)
-
 
     def nyc(self, x, theta, thetaTrial, c,
             dtheta, step, bkmax=5, armijo=1.0-4):
@@ -206,7 +198,6 @@ class Funnel:
             cTrial = self.nlp.cons(xTrial)
             thetaTrial = 0.5 * np.dot(cTrial, cTrial)
         return (xTrial, cTrial, thetaTrial, alpha)
-
 
     def solve(self, **kwargs):
         """
@@ -665,6 +656,7 @@ class Funnel:
 # A Variant of the Funnel class using LSTR instead of LSQR.
 
 class LSTRFunnel(Funnel):
+
     def lsq(self, A, b, radius=None, **kwargs):
         """
         Solve the linear least-squares problem in the variable x
@@ -706,7 +698,6 @@ class LDFPFunnel(Funnel):
         # Members to memorize old and current Jacobian matrices.
         self.J = self.J_old = None
 
-
     def jac(self, x):
         """
         Return the Jacobian of the constraints as a PysparseMatrix and
@@ -718,7 +709,6 @@ class LDFPFunnel(Funnel):
             self.J_old = self.J.copy()
         self.J = J
         return J
-
 
     def hprod(self, x, y, v):
         """
@@ -735,7 +725,6 @@ class LDFPFunnel(Funnel):
         for j in range(m):
             Hv += y[j] * self.ldfps[j].matvec(v)   # approx. = sum_i yi Hi*v
         return Hv
-
 
     def post_iteration(self, **kwargs):
         """
@@ -786,7 +775,6 @@ class StructuredLDFPFunnel(Funnel):
             #print vars
             self.ldfps.append(StructuredLDFP(nlp.n, npairs=npairs, vars=vars))
 
-
     def jac(self, x):
         """
         Return the Jacobian of the constraints as a PysparseMatrix and
@@ -798,7 +786,6 @@ class StructuredLDFPFunnel(Funnel):
             self.J_old = self.J.copy()
         self.J = J
         return J
-
 
     def hprod(self, x, y, v):
         """
@@ -818,7 +805,6 @@ class StructuredLDFPFunnel(Funnel):
             Hv[jvars] += y[j] * self.ldfps[j].matvec(v[jvars])   # approx. = sum_i yi Hi*v
         return Hv
 
-
     def post_iteration(self, **kwargs):
         """
         Store the most recent {s,y} pair and update the L-DFP approximation
@@ -837,4 +823,3 @@ class StructuredLDFPFunnel(Funnel):
             y = J.take(rowj,jvars) - J_old.take(rowj,jvars)
             self.ldfps[j].store(step[jvars], y)
         return
-
