@@ -4,7 +4,7 @@ from pysparse.sparse import spmatrix
 from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
 from pysparse.sparse.pysparseMatrix import PysparseIdentityMatrix as Identity
 
-from nlpy.model import AmplModel, NLPModel
+from nlpy.model import AmplModel, NLPModel, QPModel
 from nlpy.optimize.tr import trustregion as T
 from nlpy.krylov.linop import PysparseLinearOperator
 from nlpy.optimize.tr.trustregion import TrustRegionCG as TRCG
@@ -1396,14 +1396,17 @@ class ElasticInteriorFramework(object):
                     logger.debug(msg)
                     P = lambda v: v
 
-                trcg = TRCG(g, Hop)
+                #trcg = TRCG(g, Hop)
+                qp = QPModel(g, Hop)
+                trcg = TRCG(qp)
                 trcg.Solve(radius=TR.Delta, reltol=cgtol, prec=P)
                 step = trcg.step
                 stepNorm = trcg.stepNorm
                 cgiter = trcg.niter
                 m = trcg.m
                 if m is None:
-                    m = np.dot(g,step) + 0.5 * np.dot(step, Hop * step)
+                    #m = np.dot(g,step) + 0.5 * np.dot(step, Hop * step)
+                    m = qp.obj(step)
 
                 dyzuv = self.dual_step(xst, step, yzuv) #, c=c, J=J)
 
