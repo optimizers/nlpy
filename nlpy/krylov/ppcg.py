@@ -14,31 +14,34 @@ with the addition of an optional trust-region constraint.
 
 __docformat__ = 'restructuredtext'
 
-import numpy
+import numpy as np
 from nlpy.krylov.projKrylov import ProjectedKrylov
 from nlpy.tools import norms
 from math import sqrt
 from nlpy.tools.timing import cputime
 
 
-class ProjectedCG( ProjectedKrylov ):
+class ProjectedCG(ProjectedKrylov):
 
-    def __init__( self, c, H, **kwargs ):
+    def __init__(self, qp, **kwargs):
         """
         Solve the equality-constrained quadratic programming problem
 
-            minimize     < c, x > + 1/2 < x, Hx >                           (1)
-            subject to   A x = b
+            minimize     c'x + 1/2 x'Hx                           (1)
+            subject to   Ax = b
 
         using the projected preconditioned conjugate-gradient algorithm.
         Possibly, there may be no linear equality constraints in the problem.
 
+        The only mandatory input argument is `qp`, an instance of a
+        :class:`QPModel`.
+
         This module may also be used to solve the equality-constrained
         trust-region subproblem
 
-            minimize     < c, x > + 1/2 < x, Hx >
-            subject to   A x = 0                                            (2)
-                         sqrt(< x, Mx >)  <=  radius,
+            minimize     c'x + 1/2 x'Hx
+            subject to   Ax = 0                                   (2)
+                         sqrt(x'Mx)  <=  radius,
 
         where M is a symmetric positive definite scaling matrix and radius > 0
         is a given trust-region radius. Note that b = 0 in the latter problem.
@@ -60,21 +63,13 @@ class ProjectedCG( ProjectedKrylov ):
         an initial x0 satisfying  A x0 = b, solves problem (2) with appropriate
         values of c and H and returns the final solution x+x0.
 
-        Unless A is explicitly specified, we assume that there are no equality
-        constraints. In this case, the method reduces to the well-known
-        conjugate gradient method. Similarly, unless b is explicitly specified,
-        we assume that b = 0.
+        Unless A is explicitly specified in `qp`, we assume that there are no
+        equality constraints. In this case, the method reduces to the
+        well-known conjugate gradient method. The right-hand side `b` is taken
+        as `qp.Lcon`.
 
-        The symmetric matrix H need not be given explicitly. Instead, a
-        function named 'matvec' may be provided, with prototype
-
-            v = matvec( q )
-
-        where the return value v is the result of the matrix-vector
-        product Hq between the matrix H and the supplied vector q.
-
-        At least one of H and matvec must be supplied. If both are given,
-        matvec is used.
+        The symmetric matrix H need not be given explicitly but may be a linear
+        operator.
 
         A preconditioner may be given by using the precon keyword. For the time
         being, the preconditioner should be given in assembled form and may not
@@ -91,7 +86,7 @@ class ProjectedCG( ProjectedKrylov ):
         The algorithm stops as soon as the norm of the projected gradient
         falls under
 
-            max( abstol, reltol * g0 )
+            max(abstol, reltol * g0)
 
         where
 
@@ -102,10 +97,6 @@ class ProjectedCG( ProjectedKrylov ):
                          preconditioner is given.)
 
         :keywords:
-            :A: the matrix defining linear equality constraints (None)
-            :rhs: a nonzero right-hand side of the constraints (None)
-            :H: the explicit matrix H (with matvec method) (None)
-            :matvec: a method to compute H-vector products (None)
             :precon: a preconditioner G (given explicitly) (Identity)
             :Proj: an existing factorization of the projection matrix
                    conforming to the LBLContext (None)
@@ -164,29 +155,28 @@ class ProjectedCG( ProjectedKrylov ):
                     Computing **23**(4), pp. 1376-1395, 2001.
         """
 
-        ProjectedKrylov.__init__(self, c, H, **kwargs)
+        ProjectedKrylov.__init__(self, qp.c, qp.H, A=qp.A, **kwargs)
 
+        self.qp = qp
         self.prefix = 'Ppcg: '
         self.name = 'Projected CG'
-        self.radius = kwargs.get( 'radius', None )
-        #if self.radius is not None and self.b is not None:
-        #    raise ValueError, 'Either radius or rhs may be given but not both'
+        self.radius = kwargs.get('radius', None)
 
         if self.radius is not None and self.radius <= 0.0:
             raise ValueError, 'Radius must be a positive real number'
 
-        self.btol = kwargs.get( 'btol', None )
-        self.cur_iter = kwargs.get( 'cur_iter', None )
+        self.btol = kwargs.get('btol', None)
+        self.cur_iter = kwargs.get('cur_iter', None)
         self.precon = kwargs.get('precon', None)
 
         # Initializations
         self.x_feasible = None
-        self.x = numpy.zeros( self.n, 'd' )
+        self.x = np.zeros(self.n, 'd')
         self.step = self.x  # Shortcut for consistency with TruncatedCG
         self.v = None
         self.residNorm  = None
         self.residNorm0 = None
-        self.rhs = numpy.zeros( self.n + self.m, 'd' )
+        self.rhs = np.zeros(self.n + self.m, 'd')
         self.iter = self.nMatvec = 0
         self.infiniteDescentDir = None
         self.xNorm2 = 0.0        # Square norm of step, not counting x_feasible
@@ -196,10 +186,10 @@ class ProjectedCG( ProjectedKrylov ):
         self.infDescent = False
 
         # Formats for display
-        self.hd_fmt = ' %-5s  %9s  %8s\n'
+        self.hd_fmt = ' %-5s  %9s  %8s'
         self.header = self.hd_fmt % ('Iter', '<r,g>', 'curv')
-        self.fmt1 = ' %-5d  %9.2e\n'
-        self.fmt = ' %-5d  %9.2e  %8.2e\n'
+        self.fmt1 = ' %-5d  %9.2e'
+        self.fmt = ' %-5d  %9.2e  %8.2e'
 
 
     def to_boundary(self, s, p, Delta, ss=None):
@@ -214,10 +204,10 @@ class ProjectedCG( ProjectedKrylov ):
         """
         if Delta is None:
             raise ValueError, 'Radius value must be positive number.'
-        sp = numpy.dot(s,p)
-        pp = numpy.dot(p,p)
-        if ss is None: ss = numpy.dot(s,s)
-        sigma = (-sp + sqrt( sp*sp + pp * ( Delta*Delta - ss ) ) )
+        sp = np.dot(s,p)
+        pp = np.dot(p,p)
+        if ss is None: ss = np.dot(s,s)
+        sigma = (-sp + sqrt(sp*sp + pp * (Delta*Delta - ss)))
         sigma /= pp
 
         if (self.btol is not None) and (self.cur_iter is not None):
@@ -231,7 +221,7 @@ class ProjectedCG( ProjectedKrylov ):
         If fraction-to-the-boundary rule is to be enforced, compute step
         length to satisfy  s + t*p >= btol * cur_iter.
         """
-        neg_idx = numpy.where(p < 0.0)[0]
+        neg_idx = np.where(p < 0.0)[0]
         stepLen = 1.0
         for i in neg_idx:
             stepLen = min(stepLen, -(self.btol * self.cur_iter[i] + s[i])/p[i])
@@ -239,7 +229,7 @@ class ProjectedCG( ProjectedKrylov ):
 
 
     def Solve(self):
-        if self.A is not None:
+        if self.qp.A is not None:
             if self.factorize and not self.factorized: self.Factorize()
             if self.b is not None: self.FindFeasible()
 
@@ -249,56 +239,55 @@ class ProjectedCG( ProjectedKrylov ):
 
         # Obtain initial projected residual
         self.t_solve = cputime()
-        if self.A is not None:
+        if self.qp.A is not None:
             if self.b is not None:
-                self.rhs[:n] = self.c + self.H * self.x_feasible
+                self.rhs[:n] = self.qp.grad(self.x_feasible)
                 self.rhs[n:] = 0.0
             else:
-                self.rhs[:n] = self.c
-            self.Proj.solve( self.rhs )
+                self.rhs[:n] = self.qp.c
+            self.Proj.solve(self.rhs)
             r = g = self.Proj.x[:n]
             self.v = self.Proj.x[n:]
 
             #self.CheckAccurate()
 
         else:
-            g = self.c
+            g = self.qp.c
             r = g.copy()
 
         # Initialize search direction
         p = -g
         pHp = None
 
-        self.residNorm0 = numpy.dot(r,g)
+        self.residNorm0 = np.dot(r,g)
         rg  = self.residNorm0
-        threshold = max( self.abstol, self.reltol * sqrt(self.residNorm0) )
+        threshold = max(self.abstol, self.reltol * sqrt(self.residNorm0))
         iter = 0
         onBoundary = False
 
-        if self.debug:
-            self._write( self.header )
-            self._write( '-' * len(self.header) + '\n' )
-            self._write( self.fmt1 % (iter, rg) )
+        self.log.info(self.header)
+        self.log.info('-' * len(self.header))
+        self.log.info(self.fmt1 % (iter, rg))
 
         while sqrt(rg) > threshold and iter < self.maxiter and not onBoundary:
 
-            Hp = self.H * p
-            pHp = numpy.dot(p,Hp)
+            Hp = self.qp.H * p
+            pHp = np.dot(p,Hp)
 
             # Display current iteration info
-            if self.debug: self._write( self.fmt % (iter, rg, pHp) )
+            self.log.info(self.fmt % (iter, rg, pHp))
 
             if self.radius is not None:
                 # Compute steplength to the boundary
                 sigma = self.to_boundary(self.x, p, self.radius, ss=xNorm2)
             elif pHp <= 0.0:
-                self._write('Problem is not second-order sufficient\n')
+                self.log.error('Problem is not second-order sufficient')
                 status = 'problem not SOS'
                 self.infDescent = True
                 self.dir = p
                 continue
 
-            alpha = rg/pHp if pHp != 0.0 else numpy.inf
+            alpha = rg/pHp if pHp != 0.0 else np.inf
 
             if self.radius is not None and (pHp <= 0.0 or alpha > sigma):
                 # p is a direction of singularity or negative curvature or
@@ -324,24 +313,24 @@ class ProjectedCG( ProjectedKrylov ):
             self.x += alpha * p
             r += alpha * Hp
 
-            if self.A is not None:
+            if self.qp.A is not None:
                 # Project current residual
                 self.rhs[:n] = r
-                self.Proj.solve( self.rhs )
+                self.Proj.solve(self.rhs)
 
                 # Perform actual iterative refinement, if necessary
-                #self.Proj.refine( self.rhs, nitref=self.max_itref,
-                #                  tol=self.itref_tol )
+                #self.Proj.refine(self.rhs, nitref=self.max_itref,
+                #                  tol=self.itref_tol)
 
                 # Obtain new projected gradient
                 g = self.Proj.x[:n]
                 if self.precon is not None:
                     # Prepare for iterative semi-refinement
-                    self.A.matvec_transp( self.Proj.x[n:], self.v )
+                    self.qp.jtprod(self.Proj.x[n:], self.v)
             else:
                 g = r
 
-            rg_next = numpy.dot(r,g)
+            rg_next = np.dot(r,g)
             beta = rg_next/rg
             p = -g + beta * p
             if self.precon is not None:
@@ -352,12 +341,12 @@ class ProjectedCG( ProjectedKrylov ):
             rg = rg_next
 
             if self.radius is not None:
-                xNorm2 = numpy.dot( self.x, self.x )
+                xNorm2 = np.dot(self.x, self.x)
             iter += 1
 
         # Output info about the last iteration
-        if self.debug and iter > 0:
-            self._write( self.fmt % (iter, rg, pHp) )
+        if iter > 0:
+            self.log.info(self.fmt % (iter, rg, pHp))
 
         # Obtain final solution x
         self.xNorm2 = xNorm2
@@ -365,11 +354,11 @@ class ProjectedCG( ProjectedKrylov ):
         if self.x_feasible is not None:
             self.x += self.x_feasible
 
-        if self.A is not None:
+        if self.qp.A is not None:
             # Find (weighted) least-squares Lagrange multipliers
-            self.rhs[:n] = - self.c - self.H * self.x
+            self.rhs[:n] = - self.qp.grad(self.x)
             self.rhs[n:] = 0.0
-            self.Proj.solve( self.rhs )
+            self.Proj.solve(self.rhs)
             self.v = self.Proj.x[n:].copy()
 
         self.t_solve = cputime() - self.t_solve

@@ -54,9 +54,10 @@ except:
 
 from nlpy.tools import norms
 from nlpy.tools.timing import cputime
-import sys
+import logging
 
-class ProjectedKrylov:
+
+class ProjectedKrylov(object):
     """
     :keywords:
         :A:  the `constraint` matrix. Must be given as an explicit matrix.
@@ -80,7 +81,7 @@ class ProjectedKrylov:
                   ``factorize`` will be set to ``False``.
         :precon:  preconditioner. Normally this is a cheap approximation to
                   ``H``. It must be specified as an explicit matrix.
-        :debug:  turn on verbose mode (default: ``False``).
+        :logger_name:  Name of a logger (Default: `None`).
     """
 
     def __init__(self, c, H, **kwargs):
@@ -96,11 +97,19 @@ class ProjectedKrylov:
         self.factorize = kwargs.get('factorize', True)
         self.precon = kwargs.get('precon', None)
 
+        logger_name = kwargs.get('logger_name', None)
+        self.log = logging.getLogger(logger_name)
+        self.log.propagate = False
+
         # Optional keyword arguments
         self.A = kwargs.get('A', None)
         if self.A is not None:
+            self.log.debug('Constraint matrix has shape (%d,%d)' % \
+                    (self.A.shape[0], self.A.shape[1]))
             if isinstance(self.A, PysparseMatrix):
                 self.A = self.A.matrix
+        else:
+            self.log.debug('No constraint matrix specified')
         self.b = kwargs.get('rhs', None)
         self.n = c.shape[0]            # Number of variables
         if self.A is None:
@@ -125,10 +134,6 @@ class ProjectedKrylov:
         self.t_solve    = 0.0     # Timing of iterative solution phase
         self.x_feasible = None
         self.converged = False
-
-
-    def _write(self, msg):
-        sys.stderr.write(self.prefix + msg)
 
 
     def Factorize(self):
@@ -160,16 +165,13 @@ class ProjectedKrylov:
             r = range(self.n, self.n + self.m)
             P.put(-self.dreg, r, r)
 
-        if self.debug:
-                msg = 'Factorizing projection matrix '
-                msg += '(size %-d, nnz = %-d)...\n' %  (P.shape[0],P.nnz)
-                self._write(msg)
+        msg = 'Factorizing projection matrix '
+        msg += '(size %-d, nnz = %-d)...' %  (P.shape[0],P.nnz)
+        self.log.debug(msg)
         self.t_fact = cputime()
         self.Proj = LBLContext(P)
         self.t_fact = cputime() - self.t_fact
-        if self.debug:
-                msg = ' done (%-5.2fs)\n' % self.t_fact
-                self._write(msg)
+        self.log.debug('... done (%-5.2fs)' % self.t_fact)
         self.factorized = True
         return
 
@@ -185,13 +187,12 @@ class ProjectedKrylov:
         res = norms.norm_infty(self.Proj.residual)
         if res > max_res:
             if self.Proj.isFullRank:
-                self._write(' Large residual. ' +
-                             'Factorization likely inaccurate...\n')
+                self.log.info(' Large residual. ' +
+                              'Factorization likely inaccurate...')
             else:
-                self._write(' Large residual. ' +
-                             'Constraints likely inconsistent...\n')
-        if self.debug:
-            self._write(' accurate to within %8.1e...\n' % res)
+                self.log.info(' Large residual. ' +
+                              'Constraints likely inconsistent...')
+        self.log.debug(' accurate to within %8.1e...' % res)
         return
 
 
@@ -200,15 +201,14 @@ class ProjectedKrylov:
         If rhs was specified, obtain x_feasible satisfying the constraints
         """
         n = self.n
-        if self.debug: self._write('Obtaining feasible solution...\n')
+        self.log.debug('Obtaining feasible solution...')
         self.t_feasible = cputime()
         self.rhs[n:] = self.b
         self.Proj.solve(self.rhs)
         self.x_feasible = self.Proj.x[:n].copy()
         self.t_feasible = cputime() - self.t_feasible
         self.CheckAccurate()
-        if self.debug:
-            self._write(' done (%-5.2fs)\n' % self.t_feasible)
+        self.log.debug('... done (%-5.2fs)' % self.t_feasible)
         return
 
 

@@ -2,6 +2,7 @@
 # Define an abstract class to represent a general
 # nonlinear optimization problem.
 # D. Orban, 2004.
+from nlpy.krylov import SimpleLinearOperator
 import numpy as np
 
 
@@ -287,6 +288,14 @@ class NLPModel(object):
     def jac(self, x, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
 
+    # Evaluate Jacobian-vector product
+    def jprod(self, x, p, **kwargs):
+        raise NotImplementedError, 'This method must be subclassed'
+
+    # Evaluate transposed-Jacobian-vector product
+    def jtprod(self, x, p, **kwargs):
+        raise NotImplementedError, 'This method must be subclassed'
+
     # Evaluate Lagrangian Hessian at (x,z)
     def hess(self, x, z=None, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
@@ -300,6 +309,12 @@ class NLPModel(object):
     # the Hessian of the i-th constraint and a vector
     def hiprod(self, i, x, p, **kwargs):
         raise NotImplementedError, 'This method must be subclassed.'
+
+    def islp(self):
+        return False
+
+    def isqp(self):
+        return False
 
     def display_basic_info(self):
         """
@@ -329,3 +344,166 @@ class NLPModel(object):
         write('Initial Guess: %s\n' % self.x0)
 
         return
+
+
+class LPModel(NLPModel):
+    """
+    A generic class to represent a linear programming problem
+
+    minimize    c'x
+    subject to  L <= A*x <= U
+                l <=  x  <= u.
+    """
+
+    def __init__(self, c, A=None, name='GenericLP', **kwargs):
+        """
+        :parameters:
+            :c:   Numpy array to represent the linear objective
+            :A:   linear operator to represent the constraint matrix.
+                  It must be possible to perform the operations `A*x`
+                  and `A.T*y` for Numpy arrays `x` and `y` of appropriate size.
+
+        See the documentation of `NLPModel` for futher information.
+        """
+
+        # Basic checks.
+        if A is None:
+            n = H.shape[0]
+            m = 0
+            _A = SimpleLinearOperator(n, 0,
+                    lambda x: np.empty((0,1), dtype=np.float),
+                    matvec_transp=lambda y: np.empty((n,0), dtype=np.float))
+        else:
+            m, n = A.shape
+            _A = A
+
+        if c.shape[0] != n:
+            raise ValueError, 'Shapes are inconsistent'
+
+        super(LPModel,self).__init__(n=n, m=m, name=name, **kwargs)
+        self.c = c
+        self.A = _A
+
+        # Default classification of constraints
+        self.lin = range(self.m)             # Linear    constraints
+        self.nln = []                        # Nonlinear constraints
+        self.net = []                        # Network   constraints
+        self.nlin = len(self.lin)            # Number of linear constraints
+        self.nnln = len(self.nln)            # Number of nonlinear constraints
+        self.nnet = len(self.net)            # Number of network constraints
+
+    def islp(self):
+        return True
+
+    def obj(self, x):
+        return np.dot(self.c,x)
+
+    def grad(self, x):
+        return self.c
+
+    def cons(self, x):
+        return self.A * x
+
+    def A(self, x):
+        return self.A
+
+    def jac(self, x):
+        return self.A
+
+    def jprod(self, x, p):
+        return self.A * p
+
+    def jtprod(self, x, p):
+        return self.A.T * p
+
+    def hprod(self, x, z, p):
+        return np.zeros(self.n)
+
+
+class QPModel(NLPModel):
+    """
+    A generic class to represent a quadratic programming problem
+
+    minimize    c'x + 1/2 x'Hx
+    subject to  L <= A*x <= U
+                l <=  x  <= u.
+    """
+
+    def __init__(self, c, H, A=None, name='GenericQP', **kwargs):
+        """
+        :parameters:
+            :c:   Numpy array to represent the linear objective
+            :A:   linear operator to represent the constraint matrix.
+                  It must be possible to perform the operations `A*x`
+                  and `A.T*y` for Numpy arrays `x` and `y` of appropriate size.
+                  If `A` is `None`, it will be replaced with an empty linear
+                  operator.
+            :H:   linear operator to represent the objective Hessian.
+                  It must be possible to perform the operation `H*x`
+                  for a Numpy array `x` of appropriate size. The operator `H`
+                  should be symmetric.
+
+        See the documentation of `NLPModel` for futher information.
+        """
+
+        # Basic checks.
+        if A is None:
+            n = H.shape[0]
+            m = 0
+            _A = SimpleLinearOperator(n, 0,
+                    lambda x: np.empty((0,1), dtype=np.float),
+                    matvec_transp=lambda y: np.empty((n,0), dtype=np.float))
+        else:
+            m, n = A.shape
+            _A = A
+
+        if c.shape[0] != n or H.shape[0] != n or H.shape[1] != n:
+            raise ValueError, 'Shapes are inconsistent'
+
+        super(QPModel,self).__init__(n=n, m=m, name=name, **kwargs)
+        self.c = c
+        self.A = _A
+        self.H = H
+
+        # Default classification of constraints
+        self.lin = range(self.m)             # Linear    constraints
+        self.nln = []                        # Nonlinear constraints
+        self.net = []                        # Network   constraints
+        self.nlin = len(self.lin)            # Number of linear constraints
+        self.nnln = len(self.nln)            # Number of nonlinear constraints
+        self.nnet = len(self.net)            # Number of network constraints
+
+    def isqp(self):
+        return True
+
+    def obj(self, x):
+        cHx = self.H * x
+        cHx *= 0.5
+        cHx += self.c
+        return np.dot(cHx,x)
+
+    def grad(self, x):
+        Hx = self.H * x
+        Hx += self.c
+        return Hx
+
+    def cons(self, x):
+        return self.A * x
+
+    def A(self, x):
+        return self.A
+
+    def jac(self, x):
+        return self.A
+
+    def jprod(self, x, p):
+        return self.A * p
+
+    def jtprod(self, x, p):
+        return self.A.T * p
+
+    def hess(self, x, z):
+        return self.H
+
+    def hprod(self, x, z, p):
+        return self.H * p

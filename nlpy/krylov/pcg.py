@@ -12,26 +12,35 @@ truncated preconditioned conjugate gradient algorithm as described in
 from nlpy.tools.exceptions import UserExitRequest
 import numpy as np
 from math import sqrt
-import sys
+import logging
 
 __docformat__ = 'restructuredtext'
 
 
-class TruncatedCG:
+class TruncatedCG(object):
 
-    def __init__(self, g, H, **kwargs):
+    def __init__(self, qp, **kwargs):
         """
         Solve the quadratic trust-region subproblem
 
-          minimize    < g, s > + 1/2 < s, Hs >
-          subject to  < s, s >  <=  radius
+          minimize    g's + 1/2 s'Hs
+          subject to  s's  <=  radius
 
         by means of the truncated conjugate gradient algorithm (aka the
-        Steihaug-Toint algorithm). The notation `< x, y >` denotes the dot
-        product of vectors `x` and `y`. `H` must be a symmetric matrix of
-        appropriate size, but not necessarily positive definite.
+        Steihaug-Toint algorithm). The notation `x'y` denotes the dot
+        product of vectors `x` and `y`.
+
+        :parameters:
+            :qp:           an instance of the :class:`QPModel` class.
+                           The Hessian H must be a symmetric linear
+                           operator of appropriate size, but not necessarily
+                           positive definite.
+            :logger_name:  name of a logger object that can be used during the
+                           iterations                         (default None)
 
         :returns:
+
+          Upon return, the following attributes are set:
 
           :step:       final step,
           :niter:      number of iterations,
@@ -51,9 +60,8 @@ class TruncatedCG:
         iterates cross the boundary of the trust region.
         """
 
-        self.H = H
-        self.g = g
-        self.n = len(g)
+        self.qp = qp
+        self.n = qp.c.shape[0]
 
         self.prefix = 'Pcg: '
         self.name = 'Truncated CG'
@@ -65,16 +73,17 @@ class TruncatedCG:
         self.niter = 0
         self.dir = None
 
+        # Setup the logger. Install a NullHandler if no output needed.
+        logger_name = kwargs.get('logger_name', 'nlpy.trunk')
+        self.log = logging.getLogger(logger_name)
+        self.log.propagate=False
+
         # Formats for display
         self.hd_fmt = ' %-5s  %9s  %8s\n'
         self.header = self.hd_fmt % ('Iter', '<r,g>', 'curv')
         self.fmt = ' %-5d  %9.2e  %8.2e\n'
 
         return
-
-
-    def _write( self, msg ):
-        sys.stderr.write(self.prefix + msg)
 
 
     def to_boundary(self, s, p, radius, ss=None):
@@ -125,8 +134,8 @@ class TruncatedCG:
         debug   = kwargs.get('debug', False)
 
         n = self.n
-        g = self.g
-        H = self.H
+        g = self.qp.c
+        H = self.qp.H
 
         # Initialization
         r = g.copy()
@@ -159,11 +168,9 @@ class TruncatedCG:
         onBoundary = False
         infDescent = False
 
-        if debug:
-            self._write(self.header)
-            self._write('-' * len(self.header) + '\n')
+        self.log.info(self.header)
+        self.log.info('-' * len(self.header) + '\n')
 
-        #while sqrtry > stopTol and k < maxiter and \
         while not (exitOptimal or exitIter or exitUser) and \
                 not onBoundary and not infDescent:
 
@@ -171,8 +178,7 @@ class TruncatedCG:
             Hp  = H * p
             pHp = np.dot(p, Hp)
 
-            if debug:
-                self._write(self.fmt % (k, ry, pHp))
+            self.log.info(self.fmt % (k, ry, pHp))
 
             # Compute steplength to the boundary.
             if radius is not None:
@@ -237,8 +243,7 @@ class TruncatedCG:
             exitOptimal = sqrtry <= stopTol
 
         # Output info about the last iteration.
-        if debug:
-            self._write(self.fmt % (k, ry, pHp))
+        self.log.info(self.fmt % (k, ry, pHp))
 
         if k < maxiter and not onBoundary:
             self.status = 'residual small'
@@ -250,13 +255,4 @@ class TruncatedCG:
         self.onBoundary = onBoundary
         self.infDescent = infDescent
         return
-
-
-def model_value(H, g, s):
-    # Return <g,s> + 1/2 <s,Hs>
-    return np.dot(g,s) + 0.5 * np.dot(s, H*s)
-
-def model_grad(H, g, s):
-    # Return g + Hs
-    return g + H*s
 

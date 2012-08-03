@@ -15,16 +15,11 @@ except:
 from nlpy.linalg.scaling import mc29ad
 from nlpy.krylov.linop import PysparseLinearOperator
 from nlpy.tools.norms import norm2, norm_infty, normest
-from nlpy.tools import sparse_vector_class as sv
 from nlpy.tools.timing import cputime
 
-from pysparse.sparse import spmatrix
 from pysparse.sparse.pysparseMatrix import PysparseMatrix
 import numpy as np
-from math import sqrt
-import sys, logging
-
-import pdb
+import logging
 
 
 class RegQPInteriorPointSolver(object):
@@ -84,7 +79,7 @@ class RegQPInteriorPointSolver(object):
 
         if not isinstance(qp, SlackFramework):
             msg = 'Input problem must be an instance of SlackFramework'
-            raise ValueError, msg
+            raise ValueError(msg)
 
         # Grab logger if one was configured.
         logger_name = kwargs.get('logger_name', 'cqp.solver')
@@ -100,7 +95,7 @@ class RegQPInteriorPointSolver(object):
 
         m, n = self.A.shape ; on = qp.original_n
         # Record number of slack variables in QP
-        self.nSlacks  = qp.n - on
+        self.nSlacks = qp.n - on
 
         # Collect basic info about the problem.
         zero = np.zeros(n)
@@ -791,7 +786,7 @@ class RegQPInteriorPointSolver(object):
         z += dd
 
         if not np.all(s>0) or not np.all(z>0):
-            raise ValueError, 'Initial point not strictly feasible'
+            raise ValueError('Initial point not strictly feasible')
 
         return (x,y,z)
 

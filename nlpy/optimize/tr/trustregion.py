@@ -9,7 +9,7 @@ from math import sqrt
 
 __docformat__ = 'restructuredtext'
 
-class TrustRegionFramework:
+class TrustRegionFramework(object):
     """
     Initializes an object allowing management of a trust region.
 
@@ -90,7 +90,7 @@ class TrustRegionFramework:
 
 
 
-class TrustRegionSolver:
+class TrustRegionSolver(object):
     """
     A generic template class for implementing solvers for the trust-region
     subproblem
@@ -116,9 +116,9 @@ class TrustRegionSolver:
     MP01 MPS-SIAM Series on Optimization, 2000.
     """
 
-    def __init__(self, g, **kwargs):
+    def __init__(self, qp, **kwargs):
 
-        self.g = g
+        self.qp = qp
 
     def Solve(self):
         """
@@ -139,10 +139,10 @@ class TrustRegionCG(TrustRegionSolver):
     preconditioner, i.e., any callable object.
     """
 
-    def __init__(self, g, H, **kwargs):
+    def __init__(self, qp, **kwargs):
 
-        TrustRegionSolver.__init__(self, g, **kwargs)
-        self.cgSolver = TruncatedCG(g, H, **kwargs)
+        TrustRegionSolver.__init__(self, qp, **kwargs)
+        self.cgSolver = TruncatedCG(qp, **kwargs)
         self.niter = 0
         self.stepNorm = 0.0
         self.step = None
@@ -157,9 +157,7 @@ class TrustRegionCG(TrustRegionSolver):
         self.niter = self.cgSolver.niter
         self.stepNorm = self.cgSolver.stepNorm
         self.step= self.cgSolver.step
-        # Compute model reduction.
-        self.m = np.dot(self.g, self.step)
-        self.m += 0.5 * np.dot(self.step, self.cgSolver.H * self.step)
+        self.m = self.qp.obj(self.step)        # Compute model reduction.
         return
 
 
@@ -191,10 +189,10 @@ class TrustRegionPCG(TrustRegionSolver):
     MP01 MPS-SIAM Series on Optimization, 2000.
     """
 
-    def __init__(self, g, H, A, **kwargs):
+    def __init__(self, qp, **kwargs):
 
-        TrustRegionSolver.__init__(self, g, **kwargs)
-        self.cgSolver = ProjectedCG(g, H, A=A, **kwargs)
+        TrustRegionSolver.__init__(self, qp, **kwargs)
+        self.cgSolver = ProjectedCG(qp, **kwargs)
         self.niter = 0
         self.stepNorm = 0.0
         self.step = None
@@ -210,9 +208,7 @@ class TrustRegionPCG(TrustRegionSolver):
         self.niter = self.cgSolver.iter
         self.stepNorm = self.cgSolver.stepNorm
         self.step= self.cgSolver.x
-        # Compute model reduction
-        self.m = np.dot(self.g, self.step)
-        self.m += 0.5 * np.dot(self.step, self.cgSolver.H * self.step)
+        self.m = self.qp.obj(self.step)        # Compute model reduction.
         return
 
 
@@ -228,10 +224,10 @@ try:
         See :mod:`pygltr` for more information.
         """
 
-        def __init__(self, g, **kwargs):
+        def __init__(self, qp, **kwargs):
 
-            TrustRegionSolver.__init__(self, g, **kwargs)
-            self.gltrSolver = pygltr.PyGltrContext(g, **kwargs)
+            TrustRegionSolver.__init__(self, qp, **kwargs)
+            self.gltrSolver = pygltr.PyGltrContext(qp, **kwargs)
             self.niter = 0
             self.stepNorm = 0.0
             self.step = None
@@ -244,7 +240,7 @@ try:
             Solve the trust-region subproblem using the generalized Lanczos
             method.
             """
-            self.gltrSolver.implicit_solve(self.H)
+            self.gltrSolver.implicit_solve(self.qp)
             self.niter = self.gltrSolver.niter
             self.stepNorm = self.gltrSolver.snorm
             self.step = self.gltrSolver.step
