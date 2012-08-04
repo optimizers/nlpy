@@ -4,7 +4,7 @@ from pysparse.sparse import spmatrix
 from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
 from pysparse.sparse.pysparseMatrix import PysparseIdentityMatrix as Identity
 
-from nlpy.model import AmplModel, NLPModel
+from nlpy.model import NLPModel
 from nlpy.optimize.tr import trustregion as T
 from nlpy.krylov.linop import PysparseLinearOperator
 from nlpy.optimize.tr.trustregion import TrustRegionCG as TRCG
@@ -16,11 +16,10 @@ from nlpy.precon import GenericPreconditioner
 from nlpy.tools.utils import where
 from nlpy.tools.timing import cputime
 from nlpy.tools.norms import  norm2, norm_infty
-import nlpy.tools.logs
 
 from math import sqrt, log10
 import numpy as np
-import sys, logging
+import logging
 
 
 __docformat__ = 'restructuredtext'
@@ -77,18 +76,18 @@ class L1MeritFunction(NLPModel, object):
         problem in expanded elastic form.
 
         :parameters:
-            :nlp:  Original NLP
+           :nlp:  Original NLP
 
         :keywords:
-            :nuE: Initial penalty parameter for equality constraints
-            :nuS:  Initial penalty parameter for elastic variables corresponding
-                   to general constraints
-            :nuT:  Initial penalty parameter for elastic variables corresponding
-                   to bounds.
+           :nuE: Initial penalty parameter for equality constraints
+           :nuS:  Initial penalty parameter for elastic variables corresponding
+                  to general constraints
+           :nuT:  Initial penalty parameter for elastic variables corresponding
+                  to bounds.
         """
 
-        nB  = nlp.nlowerB + nlp.nupperB + nlp.nrangeB
-        nB2 = nlp.nlowerB + nlp.nupperB + 2*nlp.nrangeB
+        nB   = nlp.nlowerB + nlp.nupperB + nlp.nrangeB
+        nB2  = nlp.nlowerB + nlp.nupperB + 2*nlp.nrangeB
         nvar = nlp.n + nlp.m + nB
         ncon = nlp.m + nlp.nrangeC + nB2
 
@@ -110,12 +109,12 @@ class L1MeritFunction(NLPModel, object):
         self.nBounds  = nB
         self.nBounds2 = nB2
 
-        eqC = nlp.equalC ; lC = nlp.lowerC
-        uC = nlp.upperC ; rC = nlp.rangeC
-        neqC = nlp.nequalC ; nlC = nlp.nlowerC
-        nuC = nlp.nupperC ; nrC = nlp.nrangeC
-        Lvar = nlp.Lvar ; Uvar = nlp.Uvar
-        Lcon = nlp.Lcon ; Ucon = nlp.Ucon
+        eqC  = nlp.equalC  ; lC   = nlp.lowerC
+        uC   = nlp.upperC  ; rC   = nlp.rangeC
+        neqC = nlp.nequalC ; nlC  = nlp.nlowerC
+        nuC  = nlp.nupperC ; nrC  = nlp.nrangeC
+        Lvar = nlp.Lvar    ; Uvar = nlp.Uvar
+        Lcon = nlp.Lcon    ; Ucon = nlp.Ucon
 
         # Initial point.
         n = nlp.n ; m = nlp.m ; nB = self.nBounds
@@ -143,7 +142,7 @@ class L1MeritFunction(NLPModel, object):
         # Note that a single elastic suffices for a range constraint.
         # s is ordered exactly like c.
         c = self.consPos(x0)
-        self.s = self.x0[n:n+m] #np.zeros(self.m)
+        self.s = self.x0[n:n+m]
         self.s[eqC] = np.maximum(0.0, -c[eqC])
         self.s[lC + uC] = np.maximum(0.0, -c[lC + uC])
         self.s[rC] = np.maximum(0.0, -c[m:])
@@ -151,13 +150,13 @@ class L1MeritFunction(NLPModel, object):
         self.s += self.ethresh
 
         # Shortcuts
-        lB = nlp.lowerB ; uB = nlp.upperB ; rB = nlp.rangeB
+        lB  = nlp.lowerB  ; uB  = nlp.upperB  ; rB  = nlp.rangeB
         nlB = nlp.nlowerB ; nuB = nlp.nupperB ; nrB = nlp.nrangeB
 
         # Set initial elastics for the bound constraints so (x0, t0)
         # strictly satisfies the bounds. Single elastic for 2-sided bounds.
         # t = [ lowerB | upperB | rangeB ].
-        self.t = self.x0[n+m:] #np.zeros(self.nBounds)
+        self.t = self.x0[n+m:]
         self.t[:nlB] = np.maximum(0.0, Lvar[lB]-x0[lB])
         self.t[nlB:nlB+nuB] = np.maximum(0.0, x0[uB] - Uvar[uB])
 
@@ -167,24 +166,20 @@ class L1MeritFunction(NLPModel, object):
 
         return
 
-
     def get_penalty_parameters(self):
         return (self.nuE, self.nuS, self.nuT)
 
-
     def set_penalty_parameters(self, nuE, nuS, nuT):
         self.nuE = nuE
-        self.nuS  = nuS
-        self.nuT  = nuT
+        self.nuS = nuS
+        self.nuT = nuT
         return
-
 
     def get_xst(self, xst):
         "Split vector xst into x, s and t subvectors."
         nlp = self.nlp ; n = nlp.n ; m = nlp.m
         x = xst[:n] ; s = xst[n:n+m] ; t = xst[n+m:]
-        return (x,s,t)
-
+        return (x, s, t)
 
     def get_yzuv(self, yzuv):
         "Split vector of multipliers yzuv into y, z, u and v subvectors."
@@ -192,8 +187,7 @@ class L1MeritFunction(NLPModel, object):
         nrC = nlp.nrangeC ; nB2 = self.nBounds2
         y = yzuv[:m+nrC] ; z = yzuv[m+nrC:m+nrC+nB2]
         u = yzuv[m+nrC+nB2:m+nrC+nB2+m] ; v = yzuv[m+nrC+nB2+m:]
-        return (y,z,u,v)
-
+        return (y, z, u, v)
 
     def shifted_multipliers(self, y):
         "(yE, yL, yU, yRL, yRU) -> (yE-nuE, yL, yU, yRL, yRU)"
@@ -205,7 +199,6 @@ class L1MeritFunction(NLPModel, object):
         y_nlp[eC] -= nuE
 
         return y_nlp
-
 
     def nlp_multipliers(self, y, shift=True):
         "(yE, yL, yU, yRL, yRU) -> (yE-nuE, yL, -yU, yRL-yRU)"
@@ -220,7 +213,6 @@ class L1MeritFunction(NLPModel, object):
         y_nlp[rC] -= y[m:]
 
         return y_nlp
-
 
     def obj(self, xst, f=None, c=None):
         """
@@ -250,7 +242,6 @@ class L1MeritFunction(NLPModel, object):
         p += self.nuT * np.sum(t)                  # ... bounds
 
         return p
-
 
     def consPos(self, x, c=None):
         """
@@ -292,7 +283,6 @@ class L1MeritFunction(NLPModel, object):
         ec[m:m+nrC]  -= Ucon[rC] ; ec[m:m+nrC] *= -1
 
         return ec
-
 
     def cons(self, xst, c=None):
         u"""
@@ -356,7 +346,6 @@ class L1MeritFunction(NLPModel, object):
 
         return ec
 
-
     def grad(self, xst, g=None):
         """
         Return the gradient vector of the L1 merit function.
@@ -396,7 +385,6 @@ class L1MeritFunction(NLPModel, object):
         gradt[:] = self.nuT * np.ones(nB)
 
         return grad
-
 
     def jacPos(self, x, **kwargs):
         u"""
@@ -440,7 +428,6 @@ class L1MeritFunction(NLPModel, object):
         J[uC,:n] *= -1                 # Flip sign of 'upper' gradients
         J[m:,:n]  = -J[rC,:n]          # Append 'upper' side of range const.
         return J
-
 
     def jac(self, xst, J=None, **kwargs):
         """
@@ -524,13 +511,11 @@ class L1MeritFunction(NLPModel, object):
 
         return Jp
 
-
     def igrad(self, i, xst):
         "Do not call this function. For derivative checking purposes only."
         J = self.jac(xst)
         gi = J[i,:].getNumpyArray()[0]
         return gi
-
 
     def hess(self, xst, yzuv=None, *args, **kwargs):
         """
@@ -559,12 +544,10 @@ class L1MeritFunction(NLPModel, object):
         H[:nlp.n,:nlp.n] = nlp.hess(x, y2, **kwargs)
         return H
 
-
     def get_bounds(self, xst):
         "Return the vector of bound constraints."
         n = self.nlp.n ; st = xst[n:]
         return st.copy()
-
 
     def primal_feasibility(self, xst, c=None):
         """
@@ -585,7 +568,6 @@ class L1MeritFunction(NLPModel, object):
         pFeas[m:] = -self.get_bounds(xst)
         pFeas[m:] = np.maximum(0, pFeas[m:])
         return pFeas
-
 
     def dual_feasibility(self, xst, yzuv, g=None, J=None):
         """
@@ -618,7 +600,6 @@ class L1MeritFunction(NLPModel, object):
         dFeas[n:] -= uv         # ... bounds on s and t.
         return dFeas
 
-
     def complementarity(self, xst, yzuv, c=None):
         """
         Evaluate the complementarity residuals at (xst,yzuv). If `c` is
@@ -647,7 +628,7 @@ class L1MeritFunction(NLPModel, object):
         csyz =  c*yz
         stuv = st*uv
 
-        return (csyz,stuv)
+        return (csyz, stuv)
 
 ###############################################################################
 
@@ -701,15 +682,12 @@ class L1BarrierMeritFunction(NLPModel):
         self.mu = mu
         return
 
-
     def get_barrier_parameter(self):
         return self.mu
-
 
     def set_barrier_parameter(self, mu):
         self.mu = mu
         return
-
 
     def obj(self, xst, p=None, f=None, c=None):
         """
@@ -730,12 +708,11 @@ class L1BarrierMeritFunction(NLPModel):
 
         if p is None: p = l1.obj(xst, f=f, c=c)
         if c is None: c = l1.cons(xst)
-        (x,s,t) = l1.get_xst(xst)
+        (x, s, t) = l1.get_xst(xst)
 
         # The vector c includes constraints of the form c(x)+s and x+t.
         bar = Sum(Log(c)) + Sum(Log(s)) + Sum(Log(t))
         return p - self.mu * bar
-
 
     def primal_multipliers(self, xst, c=None, **kwargs):
         """
@@ -755,8 +732,7 @@ class L1BarrierMeritFunction(NLPModel):
         (x,s,t) = l1.get_xst(xst)
 
         if c is None: c = l1.cons(xst)
-        return mu/np.concatenate((c,s,t))
-
+        return mu / np.concatenate((c, s, t))
 
     def grad(self, xst, g=None, J=None, **kwargs):
         """
@@ -775,7 +751,6 @@ class L1BarrierMeritFunction(NLPModel):
         # feasibility with the exception that primal multipliers are used.
         yzuv = self.primal_multipliers(xst)
         return self.l1.dual_feasibility(xst, yzuv, g=g, J=J, **kwargs)
-
 
     def hess(self, xst, yzuv=None, c=None, J=None, H=None):
         """
@@ -809,18 +784,17 @@ class L1BarrierMeritFunction(NLPModel):
 
         # Hbar = H(xst) + J(xst)' C(xst)^{-1} YZ J(xst) + bits with u and v.
         Hbar = l1.hess(xst, yzuv) if H is None else H.copy()
-        _JCYJ = spmatrix.symdot(J.matrix,yz/c)
+        _JCYJ = spmatrix.symdot(J.matrix, yz / c)
         JCYJ = sp(matrix=_JCYJ)
         Hbar += JCYJ
-        r1 = range(n,self.n)
-        Hbar.addAt(uv/st, r1, r1)
+        r1 = range(n, self.n)
+        Hbar.addAt(uv / st, r1, r1)
         return Hbar
-
-
 
 ###############################################################################
 
-class ElasticInteriorFramework:
+
+class ElasticInteriorFramework(object):
     """
     ipm = ElasticInteriorFramework(problem)
     Instantiate an InteriorFramework class embedding the nonlinear
@@ -932,7 +906,7 @@ class ElasticInteriorFramework:
         iFeas = norm_infty(pFeas[lC+uC+rC])
         bFeas = norm_infty(pFeas[m+nrC:])
 
-        (y,z,u,v) = l1.get_yzuv(yzuv)
+        (y, z, u, v) = l1.get_yzuv(yzuv)
         (nuE, nuS, nuT) = l1.get_penalty_parameters()
 
         y_nlp = l1.shifted_multipliers(y)
@@ -1210,7 +1184,7 @@ class ElasticInteriorFramework:
 
         # Process elastics associated to general constraints.
         if c is None: c = nlp.consPos(x)
-        seC = (  mu - nuE * c[eC] + Sqrt((nuE * c[eC])**2 +   mu*mu))/(2*nuE)
+        seC = (mu - nuE * c[eC] + Sqrt((nuE * c[eC])**2 +   mu*mu))/(2*nuE)
         s[eC] += stride * (seC - s[eC])
         logger.debug('Resetting s[Ec] to %s' % str(s[eC]))
         siC = (2*mu - nuS * c[iC] + Sqrt((nuS * c[iC])**2 + 4*mu*mu))/(2*nuS)
@@ -1260,11 +1234,11 @@ class ElasticInteriorFramework:
         logger.debug('t = %s' % str(t))
         logger.debug('c = %s' % str(c))
         if np.any(s < 0):
-            raise ValueError, 'Some elastics are negative.'
+            raise ValueError('Some elastics are negative.')
         if np.any(t < 0):
-            raise ValueError, 'Some elastics are negative.'
+            raise ValueError('Some elastics are negative.')
         if np.any(c < 0):
-            raise ValueError, 'Infeasible elastic reset.'
+            raise ValueError('Infeasible elastic reset.')
 
         return
 
@@ -1284,7 +1258,6 @@ class ElasticInteriorFramework:
         # 3. Fix multiplier projection.
 
         monotone = kwargs.get('monotone', True)
-        apply_scaling = True # Scale optimality residuals.
 
         # Shortcuts.
         l1bar = self.l1bar ; l1 = l1bar.l1 ; nlp = l1.nlp
@@ -1490,7 +1463,7 @@ class ElasticInteriorFramework:
 
                 # Update primal variables.
                 xst = xst_trial
-                (x,s,t) = l1.get_xst(xst)
+                (x, s, t) = l1.get_xst(xst)
 
                 if self.attempt_magical_steps_inner:
                     self.magical_step(xst_trial)
@@ -1498,7 +1471,7 @@ class ElasticInteriorFramework:
                 # Update dual variables.
                 yzuv += alpha * dyzuv
                 #yzuv = self.project_multipliers(xst, yzuv, alpha, dyzuv)
-                (y,z,u,v) = l1.get_yzuv(yzuv)
+                (y, z, u, v) = l1.get_yzuv(yzuv)
 
                 f = nlp.obj(x)
                 gf = nlp.grad(x) ; d_scale = max(1, norm_infty(gf))
@@ -1641,7 +1614,7 @@ class ElasticInteriorFramework2(ElasticInteriorFramework):
                     if available.
         """
         l1 = self.l1bar.l1 ; nlp = l1.nlp
-        (x,s,t) = l1.get_xst(xst)
+        (x, s, t) = l1.get_xst(xst)
         g = kwargs.get('g', nlp.grad(x))
         nu = max(1.0, norm_infty(g))
         l1.set_penalty_parameters(nu, nu, nu)
@@ -1652,7 +1625,6 @@ class ElasticInteriorFramework2(ElasticInteriorFramework):
 
 
 class ElasticInteriorFramework3(ElasticInteriorFramework):
-
 
     def initialize_penalty_parameters(self, xst, **kwargs):
         """
@@ -1687,7 +1659,6 @@ class ElasticInteriorFramework3(ElasticInteriorFramework):
 
 
 class ElasticInteriorFramework4(ElasticInteriorFramework):
-
 
     def initialize_penalty_parameters(self, xst, **kwargs):
         """
