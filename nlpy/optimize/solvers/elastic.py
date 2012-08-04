@@ -556,7 +556,7 @@ class L1MeritFunction(NLPModel, object):
         y2 = self.nlp_multipliers(y, shift=shift)
 
         H = sp(nrow=self.n, ncol=self.n, symmetric=True, sizeHint=nlp.nnzh)
-        H[:nlp.n,:nlp.n] = nlp.hess(x, -y2, **kwargs)
+        H[:nlp.n,:nlp.n] = nlp.hess(x, y2, **kwargs)
         return H
 
 
