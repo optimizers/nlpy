@@ -88,7 +88,7 @@ multiple_problems = len(args) > 1
 
 if not options.verbose:
     log.info(hdr)
-    log.info('-'*len(hdr))
+    log.info('-' * len(hdr))
 
 for probname in args:
 
@@ -113,7 +113,7 @@ for probname in args:
                 **opts_solve)
 
     # Display summary line.
-    probname=os.path.basename(probname)
+    probname = os.path.basename(probname)
     if probname[-3:] == '.nl': probname = probname[:-3]
 
     if not options.verbose:
@@ -125,13 +125,13 @@ for probname in args:
 
     qp.close()
 
-log.info('-'*len(hdr))
+log.info('-' * len(hdr))
 
 if not multiple_problems:
     x = regqp.x[:qp.original_n]
-    log.info('Final x: %s, |x| = %7.1e' % (repr(x),norm2(x)))
-    log.info('Final y: %s, |y| = %7.1e' % (repr(regqp.y),norm2(regqp.y)))
-    log.info('Final z: %s, |z| = %7.1e' % (repr(regqp.z),norm2(regqp.z)))
+    log.info('Final x: %s, |x| = %7.1e' % (repr(x), norm2(x)))
+    log.info('Final y: %s, |y| = %7.1e' % (repr(regqp.y), norm2(regqp.y)))
+    log.info('Final z: %s, |z| = %7.1e' % (repr(regqp.z), norm2(regqp.z)))
 
     log.info(regqp.status)
     log.info('#Iterations: %-d' % regqp.iter)
@@ -141,31 +141,31 @@ if not multiple_problems:
     log.info('Solve time : %6.2fs' % regqp.solve_time)
 
     # Plot linear system statistics.
-    import matplotlib.pyplot as plt
-    fig = plt.figure()
-    ax = fig.gca()
-    ax.semilogy(regqp.lres_history)
-    ax.set_title('LS Relative Residual')
-    fig2 = plt.figure()
-    ax2 = fig2.gca()
-    ax2.semilogy(regqp.derr_history)
-    ax2.set_title('Direct Error Estimate')
-    fig3 = plt.figure()
-    ax3 = fig3.gca()
-    ax3.semilogy([cond[0] for cond in regqp.cond_history], label='K1')
-    ax3.semilogy([cond[1] for cond in regqp.cond_history], label='K2')
-    ax3.legend(loc='upper left')
-    ax3.set_title('Condition number estimates of Arioli, Demmel, Duff')
-    fig4 = plt.figure()
-    ax4 = fig4.gca()
-    ax4.semilogy([berr[0] for berr in regqp.berr_history], label='bkwrd err1')
-    ax4.semilogy([berr[1] for berr in regqp.berr_history], label='bkwrd err2')
-    ax4.legend(loc='upper left')
-    ax4.set_title('Backward Error Estimates of Arioli, Demmel, Duff')
-    fig5 = plt.figure()
-    ax5 = fig5.gca()
-    ax5.semilogy([nrm[0] for nrm in regqp.nrms_history], label='Matrix norm')
-    ax5.semilogy([nrm[1] for nrm in regqp.nrms_history], label='Solution norm')
-    ax5.legend(loc='upper left')
-    ax5.set_title('Infinity Norm Estimates')
-    plt.show()
+    #import matplotlib.pyplot as plt
+    #fig = plt.figure()
+    #ax = fig.gca()
+    #ax.semilogy(regqp.lres_history)
+    #ax.set_title('LS Relative Residual')
+    #fig2 = plt.figure()
+    #ax2 = fig2.gca()
+    #ax2.semilogy(regqp.derr_history)
+    #ax2.set_title('Direct Error Estimate')
+    #fig3 = plt.figure()
+    #ax3 = fig3.gca()
+    #ax3.semilogy([cond[0] for cond in regqp.cond_history], label='K1')
+    #ax3.semilogy([cond[1] for cond in regqp.cond_history], label='K2')
+    #ax3.legend(loc='upper left')
+    #ax3.set_title('Condition number estimates of Arioli, Demmel, Duff')
+    #fig4 = plt.figure()
+    #ax4 = fig4.gca()
+    #ax4.semilogy([berr[0] for berr in regqp.berr_history], label='bkwrd err1')
+    #ax4.semilogy([berr[1] for berr in regqp.berr_history], label='bkwrd err2')
+    #ax4.legend(loc='upper left')
+    #ax4.set_title('Backward Error Estimates of Arioli, Demmel, Duff')
+    #fig5 = plt.figure()
+    #ax5 = fig5.gca()
+    #ax5.semilogy([nrm[0] for nrm in regqp.nrms_history], label='Matrix norm')
+    #ax5.semilogy([nrm[1] for nrm in regqp.nrms_history], label='Solution norm')
+    #ax5.legend(loc='upper left')
+    #ax5.set_title('Infinity Norm Estimates')
+    #plt.show()
