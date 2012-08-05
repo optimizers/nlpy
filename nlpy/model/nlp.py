@@ -94,12 +94,6 @@ class NLPModel(object):
         self.ncon = self.m = m   # Number of general constraints
         self.name = name         # Problem name
 
-        # Initialize local value for Infinity
-        self.Infinity = 1e+20
-        self.negInfinity = - self.Infinity
-        self.zero = 0.0
-        self.one = 1.0
-
         # Set initial point
         if 'x0' in kwargs.keys():
             self.x0 = np.ascontiguousarray(kwargs['x0'], dtype=float)
@@ -116,25 +110,25 @@ class NLPModel(object):
         if 'Lvar' in kwargs.keys():
             self.Lvar = np.ascontiguousarray(kwargs['Lvar'], dtype=float)
         else:
-            self.Lvar = self.negInfinity * np.ones(self.n, 'd')
+            self.Lvar = -np.inf * np.ones(self.n, 'd')
 
         # Set upper bounds on variables    x[i] <= Uvar[i]  i = 1,...,n
         if 'Uvar' in kwargs.keys():
             self.Uvar = np.ascontiguousarray(kwargs['Uvar'], dtype=float)
         else:
-            self.Uvar = self.Infinity * np.ones(self.n, 'd')
+            self.Uvar = np.inf * np.ones(self.n, 'd')
 
         # Set lower bounds on constraints  Lcon[i] <= c[i]  i = 1,...,m
         if 'Lcon' in kwargs.keys():
             self.Lcon = np.ascontiguousarray(kwargs['Lcon'], dtype=float)
         else:
-            self.Lcon = self.negInfinity * np.ones(self.m, 'd')
+            self.Lcon = -np.inf * np.ones(self.m, 'd')
 
         # Set upper bounds on constraints  c[i] <= Ucon[i]  i = 1,...,m
         if 'Ucon' in kwargs.keys():
             self.Ucon = np.ascontiguousarray(kwargs['Ucon'], dtype=float)
         else:
-            self.Ucon = self.Infinity * np.ones(self.m, 'd')
+            self.Ucon = np.inf * np.ones(self.m, 'd')
 
         # Default classification of constraints
         self.lin = []                        # Linear    constraints
@@ -152,14 +146,14 @@ class NLPModel(object):
         self.freeC  = []    # "Free" constraints:    -inf <= c(x) <= inf
 
         for i in range(self.m):
-            if self.Lcon[i] > self.negInfinity and self.Ucon[i] < self.Infinity:
+            if self.Lcon[i] > -np.inf and self.Ucon[i] < np.inf:
                 if self.Lcon[i] == self.Ucon[i]:
                     self.equalC.append(i)
                 else:
                     self.rangeC.append(i)
-            elif self.Lcon[i] > self.negInfinity:
+            elif self.Lcon[i] > -np.inf:
                 self.lowerC.append(i)
-            elif self.Ucon[i] < self.Infinity:
+            elif self.Ucon[i] < np.inf:
                 self.upperC.append(i)
             else:
                 self.freeC.append(i)
@@ -178,14 +172,14 @@ class NLPModel(object):
         self.freeB  = []
 
         for i in range(self.n):
-            if self.Lvar[i] > self.negInfinity and self.Uvar[i] < self.Infinity:
+            if self.Lvar[i] > -np.inf and self.Uvar[i] < np.inf:
                 if self.Lvar[i] == self.Uvar[i]:
                     self.fixedB.append(i)
                 else:
                     self.rangeB.append(i)
-            elif self.Lvar[i] > self.negInfinity:
+            elif self.Lvar[i] > -np.inf:
                 self.lowerB.append(i)
-            elif self.Uvar[i] < self.Infinity:
+            elif self.Uvar[i] < np.inf:
                 self.upperB.append(i)
             else:
                 self.freeB.append(i)

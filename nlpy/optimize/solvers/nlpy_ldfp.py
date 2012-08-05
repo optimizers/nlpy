@@ -11,6 +11,7 @@ from optparse import OptionParser
 import numpy
 import sys
 
+
 def pass_to_trunk(nlp, **kwargs):
 
     if nlp.nbounds > 0 or nlp.m > 0:         # Check for unconstrained problem
@@ -25,7 +26,7 @@ def pass_to_trunk(nlp, **kwargs):
     # When instantiating TrunkFramework of TrunkLbfgsFramework,
     # we select a trust-region subproblem solver of our choice.
     TRNK = solver(nlp, tr, TRSolver, **kwargs)
-    TRNK.TR.Delta = 0.1 * TRNK.gnorm         # Reset initial trust-region radius
+    #TRNK.TR.Delta = 0.1 * TRNK.gnorm         # Reset initial trust-region radius
     t_setup = cputime() - t                  # Setup time
 
     if verbose:

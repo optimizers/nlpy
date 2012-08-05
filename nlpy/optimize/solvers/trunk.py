@@ -29,8 +29,8 @@ class TrunkFramework(object):
     :parameters:
 
         :nlp:   a :class:`NLPModel` object representing the problem. For
-                instance, nlp may arise from an AMPL model
-        :TR:    a :class:`TrustRegionFramework` object
+                instance, nlp may arise from an AMPL model.
+        :TR:    a :class:`TrustRegionFramework` instance.
         :TrSolver:   a :class:`TrustRegionSolver` object.
 
 
@@ -68,20 +68,20 @@ class TrunkFramework(object):
         self.solver = None    # Will point to solver data in Solve()
         self.iter = 0         # Iteration counter
         self.total_cgiter = 0
-        self.x = kwargs.get('x0', self.nlp.x0.copy())
-        self.f = None
-        self.f0 = None
-        self.g = None
-        self.g_old = None
-        self.save_g = False              # For methods that need g_{k-1} and g_k
-        self.gnorm = None
-        self.g0 = None
-        self.alpha = 1.0       # For Nocedal-Yuan backtracking linesearch
+        self.x      = kwargs.get('x0', self.nlp.x0.copy())
+        self.f      = None
+        self.f0     = None
+        self.g      = None
+        self.g_old  = None
+        self.save_g = False
+        self.gnorm  = None
+        self.g0     = None
+        self.alpha  = 1.0       # For Nocedal-Yuan backtracking linesearch
         self.tsolve = 0.0
 
-        self.reltol = kwargs.get('reltol', self.nlp.stop_d)
-        self.abstol = kwargs.get('abstol', 1.0e-6)
-        self.maxiter = kwargs.get('maxiter', max(1000, 10 * self.nlp.n))
+        self.reltol  = kwargs.get('reltol', self.nlp.stop_d)
+        self.abstol  = kwargs.get('abstol', 1.0e-6)
+
         self.verbose = kwargs.get('verbose', True)
         self.ny = kwargs.get('ny', False)
         self.nbk = kwargs.get('nbk', 5)
@@ -90,13 +90,12 @@ class TrunkFramework(object):
         self.nIterNonMono = kwargs.get('nIterNonMono', 25)
         self.logger = kwargs.get('logger', None)
 
-        self.hformat = '%-5s  %8s  %7s  %5s  %8s  %8s  %4s'
-        self.header = self.hformat % ('Iter', 'f(x)', '|g(x)|', 'cg', \
-                                       'rho', 'Radius', 'Stat')
-        self.hlen = len(self.header)
-        self.hline = '-' * self.hlen
-        self.format = '%-5d  %8.1e  %7.1e  %5d  %8.1e  %8.1e  %4s'
-        self.format0 = '%-5d  %8.1e  %7.1e  %5s  %8s  %8.1e  %4s'
+        self.hformat = '%-5s  %8s  %7s  %5s  %8s  %8s  %8s  %4s'
+        self.header  = self.hformat % ('Iter','f(x)','|g(x)|','cg','rho','Step','Radius','Stat')
+        self.hlen   = len(self.header)
+        self.hline  = '-' * self.hlen
+        self.format = '%-5d  %8.1e  %7.1e  %5d  %8.1e  %8.1e  %8.1e  %4s'
+        self.format0= '%-5d  %8.1e  %7.1e  %5s  %8s  %8s  %8.1e  %4s'
         self.radii = [TR.Delta]
 
         # Setup the logger. Install a NullHandler if no output needed.
@@ -128,16 +127,27 @@ class TrunkFramework(object):
         return None
 
     def Solve(self, **kwargs):
+        """
+        :keywords:
+            :maxiter:  maximum number of iterations.
+
+        All other keyword arguments are passed directly to the constructor of
+        the trust-region solver.
+        """
+
+        self.maxiter = kwargs.get('maxiter', max(1000, 10*self.nlp.n))
+        if 'maxiter' in kwargs:
+            kwargs.pop('maxiter')
 
         nlp = self.nlp
 
         # Gather initial information.
-        self.f = self.nlp.obj(self.x)
-        self.f0 = self.f
-        self.g = self.nlp.grad(self.x)  # Current  gradient
-        self.g_old = self.g                 # Previous gradient
-        self.gnorm = norms.norm2(self.g)
-        self.g0 = self.gnorm
+        self.f      = self.nlp.obj(self.x)
+        self.f0     = self.f
+        self.g      = self.nlp.grad(self.x)  # Current  gradient
+        self.g_old  = self.g
+        self.gnorm  = norms.norm2(self.g)
+        self.g0     = self.gnorm
 
         # Reset initial trust-region radius.
         # self.TR.Delta = 0.1 * self.g0
@@ -148,8 +158,9 @@ class TrunkFramework(object):
             cgtol = -1.0
         stoptol = max(self.abstol, self.reltol * self.g0)
         step_status = None
-        exitIter = exitUser = False
+        exitUser = False
         exitOptimal = self.gnorm <= stoptol
+        exitIter = self.iter >= self.maxiter
         status = ''
 
         # Initialize non-monotonicity parameters.
@@ -171,7 +182,7 @@ class TrunkFramework(object):
             self.log.info(self.header)
             self.log.info(self.hline)
             self.log.info(self.format0 % (self.iter, self.f,
-                                             self.gnorm, '', '',
+                                             self.gnorm, '', '', '',
                                              self.TR.Delta, ''))
 
         while not (exitUser or exitOptimal or exitIter):
@@ -179,7 +190,6 @@ class TrunkFramework(object):
             self.iter += 1
             self.alpha = 1.0
 
-            # Save current gradient
             if self.save_g:
                 self.g_old = self.g.copy()
 
@@ -217,6 +227,7 @@ class TrunkFramework(object):
                 rho = max(rho, rhoHis)
 
             step_status = 'Rej'
+
             if rho >= self.TR.eta1:
 
                 # Trust-region step is accepted.
@@ -253,6 +264,7 @@ class TrunkFramework(object):
                 # Trust-region step is rejected.
 
                 if self.ny:  # Backtracking linesearch a la Nocedal & Yuan.
+
                     slope = numpy.dot(self.g, step)
                     bk = 0
                     while bk < self.nbk and \
@@ -266,6 +278,7 @@ class TrunkFramework(object):
                     self.g = nlp.grad(self.x)
                     self.gnorm = norms.norm2(self.g)
                     self.TR.Delta = self.alpha * snorm
+                    snorm /= self.alpha
                     step_status = 'N-Y'
                 else:
                     self.TR.UpdateRadius(rho, snorm)
@@ -287,7 +300,7 @@ class TrunkFramework(object):
             if self.verbose:
                 pstatus = step_status if step_status != 'Acc' else ''
                 self.log.info(self.format % (self.iter, self.f,
-                          self.gnorm, cgiter, rho,
+                          self.gnorm, cgiter, rho, snorm,
                           self.TR.Delta, pstatus))
 
             exitOptimal = self.gnorm <= stoptol
@@ -304,37 +317,3 @@ class TrunkFramework(object):
         else:  # self.iter > self.maxiter:
             status = 'itr'
         self.status = status
-
-
-class TrunkLbfgsFramework(TrunkFramework):
-    """
-    Class TrunkLbfgsFramework is a subclass of TrunkFramework. The method is
-    based on the same trust-region algorithm with Nocedal-Yuan backtracking.
-    The only difference is that a limited-memory BFGS preconditioner is used
-    and maintained along the iterations. See class TrunkFramework for more
-    information.
-    """
-
-    def __init__(self, nlp, TR, TrSolver, **kwargs):
-
-        TrunkFramework.__init__(self, nlp, TR, TrSolver, **kwargs)
-        self.npairs = kwargs.get('npairs', 5)
-        self.lbfgs = lbfgs.InverseLBFGS(nlp.n, npairs=self.npairs)
-        self.save_g = True
-
-    def precon(self, v, **kwargs):
-        """
-        This method implements limited-memory BFGS preconditioning. It
-        overrides the default precon() of class TrunkFramework.
-        """
-        return self.lbfgs.solve(v)
-
-    def PostIteration(self, **kwargs):
-        """
-        This method updates the limited-memory BFGS preconditioner by appending
-        the most rencet (s,y) pair to it and possibly discarding the oldest one
-        if all the memory has been used.
-        """
-        s = self.alpha * self.solver.step
-        y = self.g - self.g_old
-        self.lbfgs.store(s, y)

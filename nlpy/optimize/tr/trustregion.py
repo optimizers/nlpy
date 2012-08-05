@@ -2,7 +2,7 @@
 Class definition for Trust-Region Algorithm
 """
 
-from nlpy.krylov.pcg  import TruncatedCG
+from nlpy.krylov.pcg  import TruncatedCG, TruncatedCGLBFGS
 from nlpy.krylov.ppcg import ProjectedCG
 import numpy as np
 from math import sqrt
@@ -159,6 +159,20 @@ class TrustRegionCG(TrustRegionSolver):
         self.step= self.cgSolver.step
         self.m = self.qp.obj(self.step)        # Compute model reduction.
         return
+
+
+class TrustRegionCGLBFGS(TrustRegionCG):
+    """
+    Instantiate a trust-region subproblem solver based on the truncated
+    conjugate gradient method of Steihaug and Toint. See the :mod:`pcg` module
+    for more information. A limited-memory BFGS preconditioner is built for use
+    in subsequent solves.
+    """
+
+    def __init__(self, g, H, **kwargs):
+
+        TrustRegionCG.__init__(self, g, H, **kwargs)
+        self.cgSolver = TruncatedCGLBFGS(g, H, **kwargs)
 
 
 class TrustRegionPCG(TrustRegionSolver):

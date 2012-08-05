@@ -114,7 +114,8 @@ class Funnel(object):
 
     def jac(self, x):
         """
-        Return the Jacobian matrix of the equality constraints at x as a PysparseMatrix.
+        Return the Jacobian matrix of the equality constraints at x
+        as a PysparseMatrix.
         """
         _J = self.nlp.jac(x, store_zeros=True)  # Keep explicit zeros.
         return PysparseMatrix(matrix=_J)
@@ -122,11 +123,11 @@ class Funnel(object):
     def hprod(self, x, y, v):
         """
         Return the product of the Hessian of the Lagrangian evaluated at (x,y)
-        with the vector v. By default, this method uses the `hprod` method of the `nlp`
-        attribute.
+        with the vector v. By default, this method uses the `hprod` method of
+        the `nlp` attribute.
         Subclass to implement different matrix-vector products.
         """
-        return self.nlp.hprod(x,y,v)
+        return self.nlp.hprod(x, -y, v)
 
     def forcing(self, k, val):
         "Return forcing term number `k`."
@@ -174,7 +175,7 @@ class Funnel(object):
         return (xTrial, fTrial, alpha)
 
     def nyc(self, x, theta, thetaTrial, c,
-            dtheta, step, bkmax=5, armijo=1.0-4):
+            dtheta, step, bkmax=5, armijo=1.0e-4):
         """
         Perform a simple backtracking linesearch on the infeasibility measure
         theta(x) = 1/2 * |c(x)|^2 from `x` along `step`. Here, `theta` and
@@ -246,11 +247,11 @@ class Funnel(object):
         gamma_1 = 0.25
         gamma_3 = 2.5
 
-        kappa_tx1 = 0.9 # Factor of theta_max in max acceptable infeasibility.
-        kappa_tx2 = 0.5 # Convex combination factor of theta and thetaTrial.
+        kappa_tx1 = 0.9  # Factor of theta_max in max acceptable infeasibility.
+        kappa_tx2 = 0.5  # Convex combination factor of theta and thetaTrial.
 
         # Compute constraint violation.
-        theta = 0.5 * np.dot(c,c)
+        theta = 0.5 * np.dot(c, c)
 
         # Set initial funnel radius.
         kappa_ca = 1.0e+3    # Max initial funnel radius.
@@ -277,12 +278,12 @@ class Funnel(object):
 
         pNorm = cNorm = 0
         if m > 0:
-            pNorm = np.linalg.norm(c);
+            pNorm = np.linalg.norm(c)
             cNorm = np.linalg.norm(c, np.inf)
             grad_lag = g + Jop.T * y
         else:
             grad_lag = g.copy()
-        dNorm = np.linalg.norm(grad_lag)/(1 + np.linalg.norm(y))
+        dNorm = np.linalg.norm(grad_lag) / (1 + np.linalg.norm(y))
 
         # Display current info if requested.
         self.log.info(self.hdr)
@@ -291,7 +292,8 @@ class Funnel(object):
 
         # Compute primal stopping tolerance.
         stop_p = max(self.atol, self.stop_p * pNorm)
-        self.log.debug('pNorm = %8.2e, cNorm = %8.2e, dNorm = %8.e2' % (pNorm,cNorm,dNorm))
+        self.log.debug('pNorm = %8.2e, cNorm = %8.2e, dNorm = %8.e2' % \
+                (pNorm, cNorm, dNorm))
 
         optimal = (pNorm <= stop_p) and (dNorm <= self.stop_d)
         self.log.debug('optimal: %s' % repr(optimal))
@@ -310,7 +312,7 @@ class Funnel(object):
                     pNorm <= stop_p and \
                     dNorm >= 1.0e+4 * self.stop_d:
 
-                self.log.debug('Setting nStep=0 b/c need to work on optimality')
+                self.log.debug('Setting nStep=0 b/c must work on optimality')
                 nStep = np.zeros(n)
                 nStepNorm = 0.0
                 n_end = '0'
@@ -346,7 +348,7 @@ class Funnel(object):
                 #      by minimizing |(g + H n) + J'y|
 
                 if nStepNorm == 0.0:
-                    gN = g   # Note: this is just a pointer ; g will not be modified below.
+                    gN = g   # Just a pointer ; g will not be modified below.
                 else:
                     gN = g + _Hv
 
@@ -357,10 +359,9 @@ class Funnel(object):
 
                 # Compute dual optimality measure.
                 residNorm = np.linalg.norm(r)
-                norm_gN = np.linalg.norm(gN)
                 pi = 0.0
                 if residNorm > 0:
-                    pi = abs(np.dot(gN, r))/residNorm
+                    pi = abs(np.dot(gN, r)) / residNorm
 
                 # 2.2. If the dual residuals are large, compute a suitable
                 #      tangential step as a solution to:
@@ -407,7 +408,7 @@ class Funnel(object):
 
                 else:
 
-                    self.log.debug('Setting tStep=0 b/c pi is sufficiently small')
+                    self.log.debug('Setting tStep=0 b/c pi sufficiently small')
                     tStepNorm = 0
                     t_end = '0'
                     step = nStep
@@ -419,7 +420,7 @@ class Funnel(object):
             else:
 
                 # No need to compute a tangential step.
-                self.log.debug('Setting tStep=0 b/c the normal step is too large')
+                self.log.debug('Setting tStep=0 b/c normal step too large')
                 t_end = '0'
                 y = np.zeros(m)
                 tStepNorm = 0.0
@@ -452,7 +453,7 @@ class Funnel(object):
                 it_type = 'f'
 
                 # Decide whether trial point is accepted.
-                ratio = (f - fTrial)/delta_f
+                ratio = (f - fTrial) / delta_f
 
                 self.log.debug('f-iter ratio = %9.2e' % ratio)
 
@@ -501,7 +502,7 @@ class Funnel(object):
                             xSoc = xTrial + socStep
                             fSoc = nlp.obj(xSoc) ; cSoc = self.cons(xSoc)
                             thetaSoc = 0.5 * np.dot(cSoc, cSoc)
-                            ratio = (f - fSoc)/delta_f
+                            ratio = (f - fSoc) / delta_f
 
                             # Decide whether to accept SOC step.
                             if ratio >= eta_1 and thetaSoc <= theta_max:
@@ -520,7 +521,7 @@ class Funnel(object):
                                                              g, step)
                                     #g = nlp.grad(x)
                                     c = self.cons(x)
-                                    theta = 0.5 * np.dot(c,c)
+                                    theta = 0.5 * np.dot(c, c)
                                     self.step = step + alpha * socStep
                                     Delta_f = min(alpha, .8) * stepNorm
                                     suc = 'y'
@@ -536,15 +537,13 @@ class Funnel(object):
                         # Backtracking linesearch a la Nocedal & Yuan.
                         if ny:
                             (x, f, alpha) = self.nyf(x, f, fTrial, g, step)
-                            #g = nlp.grad(x)
                             c = self.cons(x)
-                            theta = 0.5 * np.dot(c,c)
+                            theta = 0.5 * np.dot(c, c)
                             self.step = alpha * step
                             Delta_f = min(alpha, .8) * stepNorm
                             suc = 'y'
                         else:
                             Delta_f = gamma_1 * Delta_f
-
 
             else:
 
@@ -569,7 +568,7 @@ class Funnel(object):
                 if delta_feas < 0:
                     self.log.debug(' !!! Warning: delta_feas is negative !!!')
 
-                ratio = (theta - thetaTrial + 1.0e-16)/(delta_feas + 1.0e-16)
+                ratio = (theta - thetaTrial + 1.0e-16) / (delta_feas + 1.0e-16)
                 self.log.debug('c-iter ratio = %9.2e' % ratio)
 
                 if ratio >= eta_1:         # Successful step.
@@ -599,12 +598,11 @@ class Funnel(object):
                         (x, c, theta, alpha) = self.nyc(x, theta, thetaTrial,
                                                         c, Jop.T*c, step)
                         f = nlp.obj(x)
-                        #g = nlp.grad(x)
                         self.step = alpha * step
                         Delta_c = min(alpha, .8) * ns
                         suc = 'y'
                     else:
-                        Delta_c = gamma_1 * ns #Delta_c
+                        Delta_c = gamma_1 * ns
                         suc = 'u'
 
                 self.log.debug('New Delta_c = %8.2e' % Delta_c)
@@ -624,7 +622,7 @@ class Funnel(object):
                     grad_lag = g + Jop.T * y
                 else:
                     grad_lag = g.copy()
-                dNorm = np.linalg.norm(grad_lag)/(1 + np.linalg.norm(y))
+                dNorm = np.linalg.norm(grad_lag) / (1 + np.linalg.norm(y))
 
             if self.it % 20 == 0:
                 self.log.info(self.hdr)
@@ -641,7 +639,7 @@ class Funnel(object):
             self.status = 0  # Successful solve.
             self.log.info('Found an optimal solution! Yeah!')
         else:
-            self.status = 1 # Refine this in the future.
+            self.status = 1  # Refine this in the future.
 
         self.x = x
         self.f = f
@@ -691,7 +689,7 @@ class LDFPFunnel(Funnel):
 
         # Initialize LDFP structure.
         self.ldfps = []
-        npairs = kwargs.get('npairs',5)
+        npairs = kwargs.get('npairs', 5)
         for j in range(nlp.m):
             self.ldfps.append(LDFP(nlp.n, npairs=npairs))
 
@@ -766,7 +764,7 @@ class StructuredLDFPFunnel(Funnel):
 
         # Initialize LDFP structure.
         self.ldfps = []
-        npairs = kwargs.get('npairs',5)
+        npairs = kwargs.get('npairs', 5)
         for j in range(nlp.m):
 
             #print 'Initializing ldfps[%d]' % j
@@ -800,7 +798,6 @@ class StructuredLDFPFunnel(Funnel):
         m = self.nlp.m
         Hv = Funnel.hprod(self, x, np.zeros(m), v)   # = H0 * v
         for j in range(m):
-            #print 'hprod with constraint %d' % j
             jvars = self.ldfps[j].vars  # Nonzero vars in j-th gradient.
             Hv[jvars] += y[j] * self.ldfps[j].matvec(v[jvars])   # approx. = sum_i yi Hi*v
         return Hv

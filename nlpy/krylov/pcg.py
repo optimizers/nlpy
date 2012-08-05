@@ -9,6 +9,7 @@ truncated preconditioned conjugate gradient algorithm as described in
 .. moduleauthor:: D. Orban <dominique.orban@gerad.ca>
 """
 
+from nlpy.optimize.solvers.lbfgs import InverseLBFGS
 from nlpy.tools.exceptions import UserExitRequest
 import numpy as np
 from math import sqrt
@@ -184,9 +185,6 @@ class TruncatedCG(object):
             if radius is not None:
                 sigma = self.to_boundary(s, p, radius, ss=snorm2)
 
-            # Compute CG steplength.
-            alpha = ry/pHp
-
             if pHp <= 0 and radius is None:
                 # p is direction of singularity or negative curvature.
                 self.status = 'infinite descent'
@@ -194,6 +192,9 @@ class TruncatedCG(object):
                 self.dir = p
                 infDescent = True
                 continue
+
+            # Compute CG steplength.
+            alpha = ry/pHp if pHp != 0 else 1
 
             if radius is not None and (pHp <= 0 or alpha > sigma):
                 # p leads past the trust-region boundary. Move to the boundary.
@@ -204,14 +205,28 @@ class TruncatedCG(object):
                 onBoundary = True
                 continue
 
+            self.ds = alpha * p
+            self.dr = alpha * Hp
+
             # Move to next iterate.
-            s += alpha * p
-            r += alpha * Hp
+            s += self.ds
+            r += self.dr
             y = prec(r)
             ry_next = np.dot(r, y)
             beta = ry_next/ry
             p = -y + beta * p
             ry = ry_next
+
+            # Transfer useful quantities for post iteration.
+            self.pHp = pHp
+            self.r = r
+            self.y = y
+            self.p = p
+            self.step = s
+            self.stepNorm2 = snorm2
+            self.ry = ry
+            self.alpha = alpha
+            self.beta = beta
 
             try:
                 sqrtry = sqrt(ry)
@@ -221,17 +236,6 @@ class TruncatedCG(object):
                 raise ValueError, msg
 
             snorm2 = np.dot(s,s)
-
-            # Transfer useful quantities for post iteration.
-            self.pHp = pHp
-            self.p = p
-            self.r = r
-            self.y = y
-            self.step = s
-            self.stepNorm2 = snorm2
-            self.beta = beta
-            self.ry = ry
-            self.alpha = alpha
 
             try:
                 self.post_iteration()
@@ -256,3 +260,25 @@ class TruncatedCG(object):
         self.infDescent = infDescent
         return
 
+
+class TruncatedCGLBFGS(TruncatedCG):
+
+    def __init__(self, g, H, **kwargs):
+        super(TruncatedCGLBFGS, self).__init__(g, H, **kwargs)
+        npairs = kwargs.get('npairs', 5)
+        scaling = kwargs.get('scaling', True)
+        self.lbfgs = InverseLBFGS(self.n,
+                                  npairs=npairs,
+                                  scaling=scaling)
+
+    def post_iteration(self):
+        self.lbfgs.store(self.ds, self.dr)
+
+
+def model_value(H, g, s):
+    # Return <g,s> + 1/2 <s,Hs>
+    return np.dot(g,s) + 0.5 * np.dot(s, H*s)
+
+def model_grad(H, g, s):
+    # Return g + Hs
+    return g + H*s

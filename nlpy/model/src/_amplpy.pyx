@@ -111,6 +111,7 @@ cdef extern from "amplutils.h":
     int ampl_congrd(ASL*, int, double*, double*)
     void ampl_sphes(ASL*, double*, int, double*, double*)
     void ampl_hvcomp(ASL*, double*, double*, int, double*, double*)
+    void ampl_lagscale(ASL*, double)
     void ampl_xknown(ASL*, double*)
 
 ########################################################################
@@ -293,6 +294,9 @@ cdef class ampl:
 
         # Maximization or minimization.
         self.objtype = self.asl.i.objtype_[0] # 0 = minimization
+
+        # Convention: the Lagrangian is L := f - c'y.
+        ampl_lagscale(self.asl, -1.)
 
 
     # Routines to get initial values.
@@ -567,7 +571,7 @@ cdef class ampl:
         if not PyArray_ISCARRAY(x): x = x.copy()
         if not PyArray_ISCARRAY(y): y = y.copy()
 
-        # Determine room for Hessian and multiplier sign.
+        # Determine room for Hessian and objective sign if maximizing.
         nnzh = self.get_nnzh()
         OW[0] = obj_weight if self.objtype == 0 else -obj_weight
 
@@ -575,7 +579,7 @@ cdef class ampl:
         H = np.empty(nnzh, dtype=np.double)
         ampl_sphes(self.asl, <double*>H.data, -1, OW, <double*>y.data)
 
-        if coord: # return Hesian in coordinate format.
+        if coord: # return Hessian in coordinate format.
             a_icol = np.empty(nnzh, dtype=np.int)
             a_irow = np.empty(nnzh, dtype=np.int)
 
@@ -633,7 +637,7 @@ cdef class ampl:
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def gHi_prod(self, ndarray[np.double_t] g, ndarray[np.double_t] v):
-        """Compute the vector of dot products (g,Hi*v) of with the
+        """Compute the vector of dot products (g,Hi*v) with the
         constraint Hessians."""
 
         cdef:
@@ -648,7 +652,7 @@ cdef class ampl:
         # Process nonlinear constraints. The rest are already zero.
         for i in range(self.nlc):
             # Set vector of multipliers to (0, 0, ..., -1, ..., 0).
-            y[i] = -1.0
+            y[i] = -1.0   # Must be -1 because of lagscale().
 
             # Compute Hi * v by setting OW to NULL.
             ampl_hvcomp(self.asl, <double*>hv.data, <double*>v.data,

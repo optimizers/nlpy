@@ -88,7 +88,7 @@ multiple_problems = len(args) > 1
 
 if not options.verbose:
     log.info(hdr)
-    log.info('-'*len(hdr))
+    log.info('-' * len(hdr))
 
 for probname in args:
 
@@ -114,7 +114,7 @@ for probname in args:
                 **opts_solve)
 
     # Display summary line.
-    probname=os.path.basename(probname)
+    probname = os.path.basename(probname)
     if probname[-3:] == '.nl': probname = probname[:-3]
 
     if not options.verbose:
@@ -126,13 +126,13 @@ for probname in args:
 
     qp.close()
 
-log.info('-'*len(hdr))
+log.info('-' * len(hdr))
 
 if not multiple_problems:
     x = regqp.x[:qp.original_n]
-    log.info('Final x: %s, |x| = %7.1e' % (repr(x),norm2(x)))
-    log.info('Final y: %s, |y| = %7.1e' % (repr(regqp.y),norm2(regqp.y)))
-    log.info('Final z: %s, |z| = %7.1e' % (repr(regqp.z),norm2(regqp.z)))
+    log.info('Final x: %s, |x| = %7.1e' % (repr(x), norm2(x)))
+    log.info('Final y: %s, |y| = %7.1e' % (repr(regqp.y), norm2(regqp.y)))
+    log.info('Final z: %s, |z| = %7.1e' % (repr(regqp.z), norm2(regqp.z)))
 
     log.info(regqp.status)
     log.info('#Iterations: %-d' % regqp.iter)
