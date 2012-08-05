@@ -71,6 +71,8 @@ class TrunkFramework(object):
         self.f      = None
         self.f0     = None
         self.g      = None
+        self.g_old  = None
+        self.save_g = False
         self.gnorm  = None
         self.g0     = None
         self.alpha  = 1.0       # For Nocedal-Yuan backtracking linesearch
@@ -141,6 +143,7 @@ class TrunkFramework(object):
         self.f      = self.nlp.obj(self.x)
         self.f0     = self.f
         self.g      = self.nlp.grad(self.x)  # Current  gradient
+        self.g_old  = self.g
         self.gnorm  = norms.norm2(self.g)
         self.g0     = self.gnorm
 
@@ -184,6 +187,9 @@ class TrunkFramework(object):
 
             self.iter += 1
             self.alpha = 1.0
+
+            if self.save_g:
+                self.g_old = self.g.copy()
 
             # Iteratively minimize the quadratic model in the trust region
             # m(s) = <g, s> + 1/2 <s, Hs>
