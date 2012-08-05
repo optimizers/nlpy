@@ -257,7 +257,6 @@ class LBFGSFramework(object):
             self.g = SWLS.g
             self.gnorm = norms.norm2(self.g)
             self.f = SWLS.f
-            #stoptol = self.nlp.stop_d * max(1.0, norms.norm2(self.x))
 
             # Update inverse Hessian approximation using the most recent pair
             self.lbfgs.store(s, y)
