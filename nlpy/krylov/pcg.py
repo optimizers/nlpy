@@ -80,9 +80,9 @@ class TruncatedCG(object):
         self.log.propagate=False
 
         # Formats for display
-        self.hd_fmt = ' %-5s  %9s  %8s\n'
+        self.hd_fmt = ' %-5s  %9s  %8s'
         self.header = self.hd_fmt % ('Iter', '<r,g>', 'curv')
-        self.fmt = ' %-5d  %9.2e  %8.2e\n'
+        self.fmt = ' %-5d  %9.2e  %8.2e'
 
         return
 
@@ -98,7 +98,7 @@ class TruncatedCG(object):
         should be the squared Euclidian norm of `s`.
         """
         if radius is None:
-            raise ValueError, 'Input value radius must be positive number.'
+            raise ValueError('Input radius must be positive number.')
         sp = np.dot(s,p)
         pp = np.dot(p,p)
         if ss is None: ss = np.dot(s,s)
@@ -158,7 +158,7 @@ class TruncatedCG(object):
         except:
             msg = 'Preconditioned residual = %8.1e\n' % ry
             msg += 'Is preconditioner positive definite?'
-            raise ValueError, msg
+            raise ValueError(msg)
 
         stopTol = max(abstol, reltol * sqrtry)
 
@@ -170,7 +170,7 @@ class TruncatedCG(object):
         infDescent = False
 
         self.log.info(self.header)
-        self.log.info('-' * len(self.header) + '\n')
+        self.log.info('-' * len(self.header))
 
         while not (exitOptimal or exitIter or exitUser) and \
                 not onBoundary and not infDescent:
@@ -233,7 +233,7 @@ class TruncatedCG(object):
             except:
                 msg = 'Preconditioned residual = %8.1e\n' % ry
                 msg += 'Is preconditioner positive definite?'
-                raise ValueError, msg
+                raise ValueError(msg)
 
             snorm2 = np.dot(s,s)
 
