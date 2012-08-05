@@ -334,8 +334,7 @@ class Funnel(object):
 
                 # Evaluate the model of the obective after the normal step.
                 _Hv = self.hprod(x, y, nStep) # H*nStep
-                #m_xpn = np.dot(g, nStep) + 0.5 * np.dot(nStep, _Hv)
-                m_xpn = qp.obj(nStep)
+                m_xpn = np.dot(g, nStep) + 0.5 * np.dot(nStep, _Hv)
 
             self.log.debug('Normal step norm = %8.2e' % nStepNorm)
             self.log.debug('Model value: %9.2e' % m_xpn)
