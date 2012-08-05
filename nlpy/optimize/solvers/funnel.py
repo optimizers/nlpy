@@ -127,8 +127,7 @@ class Funnel(object):
         the `nlp` attribute.
         Subclass to implement different matrix-vector products.
         """
-        return self.nlp.hprod(x,y,v)
-
+        return self.nlp.hprod(x, -y, v)
 
     def forcing(self, k, val):
         "Return forcing term number `k`."
