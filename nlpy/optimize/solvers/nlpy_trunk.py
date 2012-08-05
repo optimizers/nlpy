@@ -10,6 +10,7 @@ import logging
 import numpy
 import sys
 
+
 def pass_to_trunk(nlp, options, showbanner=True):
 
     if nlp.nbounds > 0 or nlp.m > 0:         # Check for unconstrained problem
@@ -43,8 +44,6 @@ def pass_to_trunk(nlp, options, showbanner=True):
 # Declare command-line arguments.
 parser = ArgumentParser(description='A Newton/CG trust-region solver for' + \
                                     ' unconstrained optimization')
-parser.add_argument('--lbfgs', action='store_true',
-                    help='Use L-BFGS preconditioning of CG iterations')
 parser.add_argument('--plot', action='store_true',
                     help='Plot evolution of trust-region radius')
 parser.add_argument('--nony', action='store_true',
