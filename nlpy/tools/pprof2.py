@@ -12,6 +12,7 @@ __docformat__ = 'restructuredtext'
 default_options = {'datacol': 2, 'logscale': True, 'sep': '\s+', 'bw': False,
                    'title': 'Deathmatch'}
 
+
 class PerformanceProfile(object):
 
     def __init__(self, solvers, **opts):
@@ -23,7 +24,7 @@ class PerformanceProfile(object):
                       listed below.
 
         :options:
-            :datacol:  the (1-based) column index containing the relevant metric
+            :datacol:  the 1-based column index containing the relevant metric
                        in the solver files
             :logscale: True if log-scale ratios are requested
             :sep:      the column separator as a regexp (default: '\s+')
@@ -72,11 +73,11 @@ class PerformanceProfile(object):
 
         # Scale each problem metric by the best performance across solvers.
         for prob in range(nprobs):
-            metrics = self.ratios[:,prob]
+            metrics = self.ratios[:, prob]
             try:
                 # There are no > 0 vals if all solvers fail on this problem.
                 best = metrics[metrics > 0].min()
-                self.ratios[:,prob] /= best
+                self.ratios[:, prob] /= best
             except:
                 pass
 
@@ -86,16 +87,26 @@ class PerformanceProfile(object):
 
         # Sort the performance of each solver (in place).
         for solv in range(nsolvs):
-            self.ratios[solv,:].sort()
+            self.ratios[solv, :].sort()
 
     def plot(self):
         "Need we say more?"
 
+        import matplotlib as mpl
         import matplotlib.pyplot as plt
+
         nsolvs, nprobs = self.ratios.shape
         y = np.arange(1, nprobs+1, dtype=np.float)/nprobs
-        grays = ['0.0', '0.5', '0.8', '0.2', '0.6', '0.9', '0.4', '0.95']
-        ngrays = len(grays)
+
+        if self.options['bw']:
+            cmap = mpl.cm.get_cmap(name='gray')
+            r = np.logspace(0.1, 0.9, nsolvs)
+            r /= 1.5 * r[-1]
+            mycolors = [cmap(i) for i in r]
+        else:
+            cmap = mpl.cm.get_cmap(name='gist_ncar')
+            mycolors = [cmap(i) for i in np.linspace(0.1, 0.9, nsolvs)]
+        mpl.axes.set_default_color_cycle(mycolors)
 
         xmax = 1.1 * self.max_ratio
         if self.options['logscale']:
@@ -105,16 +116,12 @@ class PerformanceProfile(object):
         ax = fig.gca()
         pltcmd = ax.semilogx if self.options['logscale'] else ax.plot
         for solv in range(nsolvs):
-            pltargs = ()
-            if self.options['bw']:
-                pltargs = (grays[solv % ngrays],)
             # Draw profile tail all the way.
-            self.ratios[solv,-1] = xmax
-            pltcmd(self.ratios[solv,:], y,
+            self.ratios[solv, -1] = xmax
+            pltcmd(self.ratios[solv, :], y,
                    linewidth=2.5,
                    drawstyle='steps-pre',
-                   antialiased=True,
-                   *pltargs)
+                   antialiased=True)
 
         ax.legend(self.solvers, 'lower right')
         if self.options['logscale']:
