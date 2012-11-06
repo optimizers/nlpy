@@ -99,8 +99,8 @@ class PerformanceProfile(object):
         y = np.arange(1, nprobs+1, dtype=np.float)/nprobs
 
         if self.options['bw']:
-            cmap = mpl.cm.get_cmap(name='gray')
-            r = np.logspace(0.1, 0.9, nsolvs)
+            cmap = mpl.cm.get_cmap(name='gist_yarg')
+            r = np.logspace(0.3, 0.9, nsolvs)
             r /= 1.5 * r[-1]
             mycolors = [cmap(i) for i in r]
         else:
