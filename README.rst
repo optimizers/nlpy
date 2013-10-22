@@ -100,3 +100,9 @@ Licensing
 
 .. image:: http://www.gnu.org/graphics/lgplv3-88x31.png
     :target: http://www.gnu.org/licenses/lgpl-3.0.html
+
+
+.. image:: https://d2weczhvl823v0.cloudfront.net/dpo/nlpy/trend.png
+   :alt: Bitdeli badge
+   :target: https://bitdeli.com/free
+
