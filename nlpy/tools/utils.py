@@ -1,10 +1,41 @@
 # Various utilities.
-
 import numpy as np
+import logging
 from math import copysign, sqrt
 
+
+def Max(a):
+    """
+    A safeguarded max function. Returns -infinity for empty arrays.
+    """
+    return np.max(a) if a.size > 0 else -np.inf
+
+
+def Min(a):
+    """
+    A safeguarded min function. Returns +infinity for empty arrays.
+    """
+    return np.min(a) if a.size > 0 else np.inf
+
+
+class NullHandler(logging.Handler):
+    '''
+    A simple implementation of the null handler for Python 2.6.x (and older?)
+    Useful for compatibility with older versions of Python.
+    '''
+
+    def emit(self, record):
+        pass
+
+    def handle(self, record):
+        pass
+
+    def createLock(self):
+        return None
+
+
 # Helper functions.
-def identical(a,b):
+def identical(a, b):
     """
     Check that two arrays or lists are identical. Must be cautious because
     of Numpy's strange behavior:
@@ -13,7 +44,7 @@ def identical(a,b):
     True
     """
     if a.shape == b.shape:
-        return np.all(a==b)
+        return np.all(a == b)
     return False
 
 
@@ -30,7 +61,7 @@ def roots_quadratic(q2, q1, q0, tol=1.0e-8, nitref=1):
     This function takes after the GALAHAD function of the same name.
     See http://galahad.rl.ac.uk.
     """
-    a2 = float(q2) ; a1 = float(q1) ; a0 = float(q0)
+    a2 = float(q2); a1 = float(q1); a0 = float(q0)
 
     # Case of a linear function.
     if a2 == 0.0:
@@ -71,5 +102,5 @@ def roots_quadratic(q2, q1, q0, tol=1.0e-8, nitref=1):
 
 
 if __name__ == '__main__':
-    roots = roots_quadratic(2.0e+20,.1,-4)
+    roots = roots_quadratic(2.0e+20, .1, -4)
     print 'Received: ', roots
