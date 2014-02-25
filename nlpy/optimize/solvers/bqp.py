@@ -16,11 +16,12 @@ from nlpy.krylov.pcg import TruncatedCG
 from pykrylov.linop import LinearOperator
 from pykrylov.linop import SymmetricallyReducedLinearOperator as ReducedHessian
 from nlpy.tools.utils import identical, where, NullHandler
-from nlpy.tools.exceptions import InfeasibleError, UserExitRequest
+from nlpy.tools.exceptions import InfeasibleError, \
+                                  UserExitRequest, \
+                                  GeneralConstraintsError
 from numpy import setdiff1d
 import numpy as np
 import logging
-import warnings
 
 
 __docformat__ = 'restructuredtext'
@@ -101,8 +102,7 @@ class BQP(object):
     def __init__(self, qp, **kwargs):
 
         if qp.m != 0:
-            warnings.warn(("\nYou're trying to solve a constrained problem "
-                           "with an unconstrained solver !\n"))
+            raise GeneralConstraintsError('QP has general constraints')
 
         self.qp = qp
         self.Lvar = qp.Lvar
