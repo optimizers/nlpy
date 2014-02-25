@@ -1,6 +1,8 @@
 from nlpy.model import NLPModel
+from pykrylov.linop import LinearOperator
 import pycppad
 import numpy as np
+
 
 class CppADModel(NLPModel):
     """
@@ -16,12 +18,10 @@ class CppADModel(NLPModel):
         self._trace_obj(self.x0)
         if self.m > 0: self._trace_cons(self.x0)
 
-
     def _trace_obj(self, x):
         ax = pycppad.independent(x)
         ay = self.obj(ax)
         self._cppad_adfun_obj = pycppad.adfun(ax, np.array([ay]))
-
 
     def _trace_cons(self, x):
         ax = pycppad.independent(x)
@@ -32,37 +32,30 @@ class CppADModel(NLPModel):
 
         self._cppad_adfun_cons = pycppad.adfun(ax, ay)
 
-
     def _cppad_obj(self, x):
         "Return the objective function from the CppAD tape."
         return self._cppad_adfun_obj.function(x)
-
 
     def grad(self, x, **kwargs):
         "Return the objective gradient at x."
         return self._cppad_grad(x, **kwargs)
 
-
     def _cppad_grad(self, x, **kwargs):
         "Return the objective gradient from the CppAD tape."
         self._cppad_adfun_obj.forward(0, x)
-        return self._cppad_adfun_obj.reverse(1, np.array( [ 1. ] ))
-
+        return self._cppad_adfun_obj.reverse(1, np.array([1.]))
 
     def hess(self, x, z, **kwargs):
         "Return the Hessian of the objective at x."
         return self._cppad_hess(x, z, **kwargs)
 
-
     def _cppad_hess(self, x, z, **kwargs):
         "Return the objective hessian from the CppAD tape."
-        return self._cppad_adfun_obj.hessian(x, np.array( [ 1. ] ))
-
+        return self._cppad_adfun_obj.hessian(x, np.array([1.]))
 
     def hess_vec(self, x, z, v, **kwargs):
         "Return the Hessian-vector product at x with v."
         return self._cppad_hess_vec(x, z, v, **kwargs)
-
 
     def _cppad_hess_vec(self, x, z, v, **kwargs):
         "Return the objective hessian vector product from the CppAD tape."
@@ -76,26 +69,21 @@ class CppADModel(NLPModel):
         # reverse: order one (computes gradient of directional derivative)
         return self._cppad_adfun_obj.reverse(2, np.array([1.]))
 
-
     def _cppad_cons(self, x, **kwargs):
         "Return the constraints from the CppAD tape."
         return self._cppad_adfun_cons.function(x)
-
 
     def jac(self, x, **kwargs):
         "Return constraints Jacobian at x."
         return self._cppad_jac(x, **kwargs)
 
-
     def _cppad_jac(self, x, **kwargs):
         "Return the constraints Jacobian from the CppAD tape."
         return self._cppad_adfun_cons.jacobian(x)
 
-
     def jac_vec(self, x, v, **kwargs):
         "Return the product of v with the Jacobian at x."
         return self._cppad_jac_vec(x, v, **kwargs)
-
 
     def _cppad_jac_vec(self, x, v, **kwargs):
         "Return the product of v with the Jacobian at x from CppAD tape."
@@ -106,31 +94,27 @@ class CppADModel(NLPModel):
         # forward: order one (computes directional derivative)
         return self._cppad_adfun_cons.forward(1, v)
 
-
     def vec_jac(self, x, v, **kwargs):
         "Return the product of v with the transpose Jacobian at x."
         return self._cppad_vec_jac(x, v, **kwargs)
-
 
     def _cppad_vec_jac(self, x, v, **kwargs):
         """
         Return the product of v with the transpose Jacobian at x
         from CppAD tape.
         """
-
         # forward: order zero (computes function value)
         self._cppad_adfun_cons.forward(0, x)
 
         # forward: order one (computes directional derivative)
         return self._cppad_adfun_cons.reverse(1, v)
 
-
     def get_jac_linop(self, x, **kwargs):
         "Return the Jacobian at x as a linear operator."
-        J = SimpleLinearOperator(self.n, self.m,
-                                 lambda v: self.jac_vec(x,v),
-                                 matvec_transp=lambda v: self.vec_jac(x,v),
-                                 symmetric=False)
+        J = LinearOperator(self.n, self.m,
+                           lambda v: self.jac_vec(x, v),
+                           matvec_transp=lambda v: self.vec_jac(x, v),
+                           symmetric=False)
         return J
 
 
