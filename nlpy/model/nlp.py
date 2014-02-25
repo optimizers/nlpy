@@ -2,7 +2,7 @@
 # Define an abstract class to represent a general
 # nonlinear optimization problem.
 # D. Orban, 2004.
-from nlpy.krylov import SimpleLinearOperator
+from pykrylov.linop import LinearOperator
 import numpy as np
 
 
@@ -40,9 +40,9 @@ class KKTresidual(object):
     def set_scaling(self, scaling, **kwargs):
         "Assign scaling values. `scaling` must be a `KKTresidual` instance."
         if self._is_scaling:
-            raise ValueError, 'instance represents scaling factors.'
+            raise ValueError('instance represents scaling factors.')
         if not isinstance(scaling, KKTresidual):
-            raise ValueError, 'scaling must be a KKTresidual instance.'
+            raise ValueError('scaling must be a KKTresidual instance.')
         self.scaling = scaling
         self.scaling._is_scaling = True
         return
@@ -208,12 +208,12 @@ class NLPModel(object):
         self.Hprod = 0    #                matrix-vector products with Hessian
         self.ceval = 0    #                constraint functions
         self.Jeval = 0    #                           gradients
-        self.Jprod = 0    #                matrix-vector products with Jacobian
+        self.Jprod = 0    #                Jacobian-vector products
+        self.JTprod = 0   #                transpose Jacobian-vector products
 
     def ResetCounters(self):
         """
-        Reset the `feval`, `geval`, `Heval`, `Hprod`, `ceval`, `Jeval` and
-        `Jprod` counters of the current instance to zero.
+        Reset the eval counters to zero.
         """
         self.feval = 0
         self.geval = 0
@@ -222,6 +222,7 @@ class NLPModel(object):
         self.ceval = 0
         self.Jeval = 0
         self.Jprod = 0
+        self.JTprod = 0
         return None
 
     def get_stopping_tolerances(self):
@@ -235,7 +236,7 @@ class NLPModel(object):
 
     # Evaluate optimality residuals
     def OptimalityResiduals(self, x, z, **kwargs):
-        raise NotImplementedError, 'This method must be subclassed.'
+        raise NotImplementedError('This method must be subclassed.')
 
     # Decide whether optimality is attained
     def AtOptimality(self, x, z, **kwargs):
@@ -246,69 +247,63 @@ class NLPModel(object):
 
     def compute_scaling_obj(self, x=None, g_max=1.0e2, reset=False):
         """Compute objective scaling."""
-        raise NotImplementedError, 'This method must be subclassed.'
+        raise NotImplementedError('This method must be subclassed.')
 
     def compute_scaling_cons(self, x=None, g_max=1.0e2, reset=False):
         """Compute constraint scaling."""
-        raise NotImplementedError, 'This method must be subclassed.'
+        raise NotImplementedError('This method must be subclassed.')
 
     # Evaluate objective function at x
     def obj(self, x, **kwargs):
-        raise NotImplementedError, 'This method must be subclassed.'
+        raise NotImplementedError('This method must be subclassed.')
 
     # Evaluate objective gradient at x
     def grad(self, x, **kwargs):
-        raise NotImplementedError, 'This method must be subclassed.'
+        raise NotImplementedError('This method must be subclassed.')
 
     # Evaluate vector of constraints at x
     def cons(self, x, **kwargs):
-        raise NotImplementedError, 'This method must be subclassed.'
+        raise NotImplementedError('This method must be subclassed.')
 
     # Evaluate i-th constraint at x
     def icons(self, i, x, **kwargs):
-        raise NotImplementedError, 'This method must be subclassed.'
+        raise NotImplementedError('This method must be subclassed.')
 
     # Evalutate i-th constraint gradient at x
     # Gradient is returned as a dense vector
     def igrad(self, i, x, **kwargs):
-        raise NotImplementedError, 'This method must be subclassed.'
+        raise NotImplementedError('This method must be subclassed.')
 
     # Evaluate i-th constraint gradient at x
     # Gradient is returned as a sparse vector
     def sigrad(self, i, x, **kwargs):
-        raise NotImplementedError, 'This method must be subclassed.'
+        raise NotImplementedError('This method must be subclassed.')
 
     # Evaluate constraints Jacobian at x
     def jac(self, x, **kwargs):
-        raise NotImplementedError, 'This method must be subclassed.'
+        raise NotImplementedError('This method must be subclassed.')
 
     # Evaluate Jacobian-vector product
     def jprod(self, x, p, **kwargs):
-        raise NotImplementedError, 'This method must be subclassed'
+        raise NotImplementedError('This method must be subclassed')
 
     # Evaluate transposed-Jacobian-vector product
     def jtprod(self, x, p, **kwargs):
-        raise NotImplementedError, 'This method must be subclassed'
+        raise NotImplementedError('This method must be subclassed')
 
     # Evaluate Lagrangian Hessian at (x,z)
     def hess(self, x, z=None, **kwargs):
-        raise NotImplementedError, 'This method must be subclassed.'
+        raise NotImplementedError('This method must be subclassed.')
 
     # Evaluate matrix-vector product between
     # the Hessian of the Lagrangian and a vector
     def hprod(self, x, z, p, **kwargs):
-        raise NotImplementedError, 'This method must be subclassed.'
+        raise NotImplementedError('This method must be subclassed.')
 
     # Evaluate matrix-vector product between
     # the Hessian of the i-th constraint and a vector
     def hiprod(self, i, x, p, **kwargs):
-        raise NotImplementedError, 'This method must be subclassed.'
-
-    def islp(self):
-        return False
-
-    def isqp(self):
-        return False
+        raise NotImplementedError('This method must be subclassed.')
 
     def display_basic_info(self):
         """
@@ -319,16 +314,16 @@ class NLPModel(object):
         write('Problem Name: %s\n' % self.name)
         write('Number of Variables: %d\n' % self.n)
         write('Number of Bound Constraints: %d' % self.nbounds)
-        write(' (%d lower, %d upper, %d two-sided)\n' % (self.nlowerB,
-            self.nupperB, self.nrangeB))
+        write(' (%d lower, %d upper, %d two-sided)\n' %
+              (self.nlowerB, self.nupperB, self.nrangeB))
         if self.nlowerB > 0: write('Lower bounds: %s\n' % self.lowerB)
         if self.nupperB > 0: write('Upper bounds: %s\n' % self.upperB)
         if self.nrangeB > 0: write('Two-Sided bounds: %s\n' % self.rangeB)
         write('Vector of lower bounds: %s\n' % self.Lvar)
         write('Vectof of upper bounds: %s\n' % self.Uvar)
         write('Number of General Constraints: %d' % self.m)
-        write(' (%d equality, %d lower, %d upper, %d range)\n' % (self.nequalC,
-            self.nlowerC, self.nupperC, self.nrangeC))
+        write(' (%d equality, %d lower, %d upper, %d range)\n' %
+              (self.nequalC, self.nlowerC, self.nupperC, self.nrangeC))
         if self.nequalC > 0: write('Equality: %s\n' % self.equalC)
         if self.nlowerC > 0: write('Lower   : %s\n' % self.lowerC)
         if self.nupperC > 0: write('Upper   : %s\n' % self.upperC)
@@ -338,80 +333,6 @@ class NLPModel(object):
         write('Initial Guess: %s\n' % self.x0)
 
         return
-
-
-class LPModel(NLPModel):
-    """
-    A generic class to represent a linear programming problem
-
-    minimize    c'x
-    subject to  L <= A*x <= U
-                l <=  x  <= u.
-    """
-
-    def __init__(self, c, A=None, name='GenericLP', **kwargs):
-        """
-        :parameters:
-            :c:   Numpy array to represent the linear objective
-            :A:   linear operator to represent the constraint matrix.
-                  It must be possible to perform the operations `A*x`
-                  and `A.T*y` for Numpy arrays `x` and `y` of appropriate size.
-
-        See the documentation of `NLPModel` for futher information.
-        """
-
-        # Basic checks.
-        if A is None:
-            n = H.shape[0]
-            m = 0
-            _A = SimpleLinearOperator(n, 0,
-                    lambda x: np.empty((0,1), dtype=np.float),
-                    matvec_transp=lambda y: np.empty((n,0), dtype=np.float))
-        else:
-            m, n = A.shape
-            _A = A
-
-        if c.shape[0] != n:
-            raise ValueError, 'Shapes are inconsistent'
-
-        super(LPModel,self).__init__(n=n, m=m, name=name, **kwargs)
-        self.c = c
-        self.A = _A
-
-        # Default classification of constraints
-        self.lin = range(self.m)             # Linear    constraints
-        self.nln = []                        # Nonlinear constraints
-        self.net = []                        # Network   constraints
-        self.nlin = len(self.lin)            # Number of linear constraints
-        self.nnln = len(self.nln)            # Number of nonlinear constraints
-        self.nnet = len(self.net)            # Number of network constraints
-
-    def islp(self):
-        return True
-
-    def obj(self, x):
-        return np.dot(self.c,x)
-
-    def grad(self, x):
-        return self.c
-
-    def cons(self, x):
-        return self.A * x
-
-    def A(self, x):
-        return self.A
-
-    def jac(self, x):
-        return self.A
-
-    def jprod(self, x, p):
-        return self.A * p
-
-    def jtprod(self, x, p):
-        return self.A.T * p
-
-    def hprod(self, x, z, p):
-        return np.zeros(self.n)
 
 
 class QPModel(NLPModel):
@@ -441,22 +362,21 @@ class QPModel(NLPModel):
         """
 
         # Basic checks.
+        n = c.shape[0]
         if A is None:
-            n = H.shape[0]
             m = 0
-            _A = SimpleLinearOperator(n, 0,
-                    lambda x: np.empty((0,1), dtype=np.float),
-                    matvec_transp=lambda y: np.empty((n,0), dtype=np.float))
+            self.A = LinearOperator(n, 0,
+                                    lambda x: np.empty((0, 1)),
+                                    matvec_transp=lambda y: np.empty((n, 0)),
+                                    dtype=np.float)
         else:
-            m, n = A.shape
-            _A = A
+            if A.shape[1] != n or H.shape[0] != n or H.shape[1] != n:
+                raise ValueError('Shapes are inconsistent')
+            m = A.shape[0]
+            self.A = A
 
-        if c.shape[0] != n or H.shape[0] != n or H.shape[1] != n:
-            raise ValueError, 'Shapes are inconsistent'
-
-        super(QPModel,self).__init__(n=n, m=m, name=name, **kwargs)
+        super(QPModel, self).__init__(n=n, m=m, name=name, **kwargs)
         self.c = c
-        self.A = _A
         self.H = H
 
         # Default classification of constraints
@@ -467,21 +387,20 @@ class QPModel(NLPModel):
         self.nnln = len(self.nln)            # Number of nonlinear constraints
         self.nnet = len(self.net)            # Number of network constraints
 
-    def isqp(self):
-        return True
-
     def obj(self, x):
-        cHx = self.H * x
+        cHx = self.hprod(x, 0, x)
         cHx *= 0.5
         cHx += self.c
-        return np.dot(cHx,x)
+        return np.dot(cHx, x)
 
     def grad(self, x):
-        Hx = self.H * x
+        Hx = self.hprod(x, 0, x)
         Hx += self.c
         return Hx
 
     def cons(self, x):
+        if isinstance(self.A, np.ndarray):
+          return np.dot(self.A, x)
         return self.A * x
 
     def A(self, x):
@@ -491,13 +410,51 @@ class QPModel(NLPModel):
         return self.A
 
     def jprod(self, x, p):
-        return self.A * p
+        return self.cons(p)
 
     def jtprod(self, x, p):
+        if isinstance(self.A, np.ndarray):
+          return np.dot(self.A.T, p)
         return self.A.T * p
 
     def hess(self, x, z):
         return self.H
 
     def hprod(self, x, z, p):
+        if isinstance(self.H, np.ndarray):
+          return np.dot(self.H, p)
         return self.H * p
+
+
+class LPModel(QPModel):
+    """
+    A generic class to represent a linear programming problem
+
+    minimize    c'x
+    subject to  L <= A*x <= U
+                l <=  x  <= u.
+    """
+
+    def __init__(self, c, A=None, name='GenericLP', **kwargs):
+        """
+        :parameters:
+            :c:   Numpy array to represent the linear objective
+            :A:   linear operator to represent the constraint matrix.
+                  It must be possible to perform the operations `A*x`
+                  and `A.T*y` for Numpy arrays `x` and `y` of appropriate size.
+
+        See the documentation of `NLPModel` for futher information.
+        """
+
+        n = c.shape[0]
+        H = LinearOperator(n, n,
+                           lambda x: np.zeros(n),
+                           symmetric=True,
+                           dtype=np.float)
+        super(LPModel, self).__init__(c, H, A, name=name, **kwargs)
+
+    def obj(self, x):
+        return np.dot(self.c, x)
+
+    def grad(self, x):
+        return self.c
