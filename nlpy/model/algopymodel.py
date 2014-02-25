@@ -1,6 +1,6 @@
 from nlpy.model import NLPModel
 import algopy
-import numpy as np
+
 
 class AlgopyModel(NLPModel):
     """
@@ -33,7 +33,6 @@ class AlgopyModel(NLPModel):
         cg.dependentFunctionList = [y]
         self._cg_obj = cg
 
-
     def _trace_cons(self, x):
         "Trace the constraint function evaluation."
 
@@ -45,35 +44,29 @@ class AlgopyModel(NLPModel):
         cg.dependentFunctionList = [y]
         self._cg_cons = cg
 
-
     def grad(self, x, **kwargs):
         "Evaluate the objective gradient at x."
-        return self._cg_obj.gradient([x])[0]
-
+        return self._cg_obj.gradient(x)
 
     def hess(self, x, z, **kwargs):
         "Return the Hessian of the objective at x."
-        return self.dense_hess(x,z,**kwargs)
-
+        return self.dense_hess(x, z, **kwargs)
 
     def dense_hess(self, x, z, **kwargs):
         "Return the Hessian of the objective at x in dense format."
-        return self._cg_obj.hessian([x])[0]
-
+        return self._cg_obj.hessian(x)
 
     def hess_vec(self, x, z, v, **kwargs):
         "Return the Hessian-vector product at x with v."
         return self._cg_obj.hess_vec([x], [v])
 
-
     def jac(self, x, **kwargs):
         "Return constraints Jacobian at x."
-        return self.dense_jac(x,**kwargs)
-
+        return self.dense_jac(x, **kwargs)
 
     def dense_jac(self, x, **kwargs):
         "Return constraints Jacobian at x in dense format."
-        return self._cg_cons.jacobian([x])[0]
+        return self._cg_cons.jacobian(x)
 
 
 
