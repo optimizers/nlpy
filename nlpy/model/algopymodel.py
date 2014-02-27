@@ -17,10 +17,11 @@ class AlgopyModel(NLPModel):
         except:
             pass
 
-        try:
-            self._trace_cons(self.x0)
-        except:
-            pass
+        if m > 0:
+          try:
+              self._trace_cons(self.x0)
+          except:
+              pass
 
     def _trace_obj(self, x):
         "Trace the objective function evaluation."
