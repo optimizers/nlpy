@@ -9,7 +9,6 @@ import numpy as np
 from nlpy.model.nlp import NLPModel, KKTresidual
 from nlpy.model import _amplpy
 from nlpy.tools.utils import where
-from nlpy.tools.decorators import deprecated
 from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
 from nlpy.krylov.linop import PysparseLinearOperator
 from nlpy.tools import sparse_vector_class as sv
@@ -21,20 +20,6 @@ import os
 __docformat__ = 'restructuredtext'
 
 warnings.simplefilter('always')   # Never ignore warnings.
-
-
-def Max(a):
-    """
-    A safeguarded max function. Returns -infinity for empty arrays.
-    """
-    return np.max(a) if a.size > 0 else -np.inf
-
-
-def Min(a):
-    """
-    A safeguarded min function. Returns +infinity for empty arrays.
-    """
-    return np.min(a) if a.size > 0 else np.inf
 
 
 def GenTemplate(model, data=None, opts=None):
@@ -107,19 +92,17 @@ class AmplModel(NLPModel):
         except:
             raise ValueError('Cannot initialize model %s' % stub)
 
-        # Store problem name
-        self.name = stub
+        super(AmplModel, self).__init__(model.n_var, model.n_con,
+                                        name=stub,
+                                        x0=model.get_x0(),
+                                        pi0=model.get_pi0(),
+                                        Lvar=model.get_Lvar(),
+                                        Uvar=model.get_Uvar(),
+                                        Lcon=model.get_Lcon(),
+                                        Ucon=model.get_Ucon())
 
         # Get basic info on problem
         self.minimize = (model.objtype == 0)
-        self.nvar = self.n  = model.n_var
-        self.ncon = self.m  = model.n_con
-        self.x0   = model.get_x0()          # initial primal estimate
-        self.pi0  = model.get_pi0()         # initial dual estimate
-        self.Lvar = model.get_Lvar()        # lower bounds on variables
-        self.Uvar = model.get_Uvar()        # upper bounds on variables
-        self.Lcon = model.get_Lcon()        # lower bounds on constraints
-        self.Ucon = model.get_Ucon()        # upper bounds on constraints
         (self.lin, self.nln, self.net) = model.get_CType()  # Constraint types
         self.nlin = len(self.lin)           # number of linear    constraints
         self.nnln = len(self.nln)           #    ...    nonlinear   ...
@@ -129,95 +112,9 @@ class AmplModel(NLPModel):
         self.nnzj = model.get_nnzj()        # number of nonzeros in Jacobian
         self.nnzh = model.get_nnzh()        #                       Hessian
 
-        # Maintain lists of indices for each type of constraints:
-        self.rangeC = []    # Range constraints:       cL <= c(x) <= cU
-        self.lowerC = []    # Lower bound constraints: cL <= c(x)
-        self.upperC = []    # Upper bound constraints:       c(x) <= cU
-        self.equalC = []    # Equality constraints:    cL  = c(x)  = cU
-        self.freeC  = []    # "Free" constraints:    -inf <= c(x) <= inf
-
-        for i in range(self.m):
-            if self.Lcon[i] > -np.inf and self.Ucon[i] < np.inf:
-                if self.Lcon[i] == self.Ucon[i]:
-                    self.equalC.append(i)
-                else:
-                    self.rangeC.append(i)
-            elif self.Lcon[i] > -np.inf:
-                self.lowerC.append(i)
-            elif self.Ucon[i] < np.inf:
-                self.upperC.append(i)
-            else:
-                # Normally, we should not get here
-                self.freeC.append(i)
-
-        self.nlowerC = len(self.lowerC)
-        self.nrangeC = len(self.rangeC)
-        self.nupperC = len(self.upperC)
-        self.nequalC = len(self.equalC)
-        self.nfreeC  = len(self.freeC )
-
-        self.permC = self.equalC + self.lowerC + self.upperC + self.rangeC
-
-        # Proceed similarly with bound constraints
-        self.rangeB = []
-        self.lowerB = []
-        self.upperB = []
-        self.fixedB = []
-        self.freeB  = []
-
-        for i in range(self.n):
-            if self.Lvar[i] > -np.inf and self.Uvar[i] < np.inf:
-                if self.Lvar[i] == self.Uvar[i]:
-                    self.fixedB.append(i)
-                else:
-                    self.rangeB.append(i)
-            elif self.Lvar[i] > -np.inf:
-                self.lowerB.append(i)
-            elif self.Uvar[i] < np.inf:
-                self.upperB.append(i)
-            else:
-                # This is a free variable
-                self.freeB.append(i)
-
-        self.nlowerB = len(self.lowerB)
-        self.nrangeB = len(self.rangeB)
-        self.nupperB = len(self.upperB)
-        self.nfixedB = len(self.fixedB)
-        self.nfreeB  = len(self.freeB)
-        self.nbounds = self.n - self.nfreeB
-
-        self.permB = self.fixedB + self.lowerB + self.upperB + \
-            self.rangeB + self.freeB
-
-        # Define default stopping tolerances
-        self.stop_d = 1.0e-5    # Dual feasibility
-        self.stop_c = 1.0e-5    # Complementarty
-        self.stop_p = 1.0e-5    # Primal feasibility
-
         # Initialize scaling attributes
         self.scale_obj = None   # Objective scaling
         self.scale_con = None   # Constraint scaling
-
-        # Set matrix format
-        self.mformat = 0     # LL format
-        if opts is not None:
-            if opts == 0 or opts == 1:
-                self.mformat = opts
-
-        # Initialize some counters
-        self.feval = 0    # evaluations of objective  function
-        self.geval = 0    #                           gradient
-        self.Heval = 0    #                Lagrangian Hessian
-        self.Hprod = 0    #                matrix-vector products with Hessian
-        self.ceval = 0    #                constraint functions
-        self.Jeval = 0    #                           gradients
-        self.Jprod = 0    #                matrix-vector products with Jacobian
-
-    # Destructor
-    def close(self):
-        """Not needed anymore. Here for backward compatibility with
-        original AmplPy interface."""
-        pass
 
     def writesol(self, x, z, msg):
         """
@@ -226,324 +123,6 @@ class AmplModel(NLPModel):
         return self.model.ampl_sol(x, z, msg)
 
 ###############################################################################
-
-    # Compute residuals of first-order optimality conditions
-
-    @deprecated
-    def OptimalityResiduals(self, x, y, z, **kwargs):
-        """
-        Evaluate the KKT  or Fritz-John residuals at (x, y, z). The sign of the
-        objective gradient is adjusted in this method as if the problem were a
-        minimization problem.
-
-        :parameters:
-
-            :x:  Numpy array of length :attr:`n` giving the vector of
-                 primal variables,
-
-            :y:  Numpy array of length :attr:`m` + :attr:`nrangeC` giving the
-                 vector of Lagrange multipliers for general constraints
-                 (see below),
-
-            :z:  Numpy array of length :attr:`nbounds` + :attr:`nrangeB` giving
-                 the vector of Lagrange multipliers for simple bounds (see
-                 below).
-
-        :keywords:
-
-            :c:  constraints vector, if known. Must be in appropriate order
-                 (see below).
-
-            :g:  objective gradient, if known.
-
-            :J:  constraints Jacobian, if known. Must be in appropriate order
-                 (see below).
-
-        :returns:
-
-            vectors of residuals
-            (dual_feas, compl, bnd_compl, primal_feas, bnd_feas)
-
-        The multipliers `y` associated to general constraints must be ordered
-        as follows:
-
-        :math:`c_i(x) = c_i^E`  (`i` in `equalC`): `y[:nequalC]`
-
-        :math:`c_i(x) \geq c_i^L` (`i` in `lowerC`): `y[nequalC:nequalC+nlowerC]`
-
-        :math:`c_i(x) \leq c_i^U` (`i` in `upperC`): `y[nequalC+nlowerC:nequalC+nlowerC+nupperC]`
-
-        :math:`c_i(x) \geq c_i^L` (`i` in `rangeC`): `y[nlowerC+nupperC:m]`
-
-        :math:`c_i(x) \leq c_i^U` (`i` in `rangeC`): `y[m:]`
-
-        For inequality constraints, the sign of each `y[i]` should be as if it
-        corresponded to a nonnegativity constraint, i.e.,
-        :math:`c_i^U - c_i(x) \geq 0` instead of :math:`c_i(x) \leq c_i^U`.
-
-        For equality constraints, the sign of each `y[i]` should be so the
-        Lagrangian may be written::
-
-            L(x,y,z) = f(x) - <y, c_E(x)> - ...
-
-        Similarly, the multipliers `z` associated to bound constraints must be
-        ordered as follows:
-
-        1. `x_i  = L_i` (`i` in `fixedB`) : `z[:nfixedB]`
-
-        2. `x_i \geq L_i` (`i` in `lowerB`) : `z[nfixedB:nfixedB+nlowerB]`
-
-        3. `x_i \leq U_i` (`i` in `upperB`) : `z[nfixedB+nlowerB:nfixedB+nlowerB+nupperB]`
-
-        4. `x_i \geq L_i` (`i` in `rangeB`) : `z[nfixedB+nlowerB+nupperB:nfixedB+nlowerB+nupperB+nrangeB]`
-
-        5. `x_i \leq U_i` (`i` in `rangeB`) : `z[nfixedB+nlowerB+nupper+nrangeB:]`
-
-        The sign of each `z[i]` should be as if it corresponded to a
-        nonnegativity constraint (except for fixed variables), i.e., those
-        `z[i]` should be nonnegative.
-
-        It is possible to check the Fritz-John conditions via the keyword `FJ`.
-        If `FJ` is present, it should be assigned the multiplier value that
-        will be applied to the gradient of the objective function.
-
-        Example: `OptimalityResiduals(x, y, z, FJ=1.0e-5)`
-
-        If `FJ` has value `0.0`, the gradient of the objective will not be
-        included in the residuals (it will not be computed).
-        """
-
-        # Make sure input multipliers have the right sign
-
-        if self.m > 0:
-            if len(where(y[self.nequalC:] < 0)) > 0:
-                raise ValueError('Negative Lagrange multipliers...')
-
-        if self.nbounds > 0:
-            if len(where(z[self.nfixedB:] < 0)) > 0:
-                raise ValueError('Negative Lagrange multipliers for bounds...')
-
-        # Transfer some pointers for readability
-
-        fixedB = self.fixedB ; nfixedB = self.nfixedB
-        lowerB = self.lowerB ; nlowerB = self.nlowerB
-        upperB = self.upperB ; nupperB = self.nupperB
-        rangeB = self.rangeB ; nrangeB = self.nrangeB
-        Lvar = self.Lvar
-        Uvar = self.Uvar
-
-        zfixedB  = z[:nfixedB]
-        zlowerB  = z[nfixedB:nfixedB+nlowerB]
-        zupperB  = z[nfixedB+nlowerB:nfixedB+nlowerB+nupperB]
-        zrangeBL = z[nfixedB+nlowerB+nupperB:nfixedB+nlowerB+nupperB+nrangeB]
-        zrangeBU = z[nfixedB+nlowerB+nupperB+nrangeB:]
-
-        equalC = self.equalC ; nequalC = self.nequalC
-        lowerC = self.lowerC ; nlowerC = self.nlowerC
-        upperC = self.upperC ; nupperC = self.nupperC
-        rangeC = self.rangeC ; nrangeC = self.nrangeC
-        Lcon = self.Lcon
-        Ucon = self.Ucon
-
-        # Partition vector of Lagrange multipliers
-
-        yequalC  = y[:nequalC]
-        ylowerC  = y[nequalC:nequalC+nlowerC]
-        yupperC  = y[nequalC+nlowerC:nequalC+nlowerC+nupperC]
-        yrangeCL = y[nequalC+nlowerC+nupperC:nequalC+nlowerC+nupperC+nrangeC]
-        yrangeCU = y[nequalC+nlowerC+nupperC+nrangeC:]
-
-        # Make sure input multipliers have the right sign
-
-        if len(where(ylowerC < 0)) > 0:
-            raise ValueError('Negative multipliers for lower constraints...')
-
-        if len(where(yupperC < 0)) > 0:
-            raise ValueError('Negative multipliers for upper constraints...')
-
-        if len(where(yrangeCL < 0)) > 0:
-            raise ValueError('Negative multipliers for range constraints...')
-
-        if len(where(yrangeCU < 0)) > 0:
-            raise ValueError('Negative multipliers for range constraints...')
-
-        if self.nbounds > 0:
-            if len(where(z[self.nfixedB:] < 0)) > 0:
-                raise ValueError('Negative multipliers for bounds...')
-
-        # Bounds feasibility, part 1
-
-        bRes = np.empty(nfixedB + nlowerB + nupperB + 2 * nrangeB)
-        n1 = nfixedB ; n2 = n1+nlowerB ; n3 = n2+nupperB; n4 = n3+nrangeB
-        bRes[:n1]   = x[fixedB] - Lvar[fixedB]
-        bRes[n1:n2] = x[lowerB] - Lvar[lowerB]
-        bRes[n2:n3] = Uvar[upperB] - x[upperB]
-        bRes[n3:n4] = x[rangeB] - Lvar[rangeB]
-        bRes[n4:]   = Uvar[rangeB] - x[rangeB]
-
-        # Complementarity of bound constraints
-
-        bComp = bRes[n1:] * z[n1:]
-
-        # Bounds feasibility, part 2
-
-        bRes[n1:n2] = np.minimum(0, bRes[n1:n2])
-        bRes[n2:n3] = np.minimum(0, bRes[n2:n3])
-        bRes[n3:n4] = np.minimum(0, bRes[n3:n4])
-        bRes[n4:]   = np.minimum(0, bRes[n4:])
-
-        # Initialize vector for primal feasibility
-
-        pFeas = np.empty(self.m + nrangeC)
-        if 'c' in kwargs:
-            c = kwargs['c']
-            pFeas[:self.m] = c.copy()
-        else:
-            pFeas[:self.m] = self.cons(x)[self.permC]
-        pFeas[self.m:] = pFeas[rangeC]
-
-        # Primal feasibility, part 1
-        # Recall that self.cons() orders the constraints
-
-        n1=nequalC ; n2=n1+nlowerC ; n3=n2+nupperC ; n4 = n3+nrangeC
-        pFeas[:n1]   -= Lcon[equalC]
-        pFeas[n1:n2] -= Lcon[lowerC]
-        pFeas[n2:n3] -= Ucon[upperC] ; pFeas[n2:n3] *= -1  # Flip sign
-        pFeas[n3:n4] -= Lcon[rangeC]
-        pFeas[n4:]   -= Ucon[rangeC] ; pFeas[n4:]   *= -1  # Flip sign
-
-        # Complementarity of general constraints
-
-        gComp = pFeas[n1:] * y[n1:]
-
-        # Primal feasibility, part 2
-
-        pFeas[n1:n2] = np.minimum(0, pFeas[n1:n2])
-        pFeas[n2:n3] = np.minimum(0, pFeas[n2:n3])
-        pFeas[n3:n4] = np.minimum(0, pFeas[n3:n4])
-        pFeas[n4:]   = np.minimum(0, pFeas[n4:])
-
-        # Build vector of Lagrange multipliers
-
-        if nrangeC > 0:
-            yloc = y[:n4].copy()
-            yloc[n3:n4] -= y[n4:]
-        else:
-            yloc = y.copy()
-        yloc[n2:n3] *= -1   # Flip sign for 'lower than' constraints
-
-        # Dual feasibility
-
-        if self.m > 0:
-            dFeas = np.empty(self.n)
-            J = kwargs.get('J', self.jac(x)[self.permC,:])
-            J.matvec_transp(-yloc, dFeas)
-        else:
-            dFeas = np.zeros(self.n)
-        dFeas[lowerB] -= zlowerB
-        dFeas[upperB] += zupperB
-        dFeas[rangeB] -= (zrangeBL - zrangeBU)
-
-        # See if we are checking the Fritz-John conditions
-
-        FJ = ('FJ' in kwargs.keys())
-        objMult = kwargs.get('FJ', 1.0)
-
-        if not FJ:
-            g = kwargs.get('g', self.grad(x))
-            if self.minimize:
-                dFeas += g
-            else:
-                dFeas -= g   # Maximization problem.
-        else:
-            if float(objMult) != 0.0:
-                dFeas += objMult * sign * self.grad(x)
-
-        resids = KKTresidual(dFeas, pFeas, bRes, gComp, bComp)
-
-        # Compute scalings.
-        dScale = gScale = bScale = 1.0
-        if self.m > 0:
-            yNorm = np.linalg.norm(y, ord=1)
-            dScale += yNorm /len(y)
-        if self.m > nequalC:
-            gScale += np.linalg.norm(y[lowerC + upperC + rangeC], ord=1)
-            if nrangeC > 0:
-                gScale += np.linalg.norm(y[self.m:], ord=1)
-            gScale /= (nlowerC + nupperC + 2*nrangeC)
-        if nlowerB + nupperB + nrangeB > 0:
-            zNorm = np.linalg.norm(z, ord=1)
-            bScale += zNorm /len(z)
-            dScale += zNorm /len(z)
-
-        scaling = KKTresidual(dScale, 1.0, 1.0, gScale, bScale)
-        resids.set_scaling(scaling)
-        return resids
-
-    def AtOptimality(self, x, y, z, scale=True, **kwargs):
-        """
-        See :meth:`OptimalityResiduals` for a description of the arguments
-        `x`, `y` and `z`. The additional `scale` argument decides whether
-        or not residual scalings should be applied. By default, they are.
-
-        :returns:
-
-            :res:  `KKTresidual` instance, as returned by
-                   :meth:`OptimalityResiduals`,
-            :optimal:  `True` if the residuals fall below the thresholds
-                       specified by :attr:`self.stop_d`, :attr:`self.stop_c`
-                       and :attr:`self.stop_p`.
-        """
-
-        # Obtain optimality residuals
-        res = self.OptimalityResiduals(x, y, z, **kwargs)
-
-        df = np.linalg.norm(res.dFeas, ord=np.inf)
-        if scale:
-            df /= res.scaling.dFeas
-
-        cp = fs = 0.0
-        if self.m > 0:
-            fs = np.linalg.norm(res.pFeas, ord=np.inf)
-            if self.m > self.nequalC:
-                cp = np.linalg.norm(res.gComp, ord=np.inf)
-            if scale:
-                cp /= res.scaling.gComp
-                fs /= res.scaling.pFeas
-
-        if self.nbounds > 0:
-            bcp = np.linalg.norm(res.bComp, ord=np.inf)
-            bfs = np.linalg.norm(res.bFeas, ord=np.inf)
-            if scale:
-                bcp /= res.scaling.bComp
-                bfs /= res.scaling.bFeas
-            cp = max(cp, bcp)
-            fs = max(fs, bfs)
-
-        #print 'KKT resids: ', (df, cp, fs)
-        opt = (df<=self.stop_d) and (cp<=self.stop_c) and (fs<=self.stop_p)
-        return (res, opt)
-
-    def get_bounds(self, x):
-        """
-        Return the vector with components x[i]-Lvar[i] or Uvar[i]-x[i] in such
-        a way that the bound constraints on the problem variables are
-        equivalent to get_bounds(x) >= 0. The bounds are odered as follows:
-
-        [lowerB | upperB | rangeB (lower) | rangeB (upper) ].
-        """
-        # Shortcuts.
-        lB  = self.lowerB  ; uB  = self.upperB  ; rB  = self.rangeB
-        nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
-        nB = self.nbounds ; Lvar = self.Lvar ; Uvar = self.Uvar
-
-        b = np.empty(nB+nrB)
-        b[:nlB] = x[lB] - Lvar[lB]
-        b[nlB:nlB+nuB] = Uvar[uB] - x[uB]
-        b[nlB+nuB:nlB+nuB+nrB] = x[rB] - Lvar[rB]
-        b[nlB+nuB+nrB:] = Uvar[rB] - x[rB]
-
-        return b
 
     def primal_feasibility(self, x, c=None):
         """
@@ -576,7 +155,7 @@ class AmplModel(NLPModel):
                          Set to zero to check Fritz-John conditions instead
                          of KKT conditions. (default: 1.0)
             :all_pos:    if `True`, indicates that the multipliers `y` conform
-                         to :meth:`jacPos`. If `False`, `y` conforms to
+                         to :meth:`jac_pos`. If `False`, `y` conforms to
                          :meth:`jac`. In all cases, `y` should be appropriately
                          ordered. If the positional argument `J` is specified,
                          it must be consistent with the layout of `y`.
@@ -585,13 +164,12 @@ class AmplModel(NLPModel):
         # Shortcuts.
         lB  = self.lowerB  ; uB  = self.upperB  ; rB  = self.rangeB
         nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
-        nB = self.nbounds ; n = self.n ; m = self.m ; nrC = self.nrangeC
 
         obj_weight = kwargs.get('obj_weight', 1.0)
         all_pos = kwargs.get('all_pos', True)
 
         if J is None:
-            J = self.jacPos(x) if all_pos else self.jac(x)
+            J = self.jac_pos(x) if all_pos else self.jac(x)
         Jop = PysparseLinearOperator(J, symmetric=False)
 
         if obj_weight == 0.0:   # Checking Fritz-John conditions.
@@ -619,12 +197,11 @@ class AmplModel(NLPModel):
             :xz:  complementarity residual for bound constraints.
         """
         # Shortcuts.
-        m = self.m ; eC = self.equalC
         lC  = self.lowerC  ; uC  = self.upperC  ; rC  = self.rangeC
         nlC = self.nlowerC ; nuC = self.nupperC ; nrC = self.nrangeC
 
         not_eC = lC+uC+rC + range(nlC+nuC+nrC, nlC+nuC+nrC+nrC)
-        if c is None: c = self.consPos(x)
+        if c is None: c = self.cons_pos(x)
 
         cy = c[not_eC] * y[not_eC]
         xz = self.get_bounds(x) * z
@@ -638,7 +215,7 @@ class AmplModel(NLPModel):
         specified below are passed directly to :meth:`primal_feasibility`,
         :meth:`dual_feasibility` and :meth:`complementarity`.
 
-        If `J` is specified, it should conform to :meth:`jacPos` and the
+        If `J` is specified, it should conform to :meth:`jac_pos` and the
         multipliers `y` should be consistent with the Jacobian.
 
         :keywords:
@@ -651,9 +228,7 @@ class AmplModel(NLPModel):
             :xz:     complementarity for bound constraints.
         """
         # Shortcuts.
-        m = self.m ; nrC = self.nrangeC ; lC = self.lowerC ; uC = self.upperC
-        eC = self.equalC
-
+        m = self.m ; nrC = self.nrangeC ; eC = self.equalC
         check = kwargs.get('check', True)
 
         if check:
@@ -742,7 +317,7 @@ class AmplModel(NLPModel):
         gmaxNorm = 0            # holds the maxiumum row-norm of J
         imaxNorm = 0            # holds the corresponding index
         for i in xrange(m):
-            giNorm = J[i,:].norm('1')  # Matrix 1-norm (max abs col)
+            giNorm = J[i, :].norm('1')  # Matrix 1-norm (max abs col)
             d_c[i] = g_max / max(g_max, giNorm)  # <= 1 always
             if giNorm > gmaxNorm:
                 gmaxNorm = giNorm
@@ -780,7 +355,6 @@ class AmplModel(NLPModel):
             raise ValueError('Objective number is out of range.')
 
         f = self.model.eval_obj(x)
-        self.feval += 1
         if self.scale_obj:    f *= self.scale_obj
         if not self.minimize: f *= -1
         return f
@@ -797,7 +371,6 @@ class AmplModel(NLPModel):
             raise ValueError('Objective number is out of range.')
 
         g = self.model.grad_obj(x)
-        self.geval += 1
         if self.scale_obj:    g *= self.scale_obj
         if not self.minimize: g *= -1
         return g
@@ -813,7 +386,6 @@ class AmplModel(NLPModel):
         except:
             raise RuntimeError('Failed to fetch sparse gradient of objective')
             return None
-        self.geval += 1
         sg = sv.SparseVector(self.n, sg_dict)
         if self.scale_obj:    sg *= self.scale_obj
         if not self.minimize: sg *= -1
@@ -858,40 +430,7 @@ class AmplModel(NLPModel):
                 print '%-15.9f ' % x[i]
             print 'Make sure input array has dtype float'
             return None
-        self.ceval += 1
         if self.scale_con is not None: c *= self.scale_con
-        return c
-
-    def consPos(self, x):
-        """
-        Convenience function to return the vector of constraints
-        reformulated as
-
-            ci(x) - ai  = 0  for i in equalC
-            ci(x) - Li >= 0  for i in lowerC + rangeC
-            Ui - ci(x) >= 0  for i in upperC + rangeC.
-
-        The constraints appear in natural order, except for the fact that the
-        'upper side' of range constraints is appended to the list.
-
-        No need to apply scaling, since this is already done in cons().
-        """
-        m = self.m
-        equalC = self.equalC
-        lowerC = self.lowerC
-        upperC = self.upperC
-        rangeC = self.rangeC ; nrangeC = self.nrangeC
-
-        c = np.empty(m + nrangeC)
-        c[:m] = self.cons(x)
-        c[m:] = c[rangeC]
-
-        c[equalC] -= self.Lcon[equalC]
-        c[lowerC] -= self.Lcon[lowerC]
-        c[upperC] -= self.Ucon[upperC] ; c[upperC] *= -1
-        c[rangeC] -= self.Lcon[rangeC]
-        c[m:]     -= self.Ucon[rangeC] ; c[m:] *= -1
-
         return c
 
     def icons(self, i, x):
@@ -899,7 +438,6 @@ class AmplModel(NLPModel):
         Evaluate value of i-th constraint at x.
         Returns a floating-point number.
         """
-        self.ceval += 1
         ci = self.model.eval_ci(i, x)
         if self.scale_con is not None: ci *= self.scale_con[i]
         return ci
@@ -909,7 +447,6 @@ class AmplModel(NLPModel):
         Evaluate dense gradient of i-th constraint at x.
         Returns a Numpy array.
         """
-        self.Jeval += 1
         gi = self.model.eval_gi(i, x)
         if self.scale_con is not None: gi *= self.scale_con[i]
         return gi
@@ -925,7 +462,6 @@ class AmplModel(NLPModel):
         except:
             raise RuntimeError('Failed to fetch sparse constraint gradient')
             return None
-        self.Jeval += 1
         sci = sv.SparseVector(self.n, sci_dict)
         if self.scale_con is not None: sci *= self.scale_con[i]
         return sci
@@ -953,60 +489,41 @@ class AmplModel(NLPModel):
         """
         store_zeros = kwargs.get('store_zeros', False)
         store_zeros = 1 if store_zeros else 0
-        if len(args) == 1:
-            if type(args[0]).__name__ == 'll_mat':
-                Amat = self.model.eval_A(store_zeros, args[0])
-            else:
-                return None
-        else:
-            Amat = self.model.eval_A(store_zeros)
+        Amat = self.model.eval_A(store_zeros, args[0])
 
         if self.scale_con is not None:
             Amat = spmatrix.matrixmultiply(Amat, self.scale_con_diag)
-        return Amat
+
+        A = sp(nrow=self.m, ncol=self.n,
+               sizeHint=self.nnzj, storeZeros=store_zeros, matrix=Amat)
+        return A
 
     def jac(self, x, *args, **kwargs):
         """
         Evaluate sparse Jacobian of constraints at x.
-        Returns a sparse matrix in format self.mformat
-        (0 = compressed sparse row, 1 = linked list).
-
-        The constraints appear in the following order:
-
-        1. equalities
-        2. lower bound only
-        3. upper bound only
-        4. range constraints.
+        Returns a PySparse sparse matrix.
         """
         store_zeros = kwargs.get('store_zeros', False)
         store_zeros = 1 if store_zeros else 0
-        if len(args) > 0:
-            if type(args[0]).__name__ == 'll_mat':
-                J = self.model.eval_J(x, self.mformat, store_zeros, args[0])
-            else:
-                return None
-        else:
-            J = self.model.eval_J(x, self.mformat, store_zeros)
-        self.Jeval += 1
+        spJac = kwargs.get('spJac', None)
+        J = self.model.eval_J(x, False, store_zeros, spJac=spJac)
 
-        # Warning!! The next line doesn't work for the coordinate format option
         if self.scale_con is not None:
             J = spmatrix.matrixmultiply(self.scale_con_diag, J)
-        return J
 
-    def jacPos(self, x, **kwargs):
+        spJ = sp(nrow=self.m, ncol=self.n,
+                 sizeHint=self.nnzj, storeZeros=store_zeros, matrix=J)
+        return spJ
+
+    def jac_pos(self, x, **kwargs):
         """
         Convenience function to evaluate the Jacobian matrix of the constraints
         reformulated as
 
             ci(x) = ai       for i in equalC
-
             ci(x) - Li >= 0  for i in lowerC
-
             ci(x) - Li >= 0  for i in rangeC
-
             Ui - ci(x) >= 0  for i in upperC
-
             Ui - ci(x) >= 0  for i in rangeC.
 
         The gradients of the general constraints appear in 'natural' order,
@@ -1020,10 +537,10 @@ class AmplModel(NLPModel):
         [ J ]
         [-JR]
 
-        This is a `m + nrangeC` by `n` matrix, where `J` is the Jacobian of the
-        general constraints in the order above in which the sign of the 'less
-        than' constraints is flipped, and `JR` is the Jacobian of the 'less
-        than' side of range constraints.
+        This is a `(m + nrangeC)`-by -`n` matrix, where `J` is the Jacobian
+        of the general constraints in the order above in which the sign of
+        the 'less than' constraints is flipped, and `JR` is the Jacobian of
+        the 'less than' side of range constraints.
         """
         store_zeros = kwargs.get('store_zeros', False)
         store_zeros = 1 if store_zeros else 0
@@ -1035,45 +552,34 @@ class AmplModel(NLPModel):
                storeZeros=store_zeros)
 
         # Insert contribution of general constraints
-        J[:m,:n] = self.jac(x, store_zeros=store_zeros) #[self.permC,:]
-        J[upperC,:n] *= -1                 # Flip sign of 'upper' gradients
-        J[m:,:n] = -J[rangeC,:n]           # Append 'upper' side of range const.
+        J[:m, :n] = self.jac(x, store_zeros=store_zeros)
+        J[upperC, :n] *= -1                # Flip sign of 'upper' gradients.
+        J[m:, :n] = -J[rangeC, :n]     # Append 'upper' side of range const.
         return J
 
     def hess(self, x, z=None, obj_num=0, *args, **kwargs):
         """
         Evaluate sparse lower triangular Lagrangian Hessian at (x, z).
-        Returns a sparse matrix in format self.mformat (0 = compressed
-        sparse row, 1 = linked list).
+        Returns a PySparse sparse matrix.
 
         By convention, the Lagrangian has the form L = f - c'z.
         """
         obj_weight = kwargs.get('obj_weight', 1.0)
         store_zeros = kwargs.get('store_zeros', False)
         store_zeros = 1 if store_zeros else 0
+        spHess = kwargs.get('spHess', None)
         if z is None: z = np.zeros(self.m)
-        if len(args) > 0:
-            if type(args[0]).__name__ == 'll_mat':
-                H = self.model.eval_H(x, z, self.mformat, obj_weight,
-                                      args[0], store_zeros)
-            else:
-                return None
-        else:
-            H = self.model.eval_H(x, z, self.mformat, obj_weight,
-                                  store_zeros)
-        self.Heval += 1
+        H = self.model.eval_H(x, z, False, obj_weight,
+                              store_zeros, spHess=spHess)
 
         if self.scale_obj:
-            if self.mformat == 1:  # compressed sparse
-                H[0] *= self.scale_obj
-            else:
-                H.scale(self.scale_obj)
+            H.scale(self.scale_obj)
         if not self.minimize:
-            if self.mformat == 1:  # compressed sparse
-                H[0] *= -1
-            else:
-                H.scale(-1)
-        return H
+            H.scale(-1)
+
+        spH = sp(size=self.n, sizeHint=self.nnzh, symmetric=True,
+                 storeZeros=store_zeros, matrix=H)
+        return spH
 
     def hprod(self, x, z, v, **kwargs):
         """
@@ -1094,7 +600,6 @@ class AmplModel(NLPModel):
         """
         obj_weight = kwargs.get('obj_weight', 1.0)
         if z is None: z = np.zeros(self.m)
-        self.Hprod += 1
         Hv = self.model.H_prod(z, v, obj_weight)
         if self.scale_obj:
             Hv *= self.scale_obj
@@ -1110,7 +615,6 @@ class AmplModel(NLPModel):
         Bug: x is ignored. See hprod above.
         """
         z = np.zeros(self.m) ; z[i] = -1
-        self.Hprod += 1
         Hv = self.model.H_prod(z, v, 0.)
         if self.scale_con is not None:
             Hv *= self.scale_con[i]
@@ -1123,7 +627,6 @@ class AmplModel(NLPModel):
         """
         if self.nnln == 0:           # Quick exit if no nonlinear constraints
             return np.zeros(self.m)
-        self.Hprod += 1
         gHi = self.model.gHi_prod(g, v)
         if self.scale_con is not None:
             gHi *= self.scale_con    # componentwise product
@@ -1171,7 +674,7 @@ class AmplModel(NLPModel):
         write('Number of Variables: %d\n' % self.n)
         write('Number of Bound Constraints: %d' % self.nbounds)
         write(' (%d lower, %d upper, %d two-sided)\n' % (self.nlowerB,
-            self.nupperB, self.nrangeB))
+              self.nupperB, self.nrangeB))
         if self.nlowerB > 0: write('Lower bounds: %s\n' % self.lowerB)
         if self.nupperB > 0: write('Upper bounds: %s\n' % self.upperB)
         if self.nrangeB > 0: write('Two-Sided bounds: %s\n' % self.rangeB)
@@ -1179,7 +682,7 @@ class AmplModel(NLPModel):
         write('Vectof of upper bounds: %s\n' % self.Uvar)
         write('Number of General Constraints: %d' % self.m)
         write(' (%d equality, %d lower, %d upper, %d range)\n' % (self.nequalC,
-            self.nlowerC, self.nupperC, self.nrangeC))
+              self.nlowerC, self.nupperC, self.nrangeC))
         if self.nequalC > 0: write('Equality: %s\n' % self.equalC)
         if self.nlowerC > 0: write('Lower   : %s\n' % self.lowerC)
         if self.nupperC > 0: write('Upper   : %s\n' % self.upperC)
