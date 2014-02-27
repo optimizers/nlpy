@@ -1,9 +1,10 @@
 from nlpy.model  import NLPModel
-from nlpy.krylov import SimpleLinearOperator
+from pykrylov.linop import LinearOperator
 import adolc
 import numpy as np
 
 has_colpack = False
+
 
 class AdolcModel(NLPModel):
     """
@@ -30,26 +31,20 @@ class AdolcModel(NLPModel):
         self.first_sparse_hess_eval = True
         self.first_sparse_jac_eval  = True
 
-
     def _get_trace_id(self):
         "Return an available trace id."
         return 100*self.__NUM_INSTANCES[0]
-
 
     def get_obj_trace_id(self):
         "Return the trace id for the objective function."
         return self._obj_trace_id
 
-
     def get_con_trace_id(self):
         "Return the trace id for the constraints."
         return self._con_trace_id
 
-
     def _trace_obj(self, x):
-
         if self._obj_trace_id is None:
-
             self._obj_trace_id = self._get_trace_id()
             adolc.trace_on(self._obj_trace_id)
             x = adolc.adouble(x)
@@ -58,11 +53,8 @@ class AdolcModel(NLPModel):
             adolc.dependent(y)
             adolc.trace_off()
 
-
     def _trace_con(self, x):
-
         if self._con_trace_id is None and self.m > 0:
-
             self._con_trace_id = self._get_trace_id() + 1
             adolc.trace_on(self._con_trace_id)
             x = adolc.adouble(x)
@@ -71,21 +63,17 @@ class AdolcModel(NLPModel):
             adolc.dependent(y)
             adolc.trace_off()
 
-
     def _adolc_obj(self, x):
         "Evaluate the objective function from the ADOL-C tape."
         return adolc.function(self._obj_trace_id, x)
-
 
     def grad(self, x, **kwargs):
         "Evaluate the objective gradient at x."
         return self._adolc_grad(x, **kwargs)
 
-
     def _adolc_grad(self, x, **kwargs):
         "Evaluate the objective gradient from the ADOL-C tape."
         return adolc.gradient(self._obj_trace_id, x)
-
 
     def hess(self, x, z, **kwargs):
         "Return the Hessian of the objective at x."
@@ -93,25 +81,21 @@ class AdolcModel(NLPModel):
             return self.sparse_hess(x, z, **kwargs)
         return self.dense_hess(x, z, **kwargs)
 
-
     def dense_hess(self, x, z, **kwargs):
         "Return the Hessian of the objective at x in dense format."
         return adolc.hessian(self._obj_trace_id, x)
-
 
     def hprod(self, x, z, v, **kwargs):
         "Return the Hessian-vector product at x with v."
         return adolc.hess_vec(self._obj_trace_id, x, v)
 
-
     def sparse_hess(self, x, z, **kwargs):
         "Return the Hessian of the objective at x in sparse format."
-        options = np.zeros(2,dtype=int)
+        options = np.zeros(2, dtype=int)
         if self.first_sparse_hess_eval:
             nnz, rind, cind, values =  \
-                    adolc.colpack.sparse_hess_no_repeat(self._obj_trace_id,
-                                                        x,
-                                                        options=options)
+              adolc.colpack.sparse_hess_no_repeat(self._obj_trace_id,
+                                                  x, options=options)
             self.nnzH  = nnz
             self.hess_rind = rind
             self.hess_cind = cind
@@ -126,11 +110,9 @@ class AdolcModel(NLPModel):
                                                     self.hess_cind,
                                                     self.hess_values)
 
-
     def _adolc_cons(self, x, **kwargs):
         "Evaluate the constraints from the ADOL-C tape."
         return adolc.function(self._con_trace_id, x)
-
 
     def jac(self, x, **kwargs):
         "Return constraints Jacobian at x."
@@ -138,26 +120,22 @@ class AdolcModel(NLPModel):
             return self.sparse_jac(x, **kwargs)
         return self.dense_jac(x, **kwargs)
 
-
     def dense_jac(self, x, **kwargs):
         "Return constraints Jacobian at x in dense format."
         return self._adolc_jac(x, **kwargs)
-
 
     def _adolc_jac(self, x, **kwargs):
         "Evaluate the constraints Jacobian from the ADOL-C tape."
         return adolc.jacobian(self._con_trace_id, x)
 
-
     def sparse_jac(self, x, **kwargs):
         "Return constraints Jacobian at x in sparse format."
-        [nnz, rind, cind, values] =sparse_jac_no_repeat(tape_tag, x, options)
-        options = np.zeros(4,dtype=int)
+        [nnz, rind, cind, values] = sparse_jac_no_repeat(tape_tag, x, options)
+        options = np.zeros(4, dtype=int)
         if self.first_sparse_jac_eval:
             nnz, rind, cind, values =  \
-                    adolc.colpack.sparse_jac_no_repeat(self._con_trace_id,
-                                                       x,
-                                                       options=options)
+              adolc.colpack.sparse_jac_no_repeat(self._con_trace_id,
+                                                 x, options=options)
             self.nnzJ  = nnz
             self.jac_rind = rind
             self.jac_cind = cind
@@ -172,26 +150,13 @@ class AdolcModel(NLPModel):
                                                    self.jac_cind,
                                                    self.jac_values)
 
-
-
-    def jac_vec(self, x, v, **kwargs):
+    def jprod(self, x, v, **kwargs):
         "Return the product of v with the Jacobian at x."
         return adolc.jac_vec(self._con_trace_id, x, v)
 
-
-    def vec_jac(self, x, v, **kwargs):
+    def jtprod(self, x, v, **kwargs):
         "Return the product of v with the transpose Jacobian at x."
         return adolc.vec_jac(self._con_trace_id, x, v)
-
-
-    def get_jac_linop(self, x, **kwargs):
-        "Return the Jacobian at x as a linear operator."
-        J = SimpleLinearOperator(self.n, self.m,
-                                 lambda v: self.jac_vec(x,v),
-                                 matvec_transp=lambda v: self.vec_jac(x,v),
-                                 symmetric=False)
-        return J
-
 
 
 if __name__ == '__main__':
