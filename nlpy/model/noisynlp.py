@@ -6,13 +6,16 @@ from amplpy import AmplModel
 from numpy.random import random as random_array
 import random
 
+
 def _random():
     "Return a random number in [-1,1)."
     return 2*random.random()-1
 
+
 def _random_array(n):
     "Return a random array of length n with elements in [-1,1)."
     return 2*random_array()-1
+
 
 class NoisyAmplModel(AmplModel):
 
@@ -35,10 +38,10 @@ class NoisyAmplModel(AmplModel):
         return g + self.noise_amplitude * noise
 
     def hess(self, x, z, *args):
-        raise NotImplementedError, 'Second derivatives are not available!'
+        raise NotImplementedError('Second derivatives are not available!')
 
     def hprod(self, z, v):
-        raise NotImplementedError, 'Second derivatives are not available!'
+        raise NotImplementedError('Second derivatives are not available!')
 
     def islp(self):
         return False
@@ -90,20 +93,20 @@ class NoisyAmplModel(AmplModel):
     def A(self, *args):
         A = AmplModel.A(self, *args)
         noise = _random_array(A.nnz)
-        (val,irow,jcol) = A.find()
+        (val, irow, jcol) = A.find()
         A.addAt(self.noise_amplitude * noise, irow, jcol)
         return A
 
     def jac(self, x, *args):
         J = AmplModel.jac(self, x, *args)
         noise = _random_array(J.nnz)
-        (val,irow,jcol) = J.find()
+        (val, irow, jcol) = J.find()
         J.addAt(self.noise_amplitude * noise, irow, jcol)
         return J
 
-    def jacPos(self, x):
+    def jac_pos(self, x):
         J = AmplModel.jacPos(self, x)
         noise = _random_array(J.nnz)
-        (val,irow,jcol) = J.find()
+        (val, irow, jcol) = J.find()
         J.addAt(self.noise_amplitude * noise, irow, jcol)
         return J
