@@ -95,7 +95,7 @@ class NLPModel(object):
     If necessary, additional arguments may be passed in kwargs.
     """
 
-    __id = -1
+    _id = -1
 
     def __init__(self, n=0, m=0, name='Generic', **kwargs):
 
@@ -218,9 +218,9 @@ class NLPModel(object):
       self.scale_con = None   # Constraint scaling
 
       # Problem-specific logger.
-      self.__class__.__id += 1
-      self.__id = self.__class__.__id
-      self.logger = logging.getLogger(name=self.name + str(self.__id))
+      self.__class__._id += 1
+      self._id = self.__class__._id
+      self.logger = logging.getLogger(name=self.name + str(self._id))
       self.logger.setLevel(logging.INFO)
       fmt = logging.Formatter('%(name)-10s %(levelname)-8s %(message)s')
       hndlr = logging.StreamHandler(sys.stdout)
@@ -266,9 +266,131 @@ class NLPModel(object):
       self.stop_c = stop_c
       return
 
+    def primal_feasibility(self, x, c=None):
+        """
+        Evaluate the primal feasibility residual at x. If `c` is given, it
+        should conform to :meth:`cons_pos`.
+        """
+        # Shortcuts.
+        eC = self.equalC ; m = self.m ; nrC = self.nrangeC
+        nB = self.nbounds ; nrB = self.nrangeB
+
+        pFeas = np.empty(m+nrC+nB+nrB)
+        pFeas[:m+nrC] = -self.cons_pos(x) if c is None else -c
+        not_eC = [i for i in range(m+nrC) if i not in eC]
+        pFeas[eC] = np.abs(pFeas[eC])
+        pFeas[not_eC] = np.maximum(0, pFeas[not_eC])
+        pFeas[m:m+nrC] = np.maximum(0, pFeas[m:m+nrC])
+        pFeas[m+nrC:] = -self.get_bounds(x)
+        pFeas[m+nrC:] = np.maximum(0, pFeas[m+nrC:])
+
+        return pFeas
+
+    def dual_feasibility(self, x, y, z, g=None, J=None, **kwargs):
+        """
+        Evaluate the dual feasibility residual at (x,y,z). The argument `J`,
+        if supplied, should be a linear operator representing the constraints
+        Jacobian. It should conform to either :meth:`jac` or :meth:`jac_pos`
+        depending on the value of `all_pos` (see below).
+
+        The multipliers `z` should conform to :meth:`get_bounds`.
+
+        :keywords:
+            :obj_weight: weight of the objective gradient in dual feasibility.
+                         Set to zero to check Fritz-John conditions instead
+                         of KKT conditions. (default: 1.0)
+            :all_pos:    if `True`, indicates that the multipliers `y` conform
+                         to :meth:`jac_pos`. If `False`, `y` conforms to
+                         :meth:`jac`. In all cases, `y` should be appropriately
+                         ordered. If the positional argument `J` is specified,
+                         it must be consistent with the layout of `y`.
+                         (default: `True`)
+        """
+        # Shortcuts.
+        lB  = self.lowerB  ; uB  = self.upperB  ; rB  = self.rangeB
+        nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
+
+        obj_weight = kwargs.get('obj_weight', 1.0)
+        all_pos = kwargs.get('all_pos', True)
+
+        if J is None:
+            J = self.jop_pos(x) if all_pos else self.jop(x)
+
+        if obj_weight == 0.0:   # Checking Fritz-John conditions.
+            dFeas = -J.T * y
+        else:
+            dFeas = self.grad(x) if g is None else g[:]
+            if obj_weight != 1.0:
+                dFeas *= obj_weight
+            dFeas -= J.T * y
+        dFeas[lB] -= z[:nlB]
+        dFeas[uB] -= z[nlB:nlB+nuB]
+        dFeas[rB] -= z[nlB+nuB:nlB+nuB+nrB] - z[nlB+nuB+nrB:]
+
+        return dFeas
+
+    def complementarity(self, x, y, z, c=None):
+        """
+        Evaluate the complementarity residuals at (x,y,z). If `c` is specified,
+        it should conform to :meth:`cons_pos` and the multipliers `y` should
+        appear in the same order. The multipliers `z` should conform to
+        :meth:`get_bounds`.
+
+        :returns:
+            :cy:  complementarity residual for general constraints
+            :xz:  complementarity residual for bound constraints.
+        """
+        # Shortcuts.
+        lC  = self.lowerC  ; uC  = self.upperC  ; rC  = self.rangeC
+        nlC = self.nlowerC ; nuC = self.nupperC ; nrC = self.nrangeC
+
+        not_eC = lC+uC+rC + range(nlC+nuC+nrC, nlC+nuC+nrC+nrC)
+        if c is None: c = self.cons_pos(x)
+
+        cy = c[not_eC] * y[not_eC]
+        xz = self.get_bounds(x) * z
+
+        return (cy, xz)
+
+    def kkt_residuals(self, x, y, z, c=None, g=None, J=None, **kwargs):
+        """
+        Return the first-order residuals. There is no check on the sign of the
+        multipliers unless `check` is set to `True`. Keyword arguments not
+        specified below are passed directly to :meth:`primal_feasibility`,
+        :meth:`dual_feasibility` and :meth:`complementarity`.
+
+        If `J` is specified, it should conform to :meth:`jac_pos` and the
+        multipliers `y` should be consistent with the Jacobian.
+
+        :keywords:
+            :check:  check sign of multipliers.
+
+        :returns:
+            :pFeas:  primal feasibility residual
+            :dFeas:  dual feasibility residual (gradient of Lagrangian)
+            :cy:     complementarity for general constraints
+            :xz:     complementarity for bound constraints.
+        """
+        # Shortcuts.
+        m = self.m ; nrC = self.nrangeC ; eC = self.equalC
+        check = kwargs.get('check', True)
+
+        if check:
+            not_eC = [i for i in range(m+nrC) if i not in eC]
+            if len(where(y[not_eC] < 0)) > 0:
+                raise ValueError('Multipliers for inequalities must be >= 0.')
+            if not np.all(z >= 0):
+                raise ValueError('Multipliers for bounds must be >= 0.')
+
+        pFeas = self.primal_feasibility(x, c=c)
+        dFeas = self.dual_feasibility(x, y, z, g=g, J=J)
+        cy, xz = self.complementarity(x, y, z, c=c)
+
+        return KKTresidual(dFeas, pFeas[:m+nrC], pFeas[m+nrC:], cy, xz)
+
     # Evaluate optimality residuals
-    def OptimalityResiduals(self, x, z, **kwargs):
-      raise NotImplementedError('This method must be subclassed.')
+    def OptimalityResiduals(self, *args, **kwargs):
+      return self.KKTresidual(*args, **kwargs)
 
     # Decide whether optimality is attained
     def AtOptimality(self, x, z, **kwargs):
@@ -289,7 +411,7 @@ class NLPModel(object):
         """
         Return the vector with components x[i]-Lvar[i] or Uvar[i]-x[i] in such
         a way that the bound constraints on the problem variables are
-        equivalent to get_bounds(x) >= 0. The bounds are odered as follows:
+        equivalent to bounds(x) >= 0. The bounds are odered as follows:
 
         [lowerB | upperB | rangeB (lower) | rangeB (upper) ].
         """
@@ -297,7 +419,7 @@ class NLPModel(object):
         nlB = self.nlowerB ; nuB  = self.nupperB ; nrB  = self.nrangeB
         nB  = self.nbounds ; Lvar = self.Lvar    ; Uvar = self.Uvar
 
-        b = np.empty(nB+nrB)
+        b = np.empty(nB+nrB, dtype=x.dtype)
         b[:nlB] = x[lB] - Lvar[lB]
         b[nlB:nlB+nuB] = Uvar[uB] - x[uB]
         b[nlB+nuB:nlB+nuB+nrB] = x[rB] - Lvar[rB]
@@ -336,7 +458,9 @@ class NLPModel(object):
       upperC = self.upperC
       rangeC = self.rangeC ; nrangeC = self.nrangeC
 
-      c = np.empty(m + nrangeC)
+      # Set the type of c to the type of x to allow for object arrays.
+      # This is useful to AD packages.
+      c = np.empty(m + nrangeC, dtype=x.dtype)
       c[:m] = self.cons(x)
       c[m:] = c[rangeC]
 
@@ -366,6 +490,10 @@ class NLPModel(object):
     def jac(self, x, **kwargs):
       raise NotImplementedError('This method must be subclassed.')
 
+    # Jacobian of cons_pos().
+    def jac_pos(self, x, **kwargs):
+      raise NotImplementedError('This method must be subclassed.')
+
     # Evaluate Jacobian-vector product
     def jprod(self, x, p, **kwargs):
       raise NotImplementedError('This method must be subclassed')
@@ -382,15 +510,31 @@ class NLPModel(object):
                             symmetric=False,
                             dtype=np.float)
 
+    def jop_pos(self, x):
+      "Jacobian of :meth:`cons_pos` as a linear operator."
+      J = self.jop(x)
+      e = np.ones(self.ncon + self.nrangeC)
+      e[self.upperC] = -1
+      e[self.ncon:] = -1
+      JR = ReducedLinearOperator(J, range(self.nvar), self.rangeC)
+      Jpos = BlockLinearOperator([[J], [JR]], dtype=np.float)
+      D = DiagonalOperator(e)
+      return D * Jpos  # Flip sign of 'upper' constraints.
+
     def lag(self, x, z, **kwargs):
       """
-      Evaluate Lagrangian at (x, z). The constraints are supposed to
-      be ordered as in cons_pos(). The bounds are similarly ordered.
+      Evaluate Lagrangian at (x, z). The constraints and bounds are
+      assumed to be ordered as in :meth:`cons_pos` and :meth:`bounds`.
       """
-      m = self.m ; nrB = self.nrangeB
-      b = self.bounds(x)
-      l = self.obj(x) + np.dot(z[:m+nrB], self.cons_pos(x))
-      l += np.dot(z[m+nrB:], b)
+      m = self.m ; nrC = self.nrangeC
+      l = self.obj(x)
+      # The following ifs are necessary because np.dot returns None
+      # when passed empty arrays of objects (i.e., dtype = np.object).
+      # This causes AD tools to error out.
+      if self.m > 0:
+        l += np.dot(z[:m+nrC], self.cons_pos(x))
+      if self.nbounds > 0:
+        l += np.dot(z[m+nrC:], self.bounds(x))
       return l
 
     # Evaluate Lagrangian Hessian at (x,z)
@@ -405,6 +549,11 @@ class NLPModel(object):
     # Evaluate matrix-vector product between
     # the Hessian of the i-th constraint and a vector
     def hiprod(self, i, x, p, **kwargs):
+      raise NotImplementedError('This method must be subclassed.')
+
+    # Evaluate the vector of dot products (g, Hi*v) where Hi is the Hessian
+    # of the i-th constraint, i=1..m.
+    def ghivprod(self, g, v, **kwargs):
       raise NotImplementedError('This method must be subclassed.')
 
     def hop(self, x, z=None, **kwargs):
@@ -438,6 +587,9 @@ class NLPModel(object):
       if self.nrangeC > 0: write('Range   : %d' % self.rangeC)
       write('Vector of constraint lower bounds: %s' % repr(self.Lcon))
       write('Vector of constraint upper bounds: %s' % repr(self.Ucon))
+      write('Number of Linear Constraints: %d\n' % self.nlin)
+      write('Number of Nonlinear Constraints: %d\n' % self.nnln)
+      write('Number of Network Constraints: %d\n' % self.nnet)
       write('Initial Guess: %s\n' % repr(self.x0))
 
       return

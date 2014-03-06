@@ -6,13 +6,11 @@ Python interface to the AMPL modeling language
 """
 
 import numpy as np
-from nlpy.model.nlp import NLPModel, KKTresidual
+from nlpy.model.nlp import NLPModel, SciPyNLPModel
 from nlpy.model import _amplpy
-from nlpy.tools.utils import where
 from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
-from nlpy.krylov.linop import PysparseLinearOperator
+from pykrylov.linop import PysparseLinearOperator, CoordLinearOperator
 from nlpy.tools import sparse_vector_class as sv
-from pysparse import spmatrix
 import warnings
 import tempfile
 import os
@@ -108,6 +106,8 @@ class AmplModel(NLPModel):
         self.nnln = len(self.nln)           #    ...    nonlinear   ...
         self.nnet = len(self.net)           #    ...    network     ...
 
+        self._sparse_coord = True           # Sparse matrices in coord format
+
         # Get sparsity info
         self.nnzj = model.get_nnzj()        # number of nonzeros in Jacobian
         self.nnzh = model.get_nnzh()        #                       Hessian
@@ -121,128 +121,6 @@ class AmplModel(NLPModel):
         Write primal-dual solution and message msg to stub.sol
         """
         return self.model.ampl_sol(x, z, msg)
-
-###############################################################################
-
-    def primal_feasibility(self, x, c=None):
-        """
-        Evaluate the primal feasibility residual at x. If `c` is given, it
-        should conform to :meth:`consPos`.
-        """
-        # Shortcuts.
-        eC = self.equalC ; m = self.m ; nrC = self.nrangeC
-        nB = self.nbounds ; nrB = self.nrangeB
-
-        pFeas = np.empty(m+nrC+nB+nrB)
-        pFeas[:m+nrC] = -self.consPos(x) if c is None else -c[:]
-        not_eC = [i for i in range(m+nrC) if i not in eC]
-        pFeas[eC] = np.abs(pFeas[eC])
-        pFeas[not_eC] = np.maximum(0, pFeas[not_eC])
-        pFeas[m:m+nrC] = np.maximum(0, pFeas[m:m+nrC])
-        pFeas[m+nrC:] = -self.get_bounds(x)
-        pFeas[m+nrC:] = np.maximum(0, pFeas[m+nrC:])
-
-        return pFeas
-
-    def dual_feasibility(self, x, y, z, g=None, J=None, **kwargs):
-        """
-        Evaluate the dual feasibility residual at (x,y,z).
-
-        The multipliers `z` should conform to :meth:`get_bounds`.
-
-        :keywords:
-            :obj_weight: weight of the objective gradient in dual feasibility.
-                         Set to zero to check Fritz-John conditions instead
-                         of KKT conditions. (default: 1.0)
-            :all_pos:    if `True`, indicates that the multipliers `y` conform
-                         to :meth:`jac_pos`. If `False`, `y` conforms to
-                         :meth:`jac`. In all cases, `y` should be appropriately
-                         ordered. If the positional argument `J` is specified,
-                         it must be consistent with the layout of `y`.
-                         (default: `True`)
-        """
-        # Shortcuts.
-        lB  = self.lowerB  ; uB  = self.upperB  ; rB  = self.rangeB
-        nlB = self.nlowerB ; nuB = self.nupperB ; nrB = self.nrangeB
-
-        obj_weight = kwargs.get('obj_weight', 1.0)
-        all_pos = kwargs.get('all_pos', True)
-
-        if J is None:
-            J = self.jac_pos(x) if all_pos else self.jac(x)
-        Jop = PysparseLinearOperator(J, symmetric=False)
-
-        if obj_weight == 0.0:   # Checking Fritz-John conditions.
-            dFeas = -(Jop.T * y)
-        else:
-            dFeas = self.grad(x) if g is None else g[:]
-            if obj_weight != 1.0:
-                dFeas *= obj_weight
-            dFeas -= Jop.T * y
-        dFeas[lB] -= z[:nlB]
-        dFeas[uB] -= z[nlB:nlB+nuB]
-        dFeas[rB] -= z[nlB+nuB:nlB+nuB+nrB] - z[nlB+nuB+nrB:]
-
-        return dFeas
-
-    def complementarity(self, x, y, z, c=None):
-        """
-        Evaluate the complementarity residuals at (x,y,z). If `c` is specified,
-        it should conform to :meth:`consPos` and the multipliers `y` should
-        appear in the same order. The multipliers `z` should conform to
-        :meth:`get_bounds`.
-
-        :returns:
-            :cy:  complementarity residual for general constraints
-            :xz:  complementarity residual for bound constraints.
-        """
-        # Shortcuts.
-        lC  = self.lowerC  ; uC  = self.upperC  ; rC  = self.rangeC
-        nlC = self.nlowerC ; nuC = self.nupperC ; nrC = self.nrangeC
-
-        not_eC = lC+uC+rC + range(nlC+nuC+nrC, nlC+nuC+nrC+nrC)
-        if c is None: c = self.cons_pos(x)
-
-        cy = c[not_eC] * y[not_eC]
-        xz = self.get_bounds(x) * z
-
-        return (cy, xz)
-
-    def kkt_residuals(self, x, y, z, c=None, g=None, J=None, **kwargs):
-        """
-        Return the first-order residuals. There is no check on the sign of the
-        multipliers unless `check` is set to `True`. Keyword arguments not
-        specified below are passed directly to :meth:`primal_feasibility`,
-        :meth:`dual_feasibility` and :meth:`complementarity`.
-
-        If `J` is specified, it should conform to :meth:`jac_pos` and the
-        multipliers `y` should be consistent with the Jacobian.
-
-        :keywords:
-            :check:  check sign of multipliers.
-
-        :returns:
-            :pFeas:  primal feasibility residual
-            :dFeas:  dual feasibility residual (gradient of Lagrangian)
-            :cy:     complementarity for general constraints
-            :xz:     complementarity for bound constraints.
-        """
-        # Shortcuts.
-        m = self.m ; nrC = self.nrangeC ; eC = self.equalC
-        check = kwargs.get('check', True)
-
-        if check:
-            not_eC = [i for i in range(m+nrC) if i not in eC]
-            if len(where(y[not_eC] < 0)) > 0:
-                raise ValueError('Multipliers for inequalities must be >= 0.')
-            if not np.all(z >= 0):
-                raise ValueError('Multipliers for bounds must be >= 0.')
-
-        pFeas = self.primal_feasibility(x, c=c)
-        dFeas = self.dual_feasibility(x, y, z, g=g, J=J)
-        cy, xz = self.complementarity(x, y, z, c=c)
-
-        return KKTresidual(dFeas, pFeas[:m+nrC], pFeas[m+nrC:], cy, xz)
 
     def compute_scaling_obj(self, x=None, g_max=1.0e2, reset=False):
         """
@@ -264,7 +142,6 @@ class AmplModel(NLPModel):
 
         which is a scalar rescaling that ensures the inf-norm of the
         gradient (at x) isn't larger than 'g_max'.
-
         """
         # Remove scaling if requested
         if reset:
@@ -310,14 +187,17 @@ class AmplModel(NLPModel):
 
         m = self.m
         if x is None: x = self.x0
-        d_c = np.empty(m, dtype=np.double)
-        J = self.jac(x)
+        d_c = np.empty(m)
+        J = self.jop(x)
 
         # Find inf-norm of each row of J
         gmaxNorm = 0            # holds the maxiumum row-norm of J
         imaxNorm = 0            # holds the corresponding index
+        e = np.zeros(self.ncon)
         for i in xrange(m):
-            giNorm = J[i, :].norm('1')  # Matrix 1-norm (max abs col)
+            e[i] = 1
+            giNorm = np.linalg.norm(J.T * e, 1)  # Matrix 1-norm (max abs col)
+            e[i] = 0
             d_c[i] = g_max / max(g_max, giNorm)  # <= 1 always
             if giNorm > gmaxNorm:
                 gmaxNorm = giNorm
@@ -329,11 +209,6 @@ class AmplModel(NLPModel):
         # Scale constraint bounds: componentwise multiplications
         self.Lcon *= d_c        # lower bounds on constraints
         self.Ucon *= d_c        # upper bounds on constraints
-
-        # Form a diagonal matrix from scales; useful for scaling Jacobian
-        D_c = spmatrix.ll_mat_sym(m, m)
-        D_c.put(d_c, range(m))
-        self.scale_con_diag = D_c
 
         # Return largest row norm and its index
 
@@ -355,7 +230,7 @@ class AmplModel(NLPModel):
             raise ValueError('Objective number is out of range.')
 
         f = self.model.eval_obj(x)
-        if self.scale_obj:    f *= self.scale_obj
+        if self.scale_obj: f *= self.scale_obj
         if not self.minimize: f *= -1
         return f
 
@@ -371,7 +246,7 @@ class AmplModel(NLPModel):
             raise ValueError('Objective number is out of range.')
 
         g = self.model.grad_obj(x)
-        if self.scale_obj:    g *= self.scale_obj
+        if self.scale_obj: g *= self.scale_obj
         if not self.minimize: g *= -1
         return g
 
@@ -381,13 +256,8 @@ class AmplModel(NLPModel):
         Returns a sparse vector. This method changes the sign of the objective
         gradient if the problem is a maximization problem.
         """
-        try:
-            sg_dict = self.model.eval_sgrad(x)
-        except:
-            raise RuntimeError('Failed to fetch sparse gradient of objective')
-            return None
-        sg = sv.SparseVector(self.n, sg_dict)
-        if self.scale_obj:    sg *= self.scale_obj
+        sg = sv.SparseVector(self.n, self.model.eval_sgrad(x))
+        if self.scale_obj: sg *= self.scale_obj
         if not self.minimize: sg *= -1
         return sg
 
@@ -398,13 +268,8 @@ class AmplModel(NLPModel):
         Return a sparse vector. This method changes the sign of the cost vector
         if the problem is a maximization problem.
         """
-        try:
-            sc_dict = self.model.eval_cost()
-        except:
-            raise RuntimeError('Failed to fetch sparse cost vector')
-            return None
-        sc = sv.SparseVector(self.n, sc_dict)
-        if self.scale_obj:    sc *= self.scale_obj
+        sc = sv.SparseVector(self.n, self.model.eval_cost())
+        if self.scale_obj: sc *= self.scale_obj
         if not self.minimize: sc *= -1
         return sc
 
@@ -422,14 +287,7 @@ class AmplModel(NLPModel):
 
         use the `permC` permutation vector.
         """
-        try:
-            c = self.model.eval_cons(x)
-        except:
-            print ' Offending argument : '
-            for i in range(self.n):
-                print '%-15.9f ' % x[i]
-            print 'Make sure input array has dtype float'
-            return None
+        c = self.model.eval_cons(x)
         if self.scale_con is not None: c *= self.scale_con
         return c
 
@@ -457,12 +315,7 @@ class AmplModel(NLPModel):
         Returns a sparse vector representing the sparse gradient
         in coordinate format.
         """
-        try:
-            sci_dict = self.model.eval_sgi(i, x)
-        except:
-            raise RuntimeError('Failed to fetch sparse constraint gradient')
-            return None
-        sci = sv.SparseVector(self.n, sci_dict)
+        sci = sv.SparseVector(self.n, self.model.eval_sgi(i, x))
         if self.scale_con is not None: sci *= self.scale_con[i]
         return sci
 
@@ -472,12 +325,7 @@ class AmplModel(NLPModel):
         i-th constraint. Useful to obtain constraint rows
         when problem is a linear programming problem.
         """
-        try:
-            sri_dict = self.model.eval_row(i)
-        except:
-            raise RuntimeError('Failed to fetch sparse row')
-            return None
-        sri = sv.SparseVector(self.n, sri_dict)
+        sri = sv.SparseVector(self.n, self.model.eval_row(i))
         if self.scale_con is not None: sri *= self.scale_con[i]
         return sri
 
@@ -489,13 +337,12 @@ class AmplModel(NLPModel):
         """
         store_zeros = kwargs.get('store_zeros', False)
         store_zeros = 1 if store_zeros else 0
-        Amat = self.model.eval_A(store_zeros, args[0])
-
-        if self.scale_con is not None:
-            Amat = spmatrix.matrixmultiply(Amat, self.scale_con_diag)
-
-        A = sp(nrow=self.m, ncol=self.n,
-               sizeHint=self.nnzj, storeZeros=store_zeros, matrix=Amat)
+        spJac = kwargs.get('spJac', None)
+        A = self.model.eval_A(self._sparse_coord, store_zeros, spJac)
+        if self._sparse_coord:
+          vals, rows, cols = A
+          if self.scale_con is not None: vals *= self.scale_con[rows]
+          return (vals, rows, cols)
         return A
 
     def jac(self, x, *args, **kwargs):
@@ -505,15 +352,12 @@ class AmplModel(NLPModel):
         """
         store_zeros = kwargs.get('store_zeros', False)
         store_zeros = 1 if store_zeros else 0
-        spJac = kwargs.get('spJac', None)
-        J = self.model.eval_J(x, False, store_zeros, spJac=spJac)
-
-        if self.scale_con is not None:
-            J = spmatrix.matrixmultiply(self.scale_con_diag, J)
-
-        spJ = sp(nrow=self.m, ncol=self.n,
-                 sizeHint=self.nnzj, storeZeros=store_zeros, matrix=J)
-        return spJ
+        J = self.model.eval_J(x, self._sparse_coord, store_zeros)
+        if self._sparse_coord:
+          vals, rows, cols = J
+          if self.scale_con is not None: vals *= self.scale_con[rows]
+          return (vals, rows, cols)
+        return J
 
     def jac_pos(self, x, **kwargs):
         """
@@ -537,7 +381,7 @@ class AmplModel(NLPModel):
         [ J ]
         [-JR]
 
-        This is a `(m + nrangeC)`-by -`n` matrix, where `J` is the Jacobian
+        This is a `(m + nrangeC)`-by-`n` matrix, where `J` is the Jacobian
         of the general constraints in the order above in which the sign of
         the 'less than' constraints is flipped, and `JR` is the Jacobian of
         the 'less than' side of range constraints.
@@ -552,10 +396,20 @@ class AmplModel(NLPModel):
                storeZeros=store_zeros)
 
         # Insert contribution of general constraints
-        J[:m, :n] = self.jac(x, store_zeros=store_zeros)
+        J[:m, :n] = self.jac(x, **kwargs)
         J[upperC, :n] *= -1                # Flip sign of 'upper' gradients.
         J[m:, :n] = -J[rangeC, :n]     # Append 'upper' side of range const.
         return J
+
+    # Implement jop because AMPL models don't define jprod / jtprod.
+    def jop(self, x, *args, **kwargs):
+        """
+        Obtain Jacobian at x as a linear operator.
+        """
+        vals, rows, cols = self.jac(x, *args, **kwargs)
+        return CoordLinearOperator(vals, rows, cols,
+                                   nargin=self.nvar, nargout=self.ncon,
+                                   symmetric=False)
 
     def hess(self, x, z=None, obj_num=0, *args, **kwargs):
         """
@@ -569,17 +423,14 @@ class AmplModel(NLPModel):
         store_zeros = 1 if store_zeros else 0
         spHess = kwargs.get('spHess', None)
         if z is None: z = np.zeros(self.m)
-        H = self.model.eval_H(x, z, False, obj_weight,
+        H = self.model.eval_H(x, z, self._sparse_coord, obj_weight,
                               store_zeros, spHess=spHess)
-
-        if self.scale_obj:
-            H.scale(self.scale_obj)
-        if not self.minimize:
-            H.scale(-1)
-
-        spH = sp(size=self.n, sizeHint=self.nnzh, symmetric=True,
-                 storeZeros=store_zeros, matrix=H)
-        return spH
+        if self._sparse_coord:
+          vals, rows, cols = H
+          if self.scale_obj: vals *= self.scale_obj
+          if not self.minimize: vals *= -1
+          return (vals, rows, cols)
+        return H
 
     def hprod(self, x, z, v, **kwargs):
         """
@@ -668,36 +519,79 @@ class AmplModel(NLPModel):
         """
         Display vital statistics about the current model.
         """
-        import sys
-        write = sys.stderr.write
-        write('Problem Name: %s\n' % self.name)
-        write('Number of Variables: %d\n' % self.n)
-        write('Number of Bound Constraints: %d' % self.nbounds)
-        write(' (%d lower, %d upper, %d two-sided)\n' % (self.nlowerB,
-              self.nupperB, self.nrangeB))
-        if self.nlowerB > 0: write('Lower bounds: %s\n' % self.lowerB)
-        if self.nupperB > 0: write('Upper bounds: %s\n' % self.upperB)
-        if self.nrangeB > 0: write('Two-Sided bounds: %s\n' % self.rangeB)
-        write('Vector of lower bounds: %s\n' % self.Lvar)
-        write('Vectof of upper bounds: %s\n' % self.Uvar)
-        write('Number of General Constraints: %d' % self.m)
-        write(' (%d equality, %d lower, %d upper, %d range)\n' % (self.nequalC,
-              self.nlowerC, self.nupperC, self.nrangeC))
-        if self.nequalC > 0: write('Equality: %s\n' % self.equalC)
-        if self.nlowerC > 0: write('Lower   : %s\n' % self.lowerC)
-        if self.nupperC > 0: write('Upper   : %s\n' % self.upperC)
-        if self.nrangeC > 0: write('Range   : %s\n' % self.rangeC)
-        write('Vector of constraint lower bounds: %s\n' % self.Lcon)
-        write('Vector of constraint upper bounds: %s\n' % self.Ucon)
-        write('Number of Linear Constraints: %d\n' % self.nlin)
-        write('Number of Nonlinear Constraints: %d\n' % self.nnln)
-        write('Number of Network Constraints: %d\n' % self.nnet)
+        super(AmplModel, self).display_basic_info()
+
+        # Display info that wasn't available in NLPModel.
+        write = self.logger.info
         write('Number of nonzeros in Jacobian: %d\n' % self.nnzj)
         write('Number of nonzeros in Lagrangian Hessian: %d\n' % self.nnzh)
         if self.islp(): write('This problem is a linear program.\n')
-        write('Initial Guess: %s\n' % self.x0)
 
         return
 
 
-###############################################################################
+class PySparseAmplModel(AmplModel):
+  # Here, there's no reason to inherit from PySparseNLPModel
+  # as we'll never revert to it. Instead, we reimplement `jac`
+  # and `hess` because the AMPL module # can return a PySparse
+  # matrix directly, which is more efficient.
+
+  def __init__(self, *args, **kwargs):
+    super(PySparseAmplModel, self).__init__(*args, **kwargs)
+    self._sparse_coord = False
+
+  def A(self, *args, **kwargs):
+    """
+    Evaluate sparse Jacobian of the linear part of the
+    constraints. Useful to obtain constraint matrix
+    when problem is a linear programming problem.
+    """
+    A = super(PySparseAmplModel, self).A(*args, **kwargs)
+    if self.scale_con is not None: A.row_scale(self.scale_con)
+    return A
+
+  def jac(self, x, *args, **kwargs):
+    """
+    Evaluate sparse Jacobian of constraints at x.
+    Returns a PySparse sparse matrix.
+    """
+    J = super(PySparseAmplModel, self).jac(x, *args, **kwargs)
+    if self.scale_con is not None: J.row_scale(self.scale_con)
+    return J
+
+  def jop(self, x, *args, **kwargs):
+    """
+    Obtain Jacobian at x as a linear operator.
+    """
+    return PysparseLinearOperator(self.jac(x, *args, **kwargs))
+
+  def hess(self, x, z=None, obj_num=0, *args, **kwargs):
+    """
+    Evaluate sparse lower triangular Lagrangian Hessian at (x, z).
+    Returns a PySparse sparse matrix.
+
+    By convention, the Lagrangian has the form L = f - c'z.
+    """
+    H = super(PySparseAmplModel, self).hess(x, z, obj_num, *args, **kwargs)
+    if self.scale_obj: H.scale(self.scale_obj)
+    if not self.minimize: H.scale(-1)
+    return H
+
+
+class SciPyAmplModel(SciPyNLPModel, AmplModel):
+  # MRO: 1. SciPyAmplModel
+  #      2. SciPyNLPModel
+  #      3. AmplModel
+  #      4. NLPModel
+
+  def A(self, *args, **kwargs):
+      """
+      Evaluate sparse Jacobian of the linear part of the
+      constraints. Useful to obtain constraint matrix
+      when problem is a linear programming problem.
+      """
+      vals, rows, cols = super(SciPyAmplModel. self).A(*args, **kwargs)
+      return sp.coo_matrix((vals, (rows, cols)),
+                           shape=(self.ncon, self.nvar))
+
+  # Here, `jac` and `hess` are inherited directly from SciPyNPLModel.
