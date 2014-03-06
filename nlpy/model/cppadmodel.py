@@ -1,5 +1,4 @@
 from nlpy.model import NLPModel
-from pykrylov.linop import LinearOperator
 import pycppad
 import numpy as np
 
