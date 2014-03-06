@@ -19,22 +19,37 @@ class BaseAdolcModel(NLPModel):
         self._trace_obj(self.x0)
 
         self._con_trace_id = None
-        if self.m > 0: self._trace_con(self.x0)
+        self._cons_pos_trace_id = None
+        if self.m > 0:
+            self._trace_con(self.x0)
+            self._trace_cons_pos(self.x0)
 
-        self.first_sparse_hess_eval = True
-        self.first_sparse_jac_eval  = True
+        self._lag_trace_id = None
+        self._trace_lag(self.x0, self.pi0)
 
     def _get_trace_id(self):
         "Return an available trace id."
-        return 100*self.__NUM_INSTANCES[0]
+        return 10 * self._id
 
-    def get_obj_trace_id(self):
+    @property
+    def obj_trace_id(self):
         "Return the trace id for the objective function."
         return self._obj_trace_id
 
-    def get_con_trace_id(self):
+    @property
+    def con_trace_id(self):
         "Return the trace id for the constraints."
         return self._con_trace_id
+
+    @property
+    def cons_pos_trace_id(self):
+        "Return the trace id for the reformulated constraints."
+        return self._cons_pos_trace_id
+
+    @property
+    def lag_trace_id(self):
+        "Return the trace id for the Lagrangian."
+        return self._lag_trace_id
 
     def _trace_obj(self, x):
         if self._obj_trace_id is None:
