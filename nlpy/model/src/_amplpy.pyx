@@ -45,8 +45,8 @@ cdef extern from "amplutils.h":
 
     ctypedef struct cgrad:
         cgrad *next
-        int varno
-        int goff
+        ssize_t varno  # int varno
+        size_t goff  # int goff
         double coef
 
     ctypedef struct ograd:
@@ -139,18 +139,10 @@ import numpy as np
 cimport numpy as np
 from numpy cimport npy_intp, NPY_DOUBLE, ndarray
 
-## cdef extern from "Python.h":
-##     void Py_INCREF(object)
-##     ctypedef struct PyObject:
-##         pass
-
 cdef extern from "numpy/arrayobject.h":
     bint PyArray_ISCARRAY(ndarray)
     ndarray PyArray_EMPTY(int, npy_intp*, int, int)
     void import_array()
-    ## ndarray PyArray_GETCONTIGUOUS(ndarray)
-    ## int PyArray_AsCArray(PyObject**, void*, npy_intp*, int, np.dtype)
-    ## np.dtype PyArray_DescrFromType(int)
 
 import_array()
 
@@ -167,29 +159,6 @@ cdef ndarray copy_c_to_numpy(double *x, int lenx):
     for i in range(lenx):
         v[i] = x[i]
     return v
-
-## cdef double* get_data_ptr(ndarray x, int lenx):
-##     """Return a pointer to data guaranteed to be C-contiguous (and
-##     correct length). Probably could use PyArray_GETCONGIGOUS here, but
-##     it seems that PyArray_ISCARRAY might be faster if it tests true,
-##     which is the case we most often expect."""
-##     cdef:
-##         double* ptr
-##         int err
-##         npy_intp* dims = [lenx]
-##         PyObject *tmp = <PyObject*>x
-
-##     if x.shape[0] != lenx:
-##         raise ValueError('Input array is incorrect length.')
-##     if PyArray_ISCARRAY(x):
-##         return <double*>x.data
-##     else:
-##         err = PyArray_AsCArray(&tmp, <void*>ptr, dims, 1,
-##                                PyArray_DescrFromType(NPY_DOUBLE))
-##         if err < 0:
-##             raise TypeError('Unable to covnert to C array.')
-##         else:
-##             return ptr
 
 ########################################################################
 # AMPL interface class
@@ -463,13 +432,30 @@ cdef class ampl:
             cg = cg.next
         return row
 
-    def eval_A(self, int store_zeros=0, spJac=None):
+    def eval_A(self, coord, int store_zeros=0, spJac=None):
         """Evaluate Jacobian of LP."""
         cdef:
             cgrad* cg
             int *dims = [self.n_con, self.n_var]
             int i, irow, jcol
         nnzj = self.nzc if self.n_con else 1
+
+        if coord: # return Jacobian in coordinate format.
+            A = np.empty(nnzj, dtype=np.double)
+            a_icol = np.empty(nnzj, dtype=np.int)
+            a_irow = np.empty(nnzj, dtype=np.int)
+
+            for i in range(self.n_con):
+                cg = self.asl.i.Cgrad_[i]
+                while cg is not NULL:
+                    # a_irow.data[cg.goff] = i
+                    # a_icol.data[cg.goff] = cg.varno  # broken.
+                    a_irow[cg.goff] = i
+                    a_icol[cg.goff] = cg.varno
+                    A.data[cg.goff] = cg.coef
+                    cg = cg.next
+
+            return (A, a_irow, a_icol)
 
         # Determine room necessary for Jacobian.
         if spJac is None:
@@ -482,7 +468,6 @@ cdef class ampl:
             cg = self.asl.i.Cgrad_[i]
             while cg is not NULL:
                 jcol = <long>cg.varno
-#               spJac[irow, jcol] = cg.coef
                 SpMatrix_LLMatSetItem(<void*>spJac, irow, jcol, cg.coef)
                 cg = cg.next
 
@@ -494,7 +479,7 @@ cdef class ampl:
             ndarray[np.double_t] J
 
             # Variables needed for coordinate format.
-            ndarray[np.int_t] a_irow, a_icol
+            # ndarray[np.int_t] a_irow, a_icol  # broken.
 
             # Variables needed for LL format.
             cgrad* cg
@@ -514,14 +499,15 @@ cdef class ampl:
             a_icol = np.empty(nnzj, dtype=np.int)
             a_irow = np.empty(nnzj, dtype=np.int)
 
-            for i in range(self.n_con):
+            for i in xrange(self.n_con):
                 cg = self.asl.i.Cgrad_[i]
                 while cg is not NULL:
-                    a_irow.data[cg.goff] = i
-                    a_icol.data[cg.goff] = cg.varno
+                    # a_irow.data[cg.goff] = i         # broken.
+                    # a_icol.data[cg.goff] = cg.varno
+                    a_irow[cg.goff] = i
+                    a_icol[cg.goff] = cg.varno
                     cg = cg.next
 
-            # Return the triple (J, irow, icol).
             return (J, a_irow, a_icol)
 
         else: # return Jacobian in LL format.
@@ -546,8 +532,6 @@ cdef class ampl:
                coord, double obj_weight=1.0, int store_zeros=0, spHess=None):
         """Evaluate sparse upper triangle of Lagrangian Hessian.
 
-        NOTE: .... why are we passing x ???
-
         In the future, we will want to be careful here, in case x has
         changed but f(x), c(x) or J(x) have not yet been recomputed. In
         such a case, Ampl has NOT updated the data structure for the
@@ -557,14 +541,14 @@ cdef class ampl:
             ndarray[np.double_t] H
 
             # Variables needed for coordinate format.
-            ndarray[np.int_t] a_irow, a_icol
+            # ndarray[np.int_t] a_irow, a_icol  # broken.
 
             # Variables needed for LL format.
             cgrad* cg
             int* dims = [self.n_var, self.n_var]
 
             # Misc.
-            double OW[1]     # Objective type: we currently only support single objective
+            double OW[1]  # Objective type: we currently only support single objective
             int i, j, k
 
         # Ensure contiguous input.
@@ -588,11 +572,12 @@ cdef class ampl:
                 j0 = self.asl.i.sputinfo_.hcolstarts[i  ]
                 j1 = self.asl.i.sputinfo_.hcolstarts[i+1]
                 for j in range(j0,j1):
-                    a_irow.data[k] = self.asl.i.sputinfo_.hrownos[j]
-                    a_icol.data[k] = i
+                    # a_irow.data[k] = self.asl.i.sputinfo_.hrownos[j]
+                    # a_icol.data[k] = i  # broken.
+                    a_irow[k] = self.asl.i.sputinfo_.hrownos[j]
+                    a_icol[k] = i
                     k += 1
 
-            # Return the triple (J, irow, icol).
             return (H, a_irow, a_icol)
 
         else: # return Hessian in LL format.
