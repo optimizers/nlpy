@@ -2,8 +2,12 @@
 # Define an abstract class to represent a general
 # nonlinear optimization problem.
 # D. Orban, 2004.
-from pykrylov.linop import LinearOperator
+from pykrylov.linop import LinearOperator, DiagonalOperator
+from pykrylov.linop import BlockLinearOperator, ReducedLinearOperator
 from nlpy.tools.decorators import deprecated
+from nlpy.tools.utils import where
+from pysparse.sparse import PysparseMatrix as psp
+from scipy import sparse as sp
 import logging
 import numpy as np
 import sys
@@ -439,10 +443,49 @@ class NLPModel(object):
       return
 
     def __repr__(self):
-      s = '%s %s with %d variables and %d constraints' % (self.__class_,
-                                                          self.name,
-                                                          self.n, self.m)
-      return s
+      dat = (self.__class__.__name__, self.name, self.n, self.m)
+      return '%s %s with %d variables and %d constraints' % dat
+
+
+class PySparseNLPModel(NLPModel):
+  """
+  An `NLPModel` where sparse matrices are returned in PySparse format.
+  The `NLPModel`'s `jac` and `hess` methods should return that sparse
+  Jacobian and Hessian in coordinate format: (vals, rows, cols).
+  """
+
+  def hess(self, *args, **kwargs):
+    vals, rows, cols = super(PySparseNLPModel, self).hess(*args, **kwargs)
+    H = psp(size=self.nvar, sizeHint=vals.size, symmetric=True)
+    H.put(vals, rows, cols)
+    return H
+
+  def jac(self, *args, **kwargs):
+    vals, rows, cols = super(PySparseNLPModel,
+                             self).jac(*args, **kwargs)
+    J = psp(nrow=self.ncon, ncol=self.nvar,
+            sizeHint=vals.size, symmetric=False)
+    J.put(vals, rows, cols)
+    return J
+
+
+class SciPyNLPModel(NLPModel):
+  """
+  An `NLPModel` where sparse matrices are returned in SciPy
+  coordinate (COO) format. The `NLPModel`'s `jac` and `hess` methods
+  should return that sparse Jacobian and Hessian in coordinate format:
+  (vals, rows, cols).
+  """
+
+  def hess(self, *args, **kwargs):
+    vals, rows, cols = super(SciPyNLPModel, self).hess(*args, **kwargs)
+    return sp.coo_matrix((vals, (rows, cols)),
+                         shape=(self.nvar, self.nvar))
+
+  def jac(self, *args, **kwargs):
+    vals, rows, cols = super(SciPyNLPModel, self).jac(*args, **kwargs)
+    return sp.coo_matrix((vals, (rows, cols)),
+                         shape=(self.ncon, self.nvar))
 
 
 class QPModel(NLPModel):
