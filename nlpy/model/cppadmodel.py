@@ -12,7 +12,7 @@ class CppADModel(NLPModel):
     """
 
     def __init__(self, n=0, m=0, name='CppAD-Generic', **kwargs):
-        NLPModel.__init__(self, n, m, name, **kwargs)
+        super(CppADModel, self).__init__(n, m, name, **kwargs)
 
         # Trace objective and constraint functions.
         self._trace_obj(self.x0)
