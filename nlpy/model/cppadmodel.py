@@ -80,7 +80,7 @@ class CppADModel(NLPModel):
         "Return the constraints Jacobian from the CppAD tape."
         return self._cppad_adfun_cons.jacobian(x)
 
-    def jac_vec(self, x, v, **kwargs):
+    def jprod(self, x, v, **kwargs):
         "Return the product of v with the Jacobian at x."
         return self._cppad_jac_vec(x, v, **kwargs)
 
@@ -93,7 +93,7 @@ class CppADModel(NLPModel):
         # forward: order one (computes directional derivative)
         return self._cppad_adfun_cons.forward(1, v)
 
-    def vec_jac(self, x, v, **kwargs):
+    def jtprod(self, x, v, **kwargs):
         "Return the product of v with the transpose Jacobian at x."
         return self._cppad_vec_jac(x, v, **kwargs)
 
