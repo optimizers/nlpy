@@ -11,10 +11,6 @@ class BaseAdolcModel(NLPModel):
     See the documentation of `NLPModel` for further information.
     """
 
-    # Count the number of instances of this class to generate
-    # non-conflicting tape ids. Must be a mutable type.
-    __NUM_INSTANCES = [-1]
-
     def __init__(self, n=0, m=0, name='Adolc-Generic', **kwargs):
         super(BaseAdolcModel, self).__init__(n, m, name, **kwargs)
 
