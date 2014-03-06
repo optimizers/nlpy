@@ -1,17 +1,18 @@
 # Tests relative to algorithmic differentiation with ADOL-C.
 from numpy.testing import *
-from nlpy.model import AdolcModel
+from nlpy.model import BaseAdolcModel, SparseAdolcModel
+from nlpy.model import PySparseAdolcModel, SciPyAdolcModel
 import numpy as np
 
 
-class AdolcRosenbrock(AdolcModel):
+class AdolcRosenbrock(BaseAdolcModel):
   "The standard Rosenbrock function."
 
   def obj(self, x, **kwargs):
     return np.sum(100*(x[1:] - x[:-1]**2)**2 + (1 - x[:-1])**2)
 
 
-class AdolcHS7(AdolcModel):
+class AdolcHS7(BaseAdolcModel):
   "Problem #7 in the Hock and Schittkowski collection."
 
   def obj(self, x, **kwargs):
@@ -19,6 +20,18 @@ class AdolcHS7(AdolcModel):
 
   def cons(self, x, **kwargs):
     return np.array([(1 + x[0]**2)**2 + x[1]**2 - 4])
+
+
+class SparseRosenbrock(SparseAdolcModel, AdolcRosenbrock):
+  pass
+
+
+class PySparseRosenbrock(PySparseAdolcModel, AdolcRosenbrock):
+    pass
+
+
+class SciPyRosenbrock(SciPyAdolcModel, AdolcRosenbrock):
+    pass
 
 
 def get_values(nlp):
@@ -32,9 +45,9 @@ def get_values(nlp):
 
 def get_derivatives(nlp):
   g = nlp.grad(nlp.x0)
-  H = nlp.dense_hess(nlp.x0, nlp.x0)
+  H = nlp.hess(nlp.x0, nlp.pi0)
   if nlp.m > 0:
-    J = nlp.dense_jac(nlp.x0)
+    J = nlp.jac(nlp.x0)
     v = -np.ones(nlp.n)
     w = 2*np.ones(nlp.m)
     Jv = nlp.jprod(nlp.x0, v)
