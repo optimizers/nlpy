@@ -17,7 +17,19 @@ def get_values(nlp):
     return f
 
 
-def get_derivatives(nlp):
+def get_derivatives_coord(nlp):
+  g = nlp.grad(nlp.x0)
+  H = ndarray_from_coord(nlp.nvar, nlp.nvar,
+                         *nlp.hess(nlp.x0, nlp.pi0), symmetric=True)
+  if nlp.m > 0:
+      J = ndarray_from_coord(nlp.ncon, nlp.nvar,
+                             *nlp.jac(nlp.x0), symmetric=False)
+      return (g, H, J)
+  else:
+      return (g, H)
+
+
+def get_derivatives_llmat(nlp):
   g = nlp.grad(nlp.x0)
   H = ndarray_from_ll_mat_sym(nlp.hess(nlp.x0, nlp.pi0))
   if nlp.m > 0:
@@ -46,6 +58,17 @@ def ndarray_from_ll_mat(spA):
   return A
 
 
+def ndarray_from_coord(nrow, ncol, vals, rows, cols, symmetric=False):
+  A = np.zeros((nrow, ncol), dtype=np.float)
+  for k in range(len(vals)):
+    row = rows[k]
+    col = cols[k]
+    A[row, col] += vals[k]
+    if symmetric and row != col:
+      A[col, row] = vals[k]
+  return A
+
+
 class Test_AmplRosenbrock(TestCase):
 
   def setUp(self):
@@ -57,7 +80,7 @@ class Test_AmplRosenbrock(TestCase):
     expected_f = 1616.0
     assert_almost_equal(f, expected_f)
 
-    (g, H) = get_derivatives(self.rosenbrock)
+    (g, H) = get_derivatives_coord(self.rosenbrock)
     expected_g = np.array([-804., -1204., -1204., -1204., -400.])
     expected_H = np.array([[1602.,  400.,    0.,    0.,   0.],
                            [ 400., 1802.,  400.,    0.,   0.],
@@ -82,7 +105,7 @@ class Test_AmplHS7(TestCase):
       assert_almost_equal(f, expected_f)
       assert_allclose(c, expected_c)
 
-      (g, H, J) = get_derivatives(hs7)
+      (g, H, J) = get_derivatives_coord(hs7)
       expected_g = np.array([0.8, -1.])
       expected_H = np.array([[-0.24, 0.], [0., 0.]])
       expected_J = np.array([[40., 4.]])
