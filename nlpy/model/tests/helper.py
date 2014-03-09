@@ -34,16 +34,16 @@ class Hs7Data(object):
     self.expected_JTw = np.dot(self.expected_J.T, w)
 
 
-rosenbrock_data = RosenbrockData()
-hs7_data = Hs7Data()
-
-
 class Rosenbrock(object):
 
   def get_derivatives(self, nlp):
     return get_derivatives_coord(nlp)
 
+  def get_expected(self):
+    return RosenbrockData()
+
   def test_rosenbrock(self):
+    rosenbrock_data = self.get_expected()
     f = get_values(self.nlp)
     assert_almost_equal(f, rosenbrock_data.expected_f)
 
@@ -55,10 +55,14 @@ class Rosenbrock(object):
 
 class Hs7(object):
 
+  def get_expected(self):
+    return Hs7Data()
+
   def get_derivatives(self, nlp):
     return get_derivatives_coord(nlp)
 
   def test_hs7(self):
+    hs7_data = self.get_expected()
     (f, c, l) = get_values(self.nlp)
     assert_almost_equal(f, hs7_data.expected_f)
     assert_allclose(c, hs7_data.expected_c)
