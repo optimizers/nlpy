@@ -594,4 +594,7 @@ class SciPyAmplModel(SciPyNLPModel, AmplModel):
       return sp.coo_matrix((vals, (rows, cols)),
                            shape=(self.ncon, self.nvar))
 
+  def jop(self, *args, **kwargs):
+      return self.jac(*args, **kwargs)
+
   # Here, `jac` and `hess` are inherited directly from SciPyNPLModel.
