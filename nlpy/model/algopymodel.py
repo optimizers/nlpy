@@ -16,14 +16,12 @@ class AlgopyModel(NLPModel):
 
     self._cg_obj = None
     self._cg_cons = None
-    self._cg_cons_pos = None
     self._cg_lag = None
 
     self._trace_obj(self.x0)
     self._trace_lag(self.x0, self.pi0)
     if m > 0:
       self._trace_cons(self.x0)
-      self._trace_cons_pos(self.x0)
 
   @property
   def cg_obj(self):
@@ -34,11 +32,6 @@ class AlgopyModel(NLPModel):
   def cg_cons(self):
     "Constraints call graph."
     return self._cg_cons
-
-  @property
-  def cg_cons_pos(self):
-    "Reformulated constraints call graph."
-    return self._cg_cons_pos
 
   @property
   def cg_lag(self):
@@ -69,25 +62,12 @@ class AlgopyModel(NLPModel):
     cg.dependentFunctionList = [y]
     self._cg_cons = cg
 
-  def _trace_cons_pos(self, x):
-    "Trace the reformulated constraints evaluation."
-
-    if self._cg_cons_pos is not None or self.m == 0: return
-    cg = algopy.CGraph()
-    x = algopy.Function(x)
-    y = self.cons_pos(x)
-    cg.trace_off()
-    cg.independentFunctionList = [x]
-    cg.dependentFunctionList = [y]
-    self._cg_cons_pos = cg
-
   def _trace_lag(self, x, z):
     "Trace the Lagrangian evaluation."
 
     if self._cg_lag is not None: return
     self._trace_obj(x)
     self._trace_cons(x)
-    self._trace_cons_pos(x)
     unconstrained = self.m == 0 and self.nbounds == 0
 
     if unconstrained:
@@ -119,7 +99,7 @@ class AlgopyModel(NLPModel):
     # when passed empty arrays of objects (i.e., dtype = np.object).
     # This causes AD tools to error out.
     if self.m > 0:
-      l -= algopy.dot(z[:m+nrC], self.cons_pos(x))
+      l -= algopy.dot(z[:m+nrC], self.cons(x))
     if self.nbounds > 0:
       l -= algopy.dot(z[m+nrC:], self.bounds(x))
     return l
@@ -135,47 +115,15 @@ class AlgopyModel(NLPModel):
     v0 = np.concatenate((v, np.zeros(self.ncon)))
     return self._cg_lag.hess_vec(xz, v0)[:self.nvar]
 
-  # Override cons_pos() because of the way Algopy initializes arrays.
   def cons_pos(self, x):
     """
-    Convenience function to return the vector of constraints
-    reformulated as
+    Because AlgoPy does not support fancy indexing, it is necessary
+    to formulate constraints in the form
 
-        ci(x) - ai  = 0  for i in equalC
-        ci(x) - Li >= 0  for i in lowerC + rangeC
-        Ui - ci(x) >= 0  for i in upperC + rangeC.
-
-    The constraints appear in natural order, except for the fact that the
-    'upper side' of range constraints is appended to the list.
-
-    Scaling should be applied in cons().
+        ci(x)  = 0  for i in equalC
+        ci(x) >= 0  for i in lowerC.
     """
-    m = self.m
-    equalC = self.equalC ; nequalC = self.nequalC
-    lowerC = self.lowerC ; nlowerC = self.nlowerC
-    upperC = self.upperC ; nupperC = self.nupperC
-    rangeC = self.rangeC ; nrangeC = self.nrangeC
-    Lcon   = self.Lcon   ; Ucon    = self.Ucon
-
-    c = algopy.zeros(m + nrangeC, dtype=x)
-    c[:m] = self.cons(x)
-    if nrangeC > 0: c[m:] = c[rangeC]
-
-    # if nequalC + nlowerC + nupperC + nrangeC > 0:
-    #   Lcon = algopy.zeros(self.nvar, dtype=x)
-    #   Lcon[:] = self.Lcon[:]
-    #   Ucon = algopy.zeros(self.nvar, dtype=x)
-    #   Ucon[:] = self.Ucon[:]
-
-    if nequalC > 0: c[equalC] -= Lcon[equalC]
-    if nlowerC > 0: c[lowerC] -= Lcon[lowerC]
-    if nupperC > 0:
-      c[upperC] -= Ucon[upperC] ; c[upperC] *= -1
-    if nrangeC > 0:
-      c[rangeC] -= Lcon[rangeC]
-      c[m:]     -= Ucon[rangeC] ; c[m:] *= -1
-
-    return c
+    return self.cons(x)
 
   def jac(self, x, **kwargs):
     "Return constraints Jacobian at x."
@@ -183,7 +131,7 @@ class AlgopyModel(NLPModel):
 
   def jac_pos(self, x, **kwargs):
     "Return reformulated constraints Jacobian at x."
-    return self._cg_cons_pos.jacobian(x)
+    return self.jac(x, **kwargs)
 
   def jprod(self, x, v, **kwargs):
     "Return the Jacobian-vector product at x with v."
