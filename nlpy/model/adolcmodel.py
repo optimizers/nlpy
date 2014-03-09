@@ -116,16 +116,15 @@ class BaseAdolcModel(NLPModel):
 
     def hess(self, x, z, **kwargs):
         "Return the dense Hessian of the objective at x."
-        H = self._adolc_hess(x, z, **kwargs)
-        return H[:self.nvar, :self.nvar]
-
-    def _adolc_hess(self, x, z, **kwargs):
         xz = np.concatenate((x, z))
-        return adolc.hessian(self._lag_trace_id, xz)
+        H = adolc.hessian(self._lag_trace_id, xz)
+        return H[:self.nvar, :self.nvar]
 
     def hprod(self, x, z, v, **kwargs):
         "Return the Hessian-vector product at x with v."
-        return adolc.hess_vec(self._lag_trace_id, x, v)
+        xz = np.concatenate((x, z))
+        v0 = np.concatenate((v, np.zeros(self.ncon)))
+        return adolc.hess_vec(self._lag_trace_id, xz, v0)[:self.nvar]
 
     def _adolc_cons(self, x, **kwargs):
         "Evaluate the constraints from the ADOL-C tape."
