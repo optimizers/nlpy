@@ -107,37 +107,37 @@ class NLPModel(object):
       if 'x0' in kwargs.keys():
         self.x0 = np.ascontiguousarray(kwargs['x0'], dtype=float)
       else:
-        self.x0 = np.zeros(self.n, 'd')
+        self.x0 = np.zeros(self.n, dtype=np.float)
 
       # Set initial multipliers
       if 'pi0' in kwargs.keys():
-        self.pi0 = np.ascontiguousarray(kwargs['pi0'], dtype=float)
+        self.pi0 = np.ascontiguousarray(kwargs['pi0'], dtype=np.float)
       else:
-        self.pi0 = np.zeros(self.m, 'd')
+        self.pi0 = np.zeros(self.m, dtype=np.float)
 
       # Set lower bounds on variables    Lvar[i] <= x[i]  i = 1,...,n
       if 'Lvar' in kwargs.keys():
-        self.Lvar = np.ascontiguousarray(kwargs['Lvar'], dtype=float)
+        self.Lvar = np.ascontiguousarray(kwargs['Lvar'], dtype=np.float)
       else:
-        self.Lvar = -np.inf * np.ones(self.n, 'd')
+        self.Lvar = -np.inf * np.ones(self.n, dtype=np.float)
 
       # Set upper bounds on variables    x[i] <= Uvar[i]  i = 1,...,n
       if 'Uvar' in kwargs.keys():
-        self.Uvar = np.ascontiguousarray(kwargs['Uvar'], dtype=float)
+        self.Uvar = np.ascontiguousarray(kwargs['Uvar'], dtype=np.float)
       else:
-        self.Uvar = np.inf * np.ones(self.n, 'd')
+        self.Uvar = np.inf * np.ones(self.n, dtype=np.float)
 
       # Set lower bounds on constraints  Lcon[i] <= c[i]  i = 1,...,m
       if 'Lcon' in kwargs.keys():
-        self.Lcon = np.ascontiguousarray(kwargs['Lcon'], dtype=float)
+        self.Lcon = np.ascontiguousarray(kwargs['Lcon'], dtype=np.float)
       else:
-        self.Lcon = -np.inf * np.ones(self.m, 'd')
+        self.Lcon = -np.inf * np.ones(self.m, dtype=np.float)
 
       # Set upper bounds on constraints  c[i] <= Ucon[i]  i = 1,...,m
       if 'Ucon' in kwargs.keys():
-        self.Ucon = np.ascontiguousarray(kwargs['Ucon'], dtype=float)
+        self.Ucon = np.ascontiguousarray(kwargs['Ucon'], dtype=np.float)
       else:
-        self.Ucon = np.inf * np.ones(self.m, 'd')
+        self.Ucon = np.inf * np.ones(self.m, dtype=np.float)
 
       # Default classification of constraints
       self.lin = []                        # Linear    constraints
@@ -220,7 +220,7 @@ class NLPModel(object):
       # Problem-specific logger.
       self.__class__._id += 1
       self._id = self.__class__._id
-      self.logger = logging.getLogger(name=self.name + str(self._id))
+      self.logger = logging.getLogger(name=self.name + '_' + str(self._id))
       self.logger.setLevel(logging.INFO)
       fmt = logging.Formatter('%(name)-10s %(levelname)-8s %(message)s')
       hndlr = logging.StreamHandler(sys.stdout)
@@ -532,9 +532,9 @@ class NLPModel(object):
       # when passed empty arrays of objects (i.e., dtype = np.object).
       # This causes AD tools to error out.
       if self.m > 0:
-        l += np.dot(z[:m+nrC], self.cons_pos(x))
+        l -= np.dot(z[:m+nrC], self.cons_pos(x))
       if self.nbounds > 0:
-        l += np.dot(z[m+nrC:], self.bounds(x))
+        l -= np.dot(z[m+nrC:], self.bounds(x))
       return l
 
     # Evaluate Lagrangian Hessian at (x,z)
@@ -573,24 +573,26 @@ class NLPModel(object):
       write('Number of Bound Constraints: %d' % self.nbounds)
       write(' (%d lower, %d upper, %d two-sided)' %
             (self.nlowerB, self.nupperB, self.nrangeB))
-      if self.nlowerB > 0: write('Lower bounds: %d' % self.lowerB)
-      if self.nupperB > 0: write('Upper bounds: %d' % self.upperB)
-      if self.nrangeB > 0: write('Two-Sided bounds: %d' % self.rangeB)
-      write('Vector of lower bounds: %d' % self.Lvar)
-      write('Vectof of upper bounds: %d' % self.Uvar)
+      if self.nlowerB > 0: write('Lower bounds: %s' % repr(self.lowerB))
+      if self.nupperB > 0: write('Upper bounds: %s' % repr(self.upperB))
+      if self.nrangeB > 0: write('Two-Sided bounds: %s' % repr(self.rangeB))
+      if self.nlowerB + self.nupperB + self.nrangeB > 0:
+        write('Vector of lower bounds: %s' % repr(self.Lvar))
+        write('Vectof of upper bounds: %s' % repr(self.Uvar))
       write('Number of General Constraints: %d' % self.m)
       write(' (%d equality, %d lower, %d upper, %d range)' %
             (self.nequalC, self.nlowerC, self.nupperC, self.nrangeC))
-      if self.nequalC > 0: write('Equality: %d' % self.equalC)
-      if self.nlowerC > 0: write('Lower   : %d' % self.lowerC)
-      if self.nupperC > 0: write('Upper   : %d' % self.upperC)
-      if self.nrangeC > 0: write('Range   : %d' % self.rangeC)
-      write('Vector of constraint lower bounds: %s' % repr(self.Lcon))
-      write('Vector of constraint upper bounds: %s' % repr(self.Ucon))
-      write('Number of Linear Constraints: %d\n' % self.nlin)
-      write('Number of Nonlinear Constraints: %d\n' % self.nnln)
-      write('Number of Network Constraints: %d\n' % self.nnet)
-      write('Initial Guess: %s\n' % repr(self.x0))
+      if self.nequalC > 0: write('Equality: %s' % repr(self.equalC))
+      if self.nlowerC > 0: write('Lower   : %s' % repr(self.lowerC))
+      if self.nupperC > 0: write('Upper   : %s' % repr(self.upperC))
+      if self.nrangeC > 0: write('Range   : %s' % repr(self.rangeC))
+      if self.nequalC + self.nlowerC + self.nupperC + self.nrangeC > 0:
+        write('Vector of constraint lower bounds: %s' % repr(self.Lcon))
+        write('Vector of constraint upper bounds: %s' % repr(self.Ucon))
+        write('Number of Linear Constraints: %d' % self.nlin)
+        write('Number of Nonlinear Constraints: %d' % self.nnln)
+        write('Number of Network Constraints: %d' % self.nnet)
+      write('Initial Guess: %s' % repr(self.x0))
 
       return
 
