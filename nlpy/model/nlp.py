@@ -5,6 +5,7 @@
 from nlpy.model import KKTresidual
 from pykrylov.linop import LinearOperator, DiagonalOperator
 from pykrylov.linop import BlockLinearOperator, ReducedLinearOperator
+from pykrylov.linop import linop_from_ndarray
 from nlpy.tools.decorators import deprecated
 from nlpy.tools.utils import where
 from pysparse.sparse import PysparseMatrix as psp
@@ -595,6 +596,8 @@ class SciPyNLPModel(NLPModel):
                          shape=(self.nvar, self.nvar))
 
   def jac(self, *args, **kwargs):
+    if self.ncon == 0:  # SciPy cannot create sparse matrix of size 0.
+      return linop_from_ndarray(np.empty((0, self.nvar), dtype=np.float))
     vals, rows, cols = super(SciPyNLPModel, self).jac(*args, **kwargs)
     return sp.coo_matrix((vals, (rows, cols)),
                          shape=(self.ncon, self.nvar))
