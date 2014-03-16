@@ -2,6 +2,7 @@
 # Define an abstract class to represent a general
 # nonlinear optimization problem.
 # D. Orban, 2004.
+from nlpy.model import KKTresidual
 from pykrylov.linop import LinearOperator, DiagonalOperator
 from pykrylov.linop import BlockLinearOperator, ReducedLinearOperator
 from nlpy.tools.decorators import deprecated
@@ -11,48 +12,6 @@ from scipy import sparse as sp
 import logging
 import numpy as np
 import sys
-
-
-class KKTresidual(object):
-    """
-    A generic class to package KKT residuals and corresponding scalings.
-    """
-    def __init__(self, dFeas, pFeas, bFeas, gComp, bComp, **kwargs):
-        """
-        :parameters:
-            :dFeas: dual feasibility residual
-            :pFeas: primal feasibility residual, taking into account
-                    constraints that are not bound constraints,
-            :bFeas: primal feasibility with respect to bounds,
-            :gComp: complementarity residual with respect to constraints
-                    that are not bound constraints,
-            :bComp: complementarity residual with respect to bounds.
-        """
-        self.dFeas = dFeas
-        self.pFeas = pFeas
-        self.bFeas = bFeas
-        self.gComp = gComp
-        self.bComp = bComp
-        self._is_scaling = kwargs.get('is_scaling', False)
-        if self._is_scaling:
-            self.scaling = None
-        else:
-            if 'scaling' in kwargs:
-                self.set_scaling(kwargs['scaling'])
-            else:
-                self.scaling = KKTresidual(1.0, 1.0, 1.0, 1.0, 1.0,
-                                           is_scaling=True)
-        return
-
-    def set_scaling(self, scaling, **kwargs):
-        "Assign scaling values. `scaling` must be a `KKTresidual` instance."
-        if self._is_scaling:
-            raise ValueError('instance represents scaling factors.')
-        if not isinstance(scaling, KKTresidual):
-            raise ValueError('scaling must be a KKTresidual instance.')
-        self.scaling = scaling
-        self.scaling._is_scaling = True
-        return
 
 
 class NLPModel(object):
@@ -366,10 +325,7 @@ class NLPModel(object):
             :check:  check sign of multipliers.
 
         :returns:
-            :pFeas:  primal feasibility residual
-            :dFeas:  dual feasibility residual (gradient of Lagrangian)
-            :cy:     complementarity for general constraints
-            :xz:     complementarity for bound constraints.
+            :kkt:  KKT residuals as a KKTresidual instance.
         """
         # Shortcuts.
         m = self.m ; nrC = self.nrangeC ; eC = self.equalC
@@ -390,12 +346,14 @@ class NLPModel(object):
 
     # Evaluate optimality residuals
     def OptimalityResiduals(self, *args, **kwargs):
-      return self.KKTresidual(*args, **kwargs)
+      return self.kkt_residuals(*args, **kwargs)
 
     # Decide whether optimality is attained
     def AtOptimality(self, x, z, **kwargs):
-      (d, c, p) = self.OptimalityResiduals(x, z, **kwargs)
-      if d <= self.stop_d and c <= self.stop_c and p <= self.stop_p:
+      kkt = self.OptimalityResiduals(x, z, **kwargs)
+      if kkt.dFeas <= self.stop_d and \
+         kkt.comp <= self.stop_c and  \
+         kkt.feas <= self.stop_p:
           return True
       return False
 

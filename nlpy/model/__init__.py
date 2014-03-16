@@ -2,6 +2,7 @@
 NLPy Modeling Facilities.
 """
 
+from kkt         import *
 from nlp         import *
 from amplpy      import *
 from noisynlp    import *
