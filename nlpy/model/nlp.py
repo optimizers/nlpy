@@ -17,10 +17,10 @@ import sys
 
 class NLPModel(object):
     """
-    Instances of class NLPModel represent an abstract nonlinear optimization
-    problem. It features methods to evaluate the objective and constraint
-    functions, and their derivatives. Instances of the general class do not
-    do anything interesting; they must be subclassed and specialized.
+    An abstract nonlinear optimization problem. It features methods to
+    evaluate the objective and constraint functions, and their derivatives.
+    Instances of the general class do not do anything interesting; they must
+    be subclassed and specialized.
 
     :parameters:
 
@@ -40,28 +40,15 @@ class NLPModel(object):
                   (default: all -Infinity)
         :Ucon:    vector of upper bounds on the constraints
                   (default: all +Infinity)
-
-    Constraints are classified into 3 classes: linear, nonlinear and network.
-
-    Indices of linear constraints are found in member :attr:`lin`
-    (default: empty).
-
-    Indices of nonlinear constraints are found in member :attr:`nln`
-    (default: all).
-
-    Indices of network constraints are found in member :attr:`net`
-    (default: empty).
-
-    If necessary, additional arguments may be passed in kwargs.
     """
 
     _id = -1
 
     def __init__(self, n=0, m=0, name='Generic', **kwargs):
 
-      self.nvar = self.n = n   # Number of variables
-      self.ncon = self.m = m   # Number of general constraints
-      self.name = name         # Problem name
+      self._nvar = self._n = n   # Number of variables
+      self._ncon = self._m = m   # Number of general constraints
+      self._name = name         # Problem name
 
       # Set initial point
       if 'x0' in kwargs.keys():
@@ -100,19 +87,18 @@ class NLPModel(object):
         self.Ucon = np.inf * np.ones(self.m, dtype=np.float)
 
       # Default classification of constraints
-      self.lin = []                        # Linear    constraints
-      self.nln = range(self.m)             # Nonlinear constraints
-      self.net = []                        # Network   constraints
-      self.nlin = len(self.lin)            # Number of linear constraints
-      self.nnln = len(self.nln)            # Number of nonlinear constraints
-      self.nnet = len(self.net)            # Number of network constraints
+      self._lin = []                        # Linear    constraints
+      self._nln = range(self.m)             # Nonlinear constraints
+      self._net = []                        # Network   constraints
+      self._nlin = len(self.lin)            # Number of linear constraints
+      self._nnln = len(self.nln)            # Number of nonlinear constraints
+      self._nnet = len(self.net)            # Number of network constraints
 
       # Maintain lists of indices for each type of constraints:
       self.rangeC = []    # Range constraints:       cL <= c(x) <= cU
       self.lowerC = []    # Lower bound constraints: cL <= c(x)
       self.upperC = []    # Upper bound constraints:       c(x) <= cU
       self.equalC = []    # Equality constraints:    cL  = c(x)  = cU
-      self.freeC  = []    # "Free" constraints:    -inf <= c(x) <= inf
 
       for i in range(self.m):
         if self.Lcon[i] > -np.inf and self.Ucon[i] < np.inf:
@@ -124,14 +110,11 @@ class NLPModel(object):
           self.lowerC.append(i)
         elif self.Ucon[i] < np.inf:
           self.upperC.append(i)
-        else:
-          self.freeC.append(i)
 
       self.nlowerC = len(self.lowerC)   # Number of lower bound constraints
       self.nrangeC = len(self.rangeC)   # Number of range constraints
       self.nupperC = len(self.upperC)   # Number of upper bound constraints
       self.nequalC = len(self.equalC)   # Number of equality constraints
-      self.nfreeC  = len(self.freeC )   # The rest: should be 0
 
       # Define permutations to order constraints / multipliers.
       self.permC = self.equalC + self.lowerC + self.upperC + self.rangeC
@@ -188,6 +171,61 @@ class NLPModel(object):
       self.logger.addHandler(hndlr)
 
     @property
+    def nvar(self):
+      "Number of variables."
+      return self._nvar
+
+    @property
+    def n(self):
+      "Number of variables."
+      return self._n
+
+    @property
+    def ncon(self):
+      "Number of constraints (excluding bounds)."
+      return self._ncon
+
+    @property
+    def m(self):
+      "Number of constraints (excluding bounds)."
+      return self._m
+
+    @property
+    def name(self):
+      "Problem name."
+      return self._name
+
+    @property
+    def lin(self):
+      "Indices of linear constraints."
+      return self._lin
+
+    @property
+    def nlin(self):
+      "Number of linear constraints."
+      return self._nlin
+
+    @property
+    def nln(self):
+      "Indices of nonlinear constraints."
+      return self._nln
+
+    @property
+    def nnln(self):
+      "Number of nonlinear constraints."
+      return self._nnln
+
+    @property
+    def nnet(self):
+      "Number of network constraints."
+      return self._nnet
+
+    @property
+    def net(self):
+      "Inidices of network constraints."
+      return self._net
+
+    @property
     def stop_d(self):
       "Tolerance on dual feasibility"
       return self._stop_d
@@ -225,6 +263,97 @@ class NLPModel(object):
       self.stop_p = stop_p
       self.stop_c = stop_c
       return
+
+    def compute_scaling_obj(self, x=None, g_max=1.0e2, reset=False):
+        """
+        Compute objective scaling.
+
+        :parameters:
+
+            :x: Determine scaling by evaluating functions at this
+                point. Default is to use :attr:`self.x0`.
+            :g_max: Maximum allowed gradient. Default: :attr:`g_max = 1e2`.
+            :reset: Set to `True` to unscale the problem.
+
+        The procedure used here closely
+        follows IPOPT's behavior; see Section 3.8 of
+
+          Waecther and Biegler, 'On the implementation of an
+          interior-point filter line-search algorithm for large-scale
+          nonlinear programming', Math. Prog. A (106), pp.25-57, 2006
+
+        which is a scalar rescaling that ensures the inf-norm of the
+        gradient (at x) isn't larger than 'g_max'.
+        """
+        # Remove scaling if requested
+        if reset:
+            self.scale_obj = None
+            self.pi0 = self.model.get_pi0()  # get original multipliers
+            return
+
+        # Quick return if the problem is already scaled
+        if self.scale_obj is not None:
+            return
+
+        if x is None: x = self.x0
+        g = self.grad(x)
+        gNorm = np.linalg.norm(g, np.inf)
+        self.scale_obj = g_max / max(g_max, gNorm)  # <= 1 always
+
+        # Rescale the Lagrange multiplier
+        self.pi0 *= self.scale_obj
+
+        return gNorm
+
+    def compute_scaling_cons(self, x=None, g_max=1.0e2, reset=False):
+        """
+        Compute constraint scaling.
+
+        :parameters:
+
+            :x: Determine scaling by evaluating functions at this
+                point. Default is to use :attr:`self.x0`.
+            :g_max: Maximum allowed gradient. Default: :attr:`g_max = 1e2`.
+            :reset: Set to `True` to unscale the problem.
+        """
+        # Remove scaling if requested
+        if reset:
+            self.scale_con = None
+            self.Lcon = self.model.get_Lcon()  # lower bounds on constraints
+            self.Ucon = self.model.get_Ucon()  # upper bounds on constraints
+            return
+
+        # Quick return if the problem is already scaled
+        if self.scale_con is not None:
+            return
+
+        m = self.m
+        if x is None: x = self.x0
+        d_c = np.empty(m)
+        J = self.jop(x)
+
+        # Find inf-norm of each row of J
+        gmaxNorm = 0            # holds the maxiumum row-norm of J
+        imaxNorm = 0            # holds the corresponding index
+        e = np.zeros(self.ncon)
+        for i in xrange(m):
+            e[i] = 1
+            giNorm = np.linalg.norm(J.T * e, 1)  # Matrix 1-norm (max abs col)
+            e[i] = 0
+            d_c[i] = g_max / max(g_max, giNorm)  # <= 1 always
+            if giNorm > gmaxNorm:
+                gmaxNorm = giNorm
+                imaxNorm = i
+            gmaxNorm = max(gmaxNorm, giNorm)
+
+        self.scale_con = d_c
+
+        # Scale constraint bounds: componentwise multiplications
+        self.Lcon *= d_c        # lower bounds on constraints
+        self.Ucon *= d_c        # upper bounds on constraints
+
+        # Return largest row norm and its index
+        return (imaxNorm, gmaxNorm)
 
     def primal_feasibility(self, x, c=None):
         """
@@ -345,18 +474,14 @@ class NLPModel(object):
 
         return KKTresidual(dFeas, pFeas[:m+nrC], pFeas[m+nrC:], cy, xz)
 
-    # Evaluate optimality residuals
-    def OptimalityResiduals(self, *args, **kwargs):
-      return self.kkt_residuals(*args, **kwargs)
-
-    # Decide whether optimality is attained
-    def AtOptimality(self, x, z, **kwargs):
-      kkt = self.OptimalityResiduals(x, z, **kwargs)
-      if kkt.dFeas <= self.stop_d and \
-         kkt.comp <= self.stop_c and  \
-         kkt.feas <= self.stop_p:
-          return True
-      return False
+    def at_optimality(self, x, z, **kwargs):
+      """
+      Checks whether the KKT residuals meet the stopping conditions.
+      """
+      kkt = self.optimality_residuals(x, z, **kwargs)
+      return kkt.dFeas <= self.stop_d and \
+             kkt.comp <= self.stop_c and  \
+             kkt.feas <= self.stop_p
 
     def compute_scaling_obj(self, x=None, g_max=1.0e2, reset=False):
       """Compute objective scaling."""
@@ -385,16 +510,16 @@ class NLPModel(object):
         b[nlB+nuB+nrB:] = Uvar[rB] - x[rB]
         return b
 
-    # Evaluate objective function at x
     def obj(self, x, **kwargs):
+      "Evaluate the objective function at x."
       raise NotImplementedError('This method must be subclassed.')
 
-    # Evaluate objective gradient at x
     def grad(self, x, **kwargs):
+      "Evaluate the objective gradient at x."
       raise NotImplementedError('This method must be subclassed.')
 
-    # Evaluate vector of constraints at x
     def cons(self, x, **kwargs):
+      "Evaluate vector of constraints at x."
       raise NotImplementedError('This method must be subclassed.')
 
     def cons_pos(self, x):
@@ -431,38 +556,36 @@ class NLPModel(object):
 
       return c
 
-    # Evaluate i-th constraint at x
     def icons(self, i, x, **kwargs):
+      "Evaluate i-th constraint at x."
       raise NotImplementedError('This method must be subclassed.')
 
-    # Evalutate i-th constraint gradient at x
-    # Gradient is returned as a dense vector
     def igrad(self, i, x, **kwargs):
+      "Evalutate i-th dense constraint gradient at x."
       raise NotImplementedError('This method must be subclassed.')
 
-    # Evaluate i-th constraint gradient at x
-    # Gradient is returned as a sparse vector
     def sigrad(self, i, x, **kwargs):
+      "Evaluate i-th sparse constraint gradient at x."
       raise NotImplementedError('This method must be subclassed.')
 
-    # Evaluate constraints Jacobian at x
     def jac(self, x, **kwargs):
+      "Evaluate constraints Jacobian at x."
       raise NotImplementedError('This method must be subclassed.')
 
-    # Jacobian of cons_pos().
     def jac_pos(self, x, **kwargs):
+      "Evaluate the Jacobian of :meth:`cons_pos` at x."
       raise NotImplementedError('This method must be subclassed.')
 
-    # Evaluate Jacobian-vector product
     def jprod(self, x, p, **kwargs):
+      "Evaluate Jacobian-vector product at x with p."
       raise NotImplementedError('This method must be subclassed')
 
-    # Evaluate transposed-Jacobian-vector product
     def jtprod(self, x, p, **kwargs):
+      "Evaluate transposed-Jacobian-vector product at x with p."
       raise NotImplementedError('This method must be subclassed')
 
     def jop(self, x):
-      "Obtain Jacobian as a linear operator."
+      "Obtain Jacobian at xas a linear operator."
       return LinearOperator(self.n, self.m,
                             lambda v: self.jprod(x, v),
                             matvec_transp=lambda u: self.jtprod(x, u),
@@ -470,7 +593,7 @@ class NLPModel(object):
                             dtype=np.float)
 
     def jop_pos(self, x):
-      "Jacobian of :meth:`cons_pos` as a linear operator."
+      "Jacobian of :meth:`cons_pos` at x as a linear operator."
       J = self.jop(x)
       e = np.ones(self.ncon + self.nrangeC)
       e[self.upperC] = -1
@@ -496,27 +619,33 @@ class NLPModel(object):
         l -= np.dot(z[m+nrC:], self.bounds(x))
       return l
 
-    # Evaluate Lagrangian Hessian at (x,z)
     def hess(self, x, z=None, **kwargs):
+      "Evaluate Lagrangian Hessian at (x, z)."
       raise NotImplementedError('This method must be subclassed.')
 
-    # Evaluate matrix-vector product between
-    # the Hessian of the Lagrangian and a vector
     def hprod(self, x, z, p, **kwargs):
+      """
+      Evaluate matrix-vector product between
+      the Hessian of the Lagrangian at (x, z) and p.
+      """
       raise NotImplementedError('This method must be subclassed.')
 
-    # Evaluate matrix-vector product between
-    # the Hessian of the i-th constraint and a vector
     def hiprod(self, i, x, p, **kwargs):
+      """
+      Evaluate matrix-vector product between
+      the Hessian of the i-th constraint at x and p.
+      """
       raise NotImplementedError('This method must be subclassed.')
 
-    # Evaluate the vector of dot products (g, Hi*v) where Hi is the Hessian
-    # of the i-th constraint, i=1..m.
     def ghivprod(self, g, v, **kwargs):
+      """
+      Evaluate the vector of dot products (g, Hi*v) where Hi is the Hessian
+      of the i-th constraint at x, i = 1, ..., ncon.
+      """
       raise NotImplementedError('This method must be subclassed.')
 
     def hop(self, x, z=None, **kwargs):
-      "Obtain Hessian as a linear operator."
+      "Obtain Lagrangian Hessian at (x, z) as a linear operator."
       return LinearOperator(self.n, self.n,
                             lambda v: self.hprod(x, z, v, **kwargs),
                             symmetric=True,
@@ -648,12 +777,12 @@ class QPModel(NLPModel):
         self.H = H
 
         # Default classification of constraints
-        self.lin = range(self.m)             # Linear    constraints
-        self.nln = []                        # Nonlinear constraints
-        self.net = []                        # Network   constraints
-        self.nlin = len(self.lin)            # Number of linear constraints
-        self.nnln = len(self.nln)            # Number of nonlinear constraints
-        self.nnet = len(self.net)            # Number of network constraints
+        self._lin = range(self.m)             # Linear    constraints
+        self._nln = []                        # Nonlinear constraints
+        self._net = []                        # Network   constraints
+        self._nlin = len(self.lin)            # Number of linear constraints
+        self._nnln = len(self.nln)            # Number of nonlinear constraints
+        self._nnet = len(self.net)            # Number of network constraints
 
     def obj(self, x):
         cHx = self.hprod(x, 0, x)
