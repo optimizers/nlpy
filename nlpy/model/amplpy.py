@@ -439,7 +439,7 @@ class AmplModel(NLPModel):
 class PySparseAmplModel(AmplModel):
   # Here, there's no reason to inherit from PySparseNLPModel
   # as we'll never revert to it. Instead, we reimplement `jac`
-  # and `hess` because the AMPL module # can return a PySparse
+  # and `hess` because the AMPL module can return a PySparse
   # matrix directly, which is more efficient.
 
   def __init__(self, *args, **kwargs):
@@ -486,9 +486,9 @@ class PySparseAmplModel(AmplModel):
 
 class SciPyAmplModel(SciPyNLPModel, AmplModel):
   # MRO: 1. SciPyAmplModel
-  #    2. SciPyNLPModel
-  #    3. AmplModel
-  #    4. NLPModel
+  #      2. SciPyNLPModel
+  #      3. AmplModel
+  #      4. NLPModel
 
   def A(self, *args, **kwargs):
     """
