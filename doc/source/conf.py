@@ -26,10 +26,12 @@ sys.path.append(os.path.abspath('../../nlpy/optimize/solvers'))
 sys.path.append(os.path.abspath('../../examples'))
 sys.path.append('sphinxext')
 
+# Theme
+import sphinx_bootstrap_theme
+
 # Import support for ipython console session syntax highlighting (lives
 # in the sphinxext directory defined above)
 import ipython_console_highlighting
-import inheritance_diagram
 import mathjax
 
 # General configuration
@@ -39,10 +41,15 @@ import mathjax
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest']
 extensions += ['sphinx.ext.todo']
+extensions += ['sphinx.ext.inheritance_diagram']
 extensions += ['ipython_console_highlighting']
-extensions += ['inheritance_diagram']
 extensions += ['mathjax']
-mathjax_path = 'https://d3eoax9i5htok0.cloudfront.net/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'
+mathjax_path = 'https://c328740.ssl.cf1.rackcdn.com/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'
+
+graphviz_output_format = 'svg'
+inheritance_node_attrs = dict(shape='box', fontsize=12,
+                              color='gray70', style='rounded')
+inheritance_graph_attrs = dict(rankdir="TB", size='""', bgcolor="transparent")
 
 latex_preamble = '\\usepackage{nlpy}'
 latex_elements = {
@@ -64,7 +71,7 @@ master_doc = 'contents'
 
 # General information about the project.
 project = u'NLPy'
-copyright = u'2011, Dominique Orban'
+copyright = u'2014, Dominique Orban'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -119,7 +126,14 @@ todo_include_todos = True
 # must exist either in Sphinx' static/ path, or in one of the custom paths
 # given in html_static_path.
 #html_style = 'nlpy.css'
-html_theme = "agogo"
+# html_theme = "agogo"
+html_theme = "bootstrap"
+html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
+html_theme_options = {
+  'source_link_position': "footer",
+  # Bootswatch (http://bootswatch.com/) theme.
+  'bootswatch_theme': "spacelab",
+}
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".

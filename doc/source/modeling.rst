@@ -27,6 +27,8 @@ may be equal to :math:`+\infty`.
 Modeling with `NLPModel` Objects
 --------------------------------
 
+`NLPModel` objects are the most basic type of model. They require that functions and their derivatives be coded explicitly.
+
 The :mod:`nlp` Module
 =====================
 
@@ -46,9 +48,11 @@ Example
 
 .. _amplpy-section:
 
-------------------------------------------
-Using Models in the AMPL Modeling Language
-------------------------------------------
+------------------------------------
+Models in the AMPL Modeling Language
+------------------------------------
+
+`AmplModel` objects are convenient in that the model is written in the AMPL modeling language, and the AMPL Solver Library takes care of evaluating derivatives for us.
 
 See the `AMPL home page <http://www.ampl.com>`_ for more information on the
 AMPL algebraic modeling language.
@@ -71,16 +75,39 @@ Example
    :linenos:
 
 
+--------------------------------------------
+Python Models with Automatic Differentiation
+--------------------------------------------
+
+ADOLC
+=====
+
+.. todo:: Write this section
+
+CppAD
+=====
+
+.. todo:: Write this section
+
+AlgoPy
+======
+
+.. todo:: Write this section
+
+
+--------------------
+Reformulating Models
+--------------------
+
 .. _slacks-section:
 
---------------------------------------
 Using the Slack Formulation of a Model
 --------------------------------------
 
-The :mod:`slacks` Module
+The :mod:`snlp` Module
 ========================
 
-.. automodule:: slacks
+.. automodule:: snlp
 
 
 `SlackFramework` is a general framework for converting the :ref:`general
@@ -143,7 +170,7 @@ such as the index set of constraints with an upper bound, etc., but
 rather performs the evaluations of the constraints for the updated
 model implicitly.
 
-.. autoclass:: SlackFramework
+.. autoclass:: SlackModel
    :show-inheritance:
    :members:
    :undoc-members:
@@ -154,8 +181,12 @@ Example
 
 .. todo:: Insert example.
 
-Inheritance Diagram
-===================
+Inheritance Diagrams
+====================
 
-.. inheritance-diagram:: nlpy.model.slacks
+.. inheritance-diagram:: nlpy.model.nlp nlpy.model.amplpy nlpy.model.snlp nlpy.model.adolcmodel nlpy.model.cppadmodel nlpy.model.algopymodel nlpy.model.qnmodel nlpy.model.augmented_lagrangian nlpy.model.l1
+  :parts: 1
 
+
+.. inheritance-diagram:: nlpy.model.lbfgs nlpy.model.kkt
+  :parts: 1
