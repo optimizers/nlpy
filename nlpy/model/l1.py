@@ -2,6 +2,10 @@ from nlpy.model import NLPModel
 from pysparse.sparse import spmatrix
 from pysparse.sparse.pysparseMatrix import PysparseMatrix as sp
 
+from pykrylov.linop import PysparseLinearOperator
+
+import numpy as np
+
 
 class L1MeritFunction(NLPModel):
     u"""
@@ -70,9 +74,9 @@ class L1MeritFunction(NLPModel):
         Lvar[:nlp.n] = -np.inf
         Lvar[nlp.n:] = 0
 
-        NLPModel.__init__(self, n=nvar, m=ncon,
-                          name=nlp.name + ' (l1)', Lvar=Lvar,
-                          Lcon=np.zeros(ncon), **kwargs)
+        super(L1MeritFunction, self).__init__(n=nvar, m=ncon,
+                                              name=nlp.name + ' (l1)', Lvar=Lvar,
+                                              Lcon=np.zeros(ncon), **kwargs)
 
         self.nlp = nlp
 
@@ -369,7 +373,7 @@ class L1MeritFunction(NLPModel):
         grad[:n] = nlp.grad(x) if g is None else g[:]
         if neqC > 0:
             _JE = nlp.jac(x)[eqC,:]
-            JE = PysparseLinearOperator(_JE, symmetric=False)
+            JE = PysparseLinearOperator(_JE)
             eE = np.ones(neqC)
             grad[:n] += self.nuE * (JE.T * eE)
 
@@ -509,6 +513,9 @@ class L1MeritFunction(NLPModel):
 
         return Jp
 
+    def jop(self, *args, **kwargs):
+        return PysparseLinearOperator(self.jac(*args, **kwargs))
+
     def igrad(self, i, xst):
         "Do not call this function. For derivative checking purposes only."
         J = self.jac(xst)
@@ -541,6 +548,9 @@ class L1MeritFunction(NLPModel):
         H = sp(nrow=self.n, ncol=self.n, symmetric=True, sizeHint=nlp.nnzh)
         H[:nlp.n,:nlp.n] = nlp.hess(x, y2, **kwargs)
         return H
+
+    def hop(self, *args, **kwargs):
+        return PysparseLinearOperator(self.hess(*args, **kwargs))
 
     def bounds(self, xst):
         "Return the vector of bound constraints."
@@ -669,11 +679,13 @@ class L1BarrierMeritFunction(NLPModel):
         nB  = nlp.nlowerB + nlp.nupperB + nlp.nrangeB
         nvar = nlp.n + nlp.m + nB
 
-        NLPModel.__init__(self, n=nvar, m=0, name=nlp.name + ' (l1barrier)',
-                          **kwargs)
+        super(L1BarrierMeritFunction, self).__init__(n=nvar, m=0,
+                                                     name=nlp.name + ' (l1barrier)',
+                                                     **kwargs)
 
         self.l1 = L1MeritFunction(nlp, **kwargs)
         self.x0 = self.l1.x0
+        self.pi0 = self.l1.pi0
         self._mu = mu
         return
 
@@ -724,11 +736,10 @@ class L1BarrierMeritFunction(NLPModel):
 
         # Shortcuts.
         l1 = self.l1
-        mu = self.get_barrier_parameter()
         (x,s,t) = l1.get_xst(xst)
 
         if c is None: c = l1.cons(xst)
-        return mu / np.concatenate((c, s, t))
+        return self.mu / np.concatenate((c, s, t))
 
     def grad(self, xst, g=None, J=None, **kwargs):
         """
@@ -783,6 +794,9 @@ class L1BarrierMeritFunction(NLPModel):
         _JCYJ = spmatrix.symdot(J.matrix, yz / c)
         JCYJ = sp(matrix=_JCYJ)
         Hbar += JCYJ
-        r1 = range(n, self.n)
+        r1 = range(n, self.n - 1)
         Hbar.addAt(uv / st, r1, r1)
         return Hbar
+
+    def hop(self, *args, **kwargs):
+        return PysparseLinearOperator(self.hess(*args, **kwargs))
