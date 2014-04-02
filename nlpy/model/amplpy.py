@@ -91,7 +91,7 @@ class AmplModel(NLPModel):
       raise ValueError('Cannot initialize model %s' % stub)
 
     super(AmplModel, self).__init__(model.n_var, model.n_con,
-                                    name=stub,
+                                    name=kwargs.get('name', stub),
                                     x0=model.get_x0(),
                                     pi0=model.get_pi0(),
                                     Lvar=model.get_Lvar(),
