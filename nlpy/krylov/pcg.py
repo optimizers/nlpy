@@ -44,7 +44,7 @@ class TruncatedCG(object):
 
           :step:       final step,
           :niter:      number of iterations,
-          :stepNorm:   Euclidian norm of the step,
+          :step_norm:  Euclidian norm of the step,
           :dir:        direction of infinite descent (if radius=None and
                        H is not positive definite),
           :onBoundary: set to True if trust-region boundary was hit,
@@ -69,14 +69,14 @@ class TruncatedCG(object):
         self.status = '?'
         self.onBoundary = False
         self.step = None
-        self.stepNorm = 0.0
+        self.step_norm = 0.0
         self.niter = 0
         self.dir = None
         self.qval = None
         self.pHp = None
 
         # Setup the logger. Install a NullHandler if no output needed.
-        logger_name = kwargs.get('logger_name', 'nlpy.trunk')
+        logger_name = kwargs.get('logger_name', 'nlpy.trcg')
         self.log = logging.getLogger(logger_name)
         self.log.propagate = False
 
@@ -226,7 +226,7 @@ class TruncatedCG(object):
             self.y = y
             self.p = p
             self.step = s
-            self.stepNorm2 = snorm2
+            self.step_norm2 = snorm2
             self.ry = ry
             self.alpha = alpha
             self.beta = beta
@@ -258,7 +258,7 @@ class TruncatedCG(object):
             self.status = 'residual small'
         self.step = s
         self.niter = k
-        self.stepNorm = sqrt(snorm2)
+        self.step_norm = sqrt(snorm2)
         self.onBoundary = onBoundary
         self.infDescent = infDescent
         return
