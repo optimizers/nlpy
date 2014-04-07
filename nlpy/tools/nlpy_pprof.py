@@ -2,7 +2,7 @@
 # Main driver for performance profiles.
 
 from nlpy import __version__
-from nlpy.tools.pprof2 import PerformanceProfile
+from nlpy.tools.pprof import PerformanceProfile
 from optparse import OptionParser
 import sys
 
