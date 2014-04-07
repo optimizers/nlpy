@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-from nlpy.model import amplpy
-from nlpy.optimize.tr.trustregion import TrustRegionFramework as TR
-from nlpy.optimize.tr.trustregion import TrustRegionCG, TrustRegionCGLBFGS
-from nlpy.optimize.solvers.trunk import TrunkFramework as solver
+from nlpy.model import QuasiNewtonModel, AmplModel, LBFGS
+from nlpy.optimize.tr.trustregion import TrustRegion
+from nlpy.krylov.pcg import TruncatedCG
+from nlpy.optimize.solvers.trunk import Trunk, QNTrunk
 from nlpy.tools.timing import cputime
 from argparse import ArgumentParser
 import logging
@@ -11,41 +11,46 @@ import numpy
 import sys
 
 
+class QuasiNewtonAmplModel(QuasiNewtonModel, AmplModel):
+  # All the work is done by the parent classes.
+  pass
+
+
 def pass_to_trunk(nlp, options, showbanner=True):
 
-    if nlp.nbounds > 0 or nlp.m > 0:         # Check for unconstrained problem
-        sys.stderr.write('%s has %d bounds and %d general constraints\n' % (ProblemName, nlp.nbounds, nlp.m))
-        return None
+    if nlp.nbounds + nlp.m > 0:         # Check for unconstrained problem
+        msg = '%s has %d bounds and %d constraints' % (nlp.name,
+                                                       nlp.nbounds, nlp.m)
+        raise ValueError(msg)
 
     t = cputime()
-    tr = TR(Delta=1.0, eta1=0.05, eta2=0.9, gamma1=0.25, gamma2=2.5)
+    tr = TrustRegion(radius=1.0, eta1=0.05, eta2=0.9, gamma1=0.25, gamma2=2.5)
 
-    # When instantiating TrunkFramework,
-    # we select a trust-region subproblem solver of our choice.
-    TRSolver = TrustRegionCGLBFGS if options.lbfgs else TrustRegionCG
-    TRNK = solver(nlp, tr, TRSolver, ny=not options.nony,
-                  inexact=not options.exact,
-                  logger_name='nlpy.trunk', reltol=options.rtol,
-                  abstol=options.atol, maxiter=options.maxiter)
-    t_setup = cputime() - t                  # Setup time
+    TrunkClass = QNTrunk if options.lbfgs else Trunk
+    trunk = TrunkClass(nlp, tr, TruncatedCG,
+                       ny=not options.nony,
+                       inexact=not options.exact,
+                       logger_name='nlpy.trunk',
+                       reltol=options.rtol, abstol=options.atol,
+                       maxiter=options.maxiter)
+    t_setup = cputime() - t
 
     if showbanner:
         print
         print '------------------------------------------'
-        print 'Trunk: Solving problem %-s with parameters' % ProblemName
+        print 'Trunk: Solving problem %-s with parameters' % nlp.name
         hdr = 'eta1 = %-g  eta2 = %-g  gamma1 = %-g  gamma2 = %-g Delta0 = %-g'
         print hdr % (tr.eta1, tr.eta2, tr.gamma1, tr.gamma2, tr.Delta)
+        print 'Set up problem in %f seconds' % t_setup
         print '------------------------------------------'
         print
 
-    TRNK.Solve()
-    return TRNK
+    trunk.solve()
+    return trunk
 
 # Declare command-line arguments.
-parser = ArgumentParser(description='A Newton/CG trust-region solver for' + \
+parser = ArgumentParser(description='A Newton/CG trust-region solver for' +
                                     ' unconstrained optimization')
-parser.add_argument('--plot', action='store_true',
-                    help='Plot evolution of trust-region radius')
 parser.add_argument('--nony', action='store_true',
                     help='Deactivate Nocedal-Yuan backtracking')
 parser.add_argument('--exact', action='store_true',
@@ -58,6 +63,10 @@ parser.add_argument('--maxiter', action='store', type=int, default=100,
                     dest='maxiter', help='Maximum number of iterations')
 parser.add_argument('--monotone', action='store_true',
                     help='Use monotone descent strategy')
+parser.add_argument('--lbfgs', action='store_true',
+                    help='Use L-BFGS approximation')
+parser.add_argument('--npairs', action='store', type=int, default=5,
+                    dest='npairs', help='Number of L-BFGS pairs')
 options, args = parser.parse_known_args()
 
 # Create root logger.
@@ -71,45 +80,28 @@ log.addHandler(hndlr)
 
 # Set printing standards for arrays
 numpy.set_printoptions(precision=3, linewidth=80, threshold=10, edgeitems=3)
-multiple_probs = len(args)
+multiple_probs = len(args) > 0
 
-for ProblemName in args:
-    nlp = amplpy.AmplModel(ProblemName)         # Create a model
-    TRNK = pass_to_trunk(nlp, options, showbanner=not multiple_probs)
-    #nlp.writesol(TRNK.x, nlp.pi0, 'And the winner is')    # Output "solution"
-    nlp.close()                                 # Close connection with model
+for name in args:
+    if options.lbfgs:
+      nlp = QuasiNewtonAmplModel(name, H=LBFGS, npairs=options.npairs)
+    else:
+      nlp = AmplModel(name)
+    trunk = pass_to_trunk(nlp, options, showbanner=not multiple_probs)
 
 # Output final statistics
 if not multiple_probs:
-    print
-    print 'Final variables:', TRNK.x
-    print
-    print '-------------------------------'
-    print 'Trunk: End of Execution'
-    print '  Problem                     : %-s' % ProblemName
-    print '  Dimension                   : %-d' % nlp.n
-    print '  Initial/Final Objective     : %-g/%-g' % (TRNK.f0, TRNK.f)
-    print '  Initial/Final Gradient Norm : %-g/%-g' % (TRNK.g0, TRNK.gnorm)
-    print '  Number of iterations        : %-d' % TRNK.iter
-    print '  Number of function evals    : %-d' % TRNK.nlp.feval
-    print '  Number of gradient evals    : %-d' % TRNK.nlp.geval
-    print '  Number of Hessian  evals    : %-d' % TRNK.nlp.Heval
-    print '  Number of matvec products   : %-d' % TRNK.nlp.Hprod
-    print '  Total/Average Lanczos iter  : %-d/%-g' % (TRNK.total_cgiter, (float(TRNK.total_cgiter)/TRNK.iter))
-    print '  Setup/Solve time            : %-gs/%-gs' % (t_setup, TRNK.tsolve)
-    print '  Total time                  : %-gs' % (t_setup + TRNK.tsolve)
-    print '-------------------------------'
-
-    # Plot the evolution of the trust-region radius on the last problem
-    if TRNK is not None and args.plot:
-        try:
-            import pylab
-        except:
-            sys.stderr.write('If you had pylab installed, you would be looking ')
-            sys.stderr.write('at a plot of the evolution of the trust-region ')
-            sys.stderr.write('radius, right now.\n')
-            sys.exit(0)
-        radii = numpy.array(TRNK.radii, 'd')
-        pylab.plot(numpy.where(radii < 100, radii, 100))
-        pylab.title('Trust-region radius')
-        pylab.show()
+    log.info('Final variables:' + repr(trunk.x))
+    log.info('Trunk: End of Execution')
+    log.info('  Problem                     : %-s' % name)
+    log.info('  Dimension                   : %-d' % nlp.n)
+    log.info('  Initial/Final Objective     : %-g/%-g' % (trunk.f0, trunk.f))
+    log.info('  Initial/Final Gradient Norm : %-g/%-g' % (trunk.g0, trunk.gnorm))
+    log.info('  Number of iterations        : %-d' % trunk.iter)
+    log.info('  Number of function evals    : %-d' % trunk.nlp.feval)
+    log.info('  Number of gradient evals    : %-d' % trunk.nlp.geval)
+    log.info('  Number of Hessian  evals    : %-d' % trunk.nlp.Heval)
+    log.info('  Number of matvec products   : %-d' % trunk.nlp.Hprod)
+    log.info('  Total/Average CG iter       : %-d/%-g' % (trunk.total_cgiter,
+                                                          (float(trunk.total_cgiter)/trunk.iter)))
+    log.info('  Solve time                  : %-gs/%-gs' % trunk.tsolve)
