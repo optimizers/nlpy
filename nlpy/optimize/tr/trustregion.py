@@ -2,20 +2,18 @@
 Class definition for Trust-Region Algorithm
 """
 
-from nlpy.krylov.pcg  import TruncatedCG, TruncatedCGLBFGS
-from nlpy.krylov.ppcg import ProjectedCG
 import numpy as np
-from math import sqrt
 
 __docformat__ = 'restructuredtext'
 
-class TrustRegionFramework(object):
+
+class TrustRegion(object):
     """
     Initializes an object allowing management of a trust region.
 
     :keywords:
 
-        :Delta:         Initial trust-region radius (default: 1.0)
+        :radius:        Initial trust-region radius (default: 1.0)
         :eta1:          Step acceptance threshold   (default: 0.01)
         :eta2:          Radius increase threshold   (default: 0.99)
         :gamma1:        Radius decrease factor      (default: 1/3)
@@ -32,26 +30,15 @@ class TrustRegionFramework(object):
 
     def __init__(self, **kwargs):
 
-        self.Delta0 = kwargs.get('Delta', 1.0) # Initial trust-region radius
-        self.Delta  = self.Delta0 # Current trust-region radius
-        self.DeltaMax = 1.0e+10 # Largest trust-region radius
+        self.radius  = self.radius0 = kwargs.get('radius', 1.0)
+        self.radius_max = 1.0e+10
         self.eta1   = kwargs.get('eta1', 0.01)     # Step acceptance threshold
         self.eta2   = kwargs.get('eta2', 0.99)     # Radius increase threshold
         self.gamma1 = kwargs.get('gamma1', 1.0/3)  # Radius decrease factor
         self.gamma2 = kwargs.get('gamma2', 2.5)    # Radius increase factor
-        self.eps    = self._Epsilon() # Machine epsilon
+        self.eps    = np.finfo(np.double).eps  # Machine epsilon.
 
-    def _Epsilon(self):
-        """
-        Return approximate value of machine epsilon
-        """
-        one = 1.0
-        eps = 1.0
-        while (one + eps) > one:
-            eps = eps / 2.0
-        return eps*2.0
-
-    def Rho(self, f, f_trial, m, check_positive=True):
+    def ratio(self, f, f_trial, m, check_positive=True):
         """
         Compute the ratio of actual versus predicted reduction
         rho = (f - f_trial)/(-m)
@@ -63,31 +50,30 @@ class TrustRegionFramework(object):
         else:
             # Error: Negative predicted reduction
             msg = 'TrustRegion:: Nonpositive predicted reduction: %8.1e' % pred
-            raise ValueError, msg
+            raise ValueError(msg)
             return None
 
-    def UpdateRadius(self, rho, stepNorm):
+    def update_radius(self, ratio, step_norm):
         """
         Update the trust-region radius. The rule implemented by this method is:
 
-        Delta = gamma1 * stepNorm       if ared/pred <  eta1
-        Delta = gamma2 * Delta          if ared/pred >= eta2
-        Delta unchanged otherwise,
+        radius = gamma1 * step_norm      if ared/pred <  eta1
+        radius = gamma2 * radius         if ared/pred >= eta2
+        radius unchanged otherwise,
 
-        where ared/pred is the quotient computed by self.Rho().
+        where ared/pred is the quotient computed by :meth:`ratio`.
         """
-        if rho < self.eta1:
-            self.Delta = self.gamma1 * stepNorm
-        elif rho >= self.eta2:
-            self.Delta = min(max(self.Delta, self.gamma2 * stepNorm),
-                              self.DeltaMax)
+        if ratio < self.eta1:
+            self.radius = self.gamma1 * step_norm
+        elif ratio >= self.eta2:
+            self.radius = min(max(self.radius, self.gamma2 * step_norm),
+                              self.radius_max)
 
-    def ResetRadius(self):
+    def reset_radius(self):
         """
         Reset radius to original value
         """
-        self.Delta = self.Delta0
-
+        self.radius = self.radius0
 
 
 class TrustRegionSolver(object):
@@ -95,20 +81,19 @@ class TrustRegionSolver(object):
     A generic template class for implementing solvers for the trust-region
     subproblem
 
-    minimize    q(d)
-    subject to  ||d|| <= radius,
+    minimize q(d)  subject to  ||d|| <= radius,
 
-    where q(d) is a quadratic function of the n-vector d, i.e., q has the
-    general form q(d) = g' d + 1/2 d' H d,
-
-    where `g` is a n-vector typically interpreted as the gradient of some
-    merit function and `H` is a real symmetric n-by-n matrix. Note that `H`
-    need not be positive semi-definite.
+    where q(d) is a quadratic function, not necessarily convex.
 
     The trust-region constraint `||d|| <= radius` can be defined in any
     norm although most derived classes currently implement the Euclidian
     norm only. Note however that any elliptical norm may be used via a
     preconditioner.
+
+    :keywords:
+      :qp: a ``QPModel`` instance
+      :cg_solver: a `class` to be instantiated and used as solver for the
+                  trust-region problem.
 
     For more information on trust-region methods, see
 
@@ -116,112 +101,45 @@ class TrustRegionSolver(object):
     MP01 MPS-SIAM Series on Optimization, 2000.
     """
 
-    def __init__(self, qp, **kwargs):
+    def __init__(self, qp, cg_solver, **kwargs):
 
-        self.qp = qp
+        self._qp = qp
+        self._cg_solver = cg_solver(qp, **kwargs)
+        self._niter = 0
+        self._step_norm = 0.0
+        self._step = None
+        self._m = None  # Model value at candidate solution
 
-    def Solve(self):
+    @property
+    def qp(self):
+        return self._qp
+
+    @property
+    def niter(self):
+        return self._niter
+
+    @property
+    def step_norm(self):
+        return self._step_norm
+
+    @property
+    def step(self):
+        return self._step
+
+    @property
+    def m(self):
+        return self._m
+
+    @property
+    def model_value(self):
+        return self._m
+
+    def solve(self, *args, **kwargs):
         """
-        Solve the trust-region subproblem. This method must be overridden.
+        Solve the trust-region subproblem.
         """
-        return None
-
-
-class TrustRegionCG(TrustRegionSolver):
-    """
-    Instantiate a trust-region subproblem solver based on the truncated
-    conjugate gradient method of Steihaug and Toint. See the :mod:`pcg` module
-    for more information.
-
-    The main difference between this class and the :class:`TrustRegionPCG`
-    class is that :class:`TrustRegionPCG` only accepts explicit
-    preconditioners (i.e. in matrix form). This class accepts an implicit
-    preconditioner, i.e., any callable object.
-    """
-
-    def __init__(self, qp, **kwargs):
-
-        TrustRegionSolver.__init__(self, qp, **kwargs)
-        self.cgSolver = TruncatedCG(qp, **kwargs)
-        self.niter = 0
-        self.stepNorm = 0.0
-        self.step = None
-        self.m = None # Model value at candidate solution
-
-    def Solve(self, **kwargs):
-        """
-        Solve trust-region subproblem using the truncated conjugate-gradient
-        algorithm.
-        """
-        self.cgSolver.Solve(**kwargs)
-        self.niter = self.cgSolver.niter
-        self.stepNorm = self.cgSolver.stepNorm
-        self.step= self.cgSolver.step
-        self.m = self.qp.obj(self.step)        # Compute model reduction.
-        return
-
-
-class TrustRegionCGLBFGS(TrustRegionCG):
-    """
-    Instantiate a trust-region subproblem solver based on the truncated
-    conjugate gradient method of Steihaug and Toint. See the :mod:`pcg` module
-    for more information. A limited-memory BFGS preconditioner is built for use
-    in subsequent solves.
-    """
-
-    def __init__(self, g, H, **kwargs):
-
-        TrustRegionCG.__init__(self, g, H, **kwargs)
-        self.cgSolver = TruncatedCGLBFGS(g, H, **kwargs)
-
-
-class TrustRegionPCG(TrustRegionSolver):
-    """
-    Instantiate a trust-region subproblem solver based on the projected
-    truncated conjugate gradient of Gould, Hribar and Nocedal.
-    See the :mod:`ppcg` module for more information.
-
-    The trust-region subproblem has the form
-
-    minimize q(d)  subject to  Ad = 0  and  ||d|| <= radius,
-
-    where q(d) is a quadratic function of the n-vector d, i.e., q has the
-    general form q(d) = g' d + 1/2 d' H d,
-
-    where `g` is a n-vector typically interpreted as the gradient of some
-    merit function and `H` is a real symmetric n-by-n matrix. Note that `H`
-    need not be positive semi-definite.
-
-    The trust-region constraint `||d|| <= radius` can be defined in any
-    norm although most derived classes currently implement the Euclidian
-    norm only. Note however that any elliptical norm may be used via a
-    preconditioner.
-
-    For more information on trust-region methods, see
-
-    A. R. Conn, N. I. M. Gould and Ph. L. Toint, Trust-Region Methods,
-    MP01 MPS-SIAM Series on Optimization, 2000.
-    """
-
-    def __init__(self, qp, **kwargs):
-
-        TrustRegionSolver.__init__(self, qp, **kwargs)
-        self.cgSolver = ProjectedCG(qp, **kwargs)
-        self.niter = 0
-        self.stepNorm = 0.0
-        self.step = None
-        self.hprod = kwargs.get('matvec', None)
-        self.m = None # Model value at candidate solution
-
-    def Solve(self, **kwargs):
-        """
-        Solve trust-region subproblem using the projected truncated conjugate
-        gradient algorithm.
-        """
-        self.cgSolver.Solve(**kwargs)
-        self.niter = self.cgSolver.iter
-        self.stepNorm = self.cgSolver.stepNorm
-        self.step= self.cgSolver.x
-        self.m = self.qp.obj(self.step)        # Compute model reduction.
-        return
-
+        self._cg_solver.solve(*args, **kwargs)
+        self._niter = self._cg_solver.niter
+        self._step_norm = self._cg_solver.step_norm
+        self._step = self._cg_solver.step
+        self._m = self.qp.obj(self.step)        # Compute model reduction.
