@@ -483,14 +483,6 @@ class NLPModel(object):
              kkt.comp <= self.stop_c and  \
              kkt.feas <= self.stop_p
 
-    def compute_scaling_obj(self, x=None, g_max=1.0e2, reset=False):
-      """Compute objective scaling."""
-      raise NotImplementedError('This method must be subclassed.')
-
-    def compute_scaling_cons(self, x=None, g_max=1.0e2, reset=False):
-      """Compute constraint scaling."""
-      raise NotImplementedError('This method must be subclassed.')
-
     def bounds(self, x):
         """
         Return the vector with components x[i]-Lvar[i] or Uvar[i]-x[i] in such
