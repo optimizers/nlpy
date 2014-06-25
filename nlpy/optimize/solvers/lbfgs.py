@@ -76,7 +76,7 @@ class LBFGSFramework(object):
                 print '%-5d  %-12g  %-12g' % (self.iter, self.f, self.gnorm)
 
             # Obtain search direction
-            d = self.lbfgs.matvec(-self.g)
+            d = self.lbfgs * (-self.g)
 
             # Prepare for modified More-Thuente linesearch
             if self.iter == 0:
