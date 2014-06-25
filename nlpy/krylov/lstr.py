@@ -1,10 +1,11 @@
 # LSTR: Solve a linear least-squares problem with elliptical trust-region
 # constraint using the truncated conjugate-gradient method.
 
-from nlpy.krylov.linop import PysparseLinearOperator, SquaredLinearOperator
+from pykrylov.linop import PysparseLinearOperator
 from nlpy.krylov.pcg import TruncatedCG
 
 __docformat__ = 'restructuredtext'
+
 
 class LSTRFramework(TruncatedCG):
     """
@@ -35,7 +36,10 @@ class LSTRFramework(TruncatedCG):
         estimate. See the documentation of `TruncatedCG` for more
         information.
         """
-        self.op = SquaredLinearOperator(J, transposed=transposed)
+        Jop = PysparseLinearOperator(J)
+        if transposed:
+          self.op = Jop * Jop.T
+        else:
+          self.op = Jop.T * Jop
         TruncatedCG.__init__(self, J.T * c, self.op, radius=radius, **kwargs)
         return
-
