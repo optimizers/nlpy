@@ -1,7 +1,5 @@
 from pykrylov.linop import LinearOperator
-
 import numpy as np
-import logging
 
 __docformat__ = 'restructuredtext'
 
@@ -83,8 +81,8 @@ class InverseLBFGS(LinearOperator):
       return
 
     insert = self.insert
-    self.s[:,insert] = new_s.copy()
-    self.y[:,insert] = new_y.copy()
+    self.s[:, insert] = new_s.copy()
+    self.y[:, insert] = new_y.copy()
     self.ys[insert] = ys
     self.insert += 1
     self.insert = self.insert % self.npairs
@@ -115,21 +113,21 @@ class InverseLBFGS(LinearOperator):
     for i in range(self.npairs):
       k = (self.insert - 1 - i) % self.npairs
       if ys[k] is not None:
-        alpha[k] = np.dot(s[:,k], q)/ys[k]
-        q -= alpha[k] * y[:,k]
+        alpha[k] = np.dot(s[:, k], q) / ys[k]
+        q -= alpha[k] * y[:, k]
 
     r = q
     if self.scaling:
       last = (self.insert - 1) % self.npairs
       if ys[last] is not None:
-        self.gamma = ys[last]/np.dot(y[:,last],y[:,last])
+        self.gamma = ys[last] / np.dot(y[:, last], y[:, last])
         r *= self.gamma
 
     for i in range(self.npairs):
       k = (self.insert + i) % self.npairs
       if ys[k] is not None:
-        beta = np.dot(y[:,k], r)/ys[k]
-        r += (alpha[k] - beta) * s[:,k]
+        beta = np.dot(y[:, k], r) / ys[k]
+        r += (alpha[k] - beta) * s[:, k]
     return r
 
 
@@ -157,27 +155,27 @@ class LBFGS(InverseLBFGS):
     r = v.copy()
     s = self.s ; y = self.y ; ys = self.ys
     prodn = 2*self.npairs
-    a = np.zeros(prodn,'d')
-    minimat = np.zeros([prodn,prodn],'d')
+    a = np.zeros(prodn, 'd')
+    minimat = np.zeros([prodn, prodn], 'd')
 
     if self.scaling:
       last = (self.insert - 1) % self.npairs
       if ys[last] is not None:
-        self.gamma = ys[last]/np.dot(y[:,last],y[:,last])
+        self.gamma = ys[last] / np.dot(y[:, last], y[:, last])
         r /= self.gamma
 
     paircount = 0
     for i in range(self.npairs):
       k = (self.insert + i) % self.npairs
       if ys[k] is not None:
-        a[paircount] = np.dot(r[:],s[:,k])
+        a[paircount] = np.dot(r[:], s[:, k])
         paircount += 1
 
     j = 0
     for i in range(self.npairs):
       k = (self.insert + i) % self.npairs
       if ys[k] is not None:
-        a[paircount+j] = np.dot(q[:],y[:,k])
+        a[paircount + j] = np.dot(q[:], y[:, k])
         j += 1
 
     # Populate small matrix to be inverted
@@ -185,27 +183,27 @@ class LBFGS(InverseLBFGS):
     for i in range(self.npairs):
       k = (self.insert + i) % self.npairs
       if ys[k] is not None:
-        minimat[paircount+k_ind,paircount+k_ind] = -ys[k]
-        minimat[k_ind,k_ind] = np.dot(s[:,k],s[:,k])/self.gamma
+        minimat[paircount + k_ind, paircount + k_ind] = -ys[k]
+        minimat[k_ind, k_ind] = np.dot(s[:, k], s[:, k]) / self.gamma
         l_ind = 0
         for j in range(i):
           l = (self.insert + j) % self.npairs
           if ys[l] is not None:
-            minimat[k_ind,paircount+l_ind] = np.dot(s[:,k],y[:,l])
-            minimat[paircount+l_ind,k_ind] = minimat[k_ind,paircount+l_ind]
-            minimat[k_ind,l_ind] = np.dot(s[:,k],s[:,l])/self.gamma
-            minimat[l_ind,k_ind] = minimat[k_ind,l_ind]
+            minimat[k_ind, paircount + l_ind] = np.dot(s[:, k], y[:, l])
+            minimat[paircount + l_ind, k_ind] = minimat[k_ind, paircount + l_ind]
+            minimat[k_ind, l_ind] = np.dot(s[:, k], s[:, l]) / self.gamma
+            minimat[l_ind, k_ind] = minimat[k_ind, l_ind]
             l_ind += 1
         k_ind += 1
 
     if paircount > 0:
       rng = 2*paircount
-      b = np.linalg.solve(minimat[0:rng,0:rng],a[0:rng])
+      b = np.linalg.solve(minimat[0:rng, 0:rng], a[0:rng])
 
     for i in range(paircount):
       k = (self.insert - paircount + i) % self.npairs
-      r -= (b[i]/self.gamma)*s[:,k]
-      r -= b[i+paircount]*y[:,k]
+      r -= (b[i] / self.gamma) * s[:, k]
+      r -= b[i + paircount] * y[:, k]
 
     return r
 
@@ -237,17 +235,17 @@ class LBFGS_unrolling(InverseLBFGS):
     for i in range(self.npairs):
       k = (self.insert + i) % self.npairs
       if ys[k] is not None:
-        b[:,k] = y[:,k] / ys[k]**.5
-        bv = np.dot(b[:,k], v[:])
-        q += bv * b[:,k]
-        a[:,k] = s[:,k].copy()
+        b[:, k] = y[:, k] / ys[k]**.5
+        bv = np.dot(b[:, k], v[:])
+        q += bv * b[:, k]
+        a[:, k] = s[:, k].copy()
         for j in range(i):
           l = (self.insert + j) % self.npairs
           if ys[l] is not None:
-            a[:,k] += np.dot(b[:,l], s[:,k]) * b[:,l]
-            a[:,k] -= np.dot(a[:,l], s[:,k]) * a[:,l]
-        a[:,k] /= np.dot(s[:,k], a[:,k])**.5
-        q -= np.dot(np.outer(a[:,k],a[:,k]), v[:])
+            a[:, k] += np.dot(b[:, l], s[:, k]) * b[:, l]
+            a[:, k] -= np.dot(a[:, l], s[:, k]) * a[:, l]
+        a[:, k] /= np.dot(s[:, k], a[:, k])**.5
+        q -= np.dot(np.outer(a[:, k], a[:, k]), v[:])
         paircount += 1
 
     return q
@@ -278,34 +276,34 @@ class LBFGS_structured(InverseLBFGS):
     a = np.zeros([self.n, npairs])
     ad = np.zeros([self.n, npairs])
 
-    aTs = np.zeros([npairs,1])
-    adTs = np.zeros([npairs,1])
+    aTs = np.zeros([npairs, 1])
+    adTs = np.zeros([npairs, 1])
 
     if self.scaling:
       last = (self.insert - 1) % npairs
       if ys[last] is not None:
-        self.gamma = ys[last]/np.dot(y[:,last],y[:,last])
+        self.gamma = ys[last] / np.dot(y[:, last], y[:, last])
         q /= self.gamma
 
     for i in range(npairs):
       k = (self.insert + i) % npairs
       if ys[k] is not None:
-        coef = (self.gamma*ys[k]/np.dot(s[:,k],s[:,k]))**0.5
-        a[:,k] = y[:,k] + coef * s[:,k]/self.gamma
-        ad[:,k] = yd[:,k] - s[:,k]/self.gamma
+        coef = (self.gamma * ys[k] / np.dot(s[:, k], s[:, k]))**0.5
+        a[:, k] = y[:, k] + coef * s[:, k] / self.gamma
+        ad[:, k] = yd[:, k] - s[:, k] / self.gamma
         for j in range(i):
           l = (self.insert + j) % npairs
           if ys[l] is not None:
-            alTs = np.dot(a[:,l], s[:,k])/aTs[l]
-            adlTs = np.dot(ad[:,l], s[:,k])
-            update = alTs/aTs[l] * ad[:,l] + adlTs/aTs[l] * a[:,l] - adTs[l]/aTs[l] * alTs * a[:,l]
-            a[:,k] += coef * update
-            ad[:,k] -= update
-        aTs[k] = np.dot(a[:,k], s[:,k])
-        adTs[k] = np.dot(ad[:,k], s[:,k])
-        aTv = np.dot(a[:,k],v[:])
-        adTv = np.dot(ad[:,k],v[:])
-        q += aTv/aTs[k] * ad[:,k] + adTv/aTs[k] * a[:,k] - aTv*adTs[k]/aTs[k]**2 * a[:,k]
+            alTs = np.dot(a[:, l], s[:, k]) / aTs[l]
+            adlTs = np.dot(ad[:, l], s[:, k])
+            update = alTs / aTs[l] * ad[:, l] + adlTs / aTs[l] * a[:, l] - adTs[l] / aTs[l] * alTs * a[:, l]
+            a[:, k] += coef * update
+            ad[:, k] -= update
+        aTs[k] = np.dot(a[:, k], s[:, k])
+        adTs[k] = np.dot(ad[:, k], s[:, k])
+        aTv = np.dot(a[:, k], v[:])
+        adTv = np.dot(ad[:, k], v[:])
+        q += aTv / aTs[k] * ad[:, k] + adTv / aTs[k] * a[:, k] - aTv * adTs[k] / aTs[k]**2 * a[:, k]
     return q
 
   def store(self, new_s, new_y, new_yd):
@@ -318,11 +316,11 @@ class LBFGS_structured(InverseLBFGS):
     Bs = self.matvec(new_s)
     ypBs = ys + (ys * np.dot(new_s, Bs))**0.5
 
-    if ypBs>=self.accept_threshold:
+    if ypBs >= self.accept_threshold:
       insert = self.insert
-      self.s[:,insert] = new_s.copy()
-      self.y[:,insert] = new_y.copy()
-      self.yd[:,insert] = new_yd.copy()
+      self.s[:, insert] = new_s.copy()
+      self.y[:, insert] = new_y.copy()
+      self.yd[:, insert] = new_yd.copy()
       self.ys[insert] = ys
       self.insert += 1
       self.insert = self.insert % self.npairs
