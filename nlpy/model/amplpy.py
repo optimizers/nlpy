@@ -116,6 +116,9 @@ class AmplModel(NLPModel):
     self.scale_obj = None   # Objective scaling
     self.scale_con = None   # Constraint scaling
 
+  def __del__(self):
+    self.model._dealloc()
+
   def writesol(self, x, z, msg):
     """
     Write primal-dual solution and message msg to stub.sol

@@ -204,7 +204,7 @@ cdef class ampl:
         if self.asl is NULL:
             cpython.PyErr_NoMemory()
 
-    def __dealloc__(self):
+    def _dealloc(self):
         """Free the allocated memory and ASL structure."""
         free(self.asl.i.X0_)
         free(self.asl.i.LUv_)
