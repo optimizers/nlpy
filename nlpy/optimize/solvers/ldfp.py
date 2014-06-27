@@ -12,7 +12,7 @@ a limited-memory BFGS approximation to its inverse.
 """
 
 from nlpy.optimize.solvers.lbfgs import InverseLBFGS
-from nlpy.optimize.solvers.trunk import TrunkFramework
+from nlpy.optimize.solvers.trunk import Trunk
 
 __docformat__ = 'restructuredtext'
 
@@ -80,10 +80,10 @@ class StructuredLDFP(InverseLBFGS):
 # Subclass solver TRUNK to maintain an LDFP approximation to the Hessian and
 # perform the LDFP matrix update at the end of each iteration.
 
-class LDFPTrunkFramework(TrunkFramework):
+class LDFPTrunk(Trunk):
 
     def __init__(self, nlp, TR, TrSolver, **kwargs):
-        TrunkFramework.__init__(self, nlp, TR, TrSolver, **kwargs)
+        super(Trunk, self).__init__(self, nlp, TR, TrSolver, **kwargs)
         self.ldfp = LDFP(self.nlp.n, **kwargs)
         self.save_g = True
 

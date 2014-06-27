@@ -21,7 +21,7 @@ class Trunk(object):
   An abstract framework for a trust-region-based algorithm for nonlinear
   unconstrained programming. Instantiate using
 
-  `TRNK = TrunkFramework(nlp, TR, TrSolver)`
+  `TRNK = Trunk(nlp, TR, TrSolver)`
 
   :parameters:
 
@@ -48,7 +48,7 @@ class Trunk(object):
     :logger_name:  name of a logger object that can be used in the post
                    iteration                          (default None)
 
-  Once a `TrunkFramework` object has been instantiated and the problem is
+  Once a `Trunk` object has been instantiated and the problem is
   set up, solve problem by issuing a call to `TRNK.solve()`. The algorithm
   stops as soon as the Euclidian norm of the gradient falls below
 
