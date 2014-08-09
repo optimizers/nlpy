@@ -27,6 +27,7 @@ The NLPy Library
 
    Introduction <introduction>
    Installation <installing>
+   Modeling in NLPy <modeling>
 
 =========
 Reference
@@ -35,10 +36,10 @@ Reference
 .. toctree::
    :maxdepth: 2
 
-   Modeling in NLPy <modeling>
-   Direct Solution of Systems of Linear Equations <linalg>
-   Iterative Solution of Systems of Linear Equations <krylov>
-   Optimization Tools <optim>
+
+.. Direct Solution of Systems of Linear Equations <linalg>
+.. Iterative Solution of Systems of Linear Equations <krylov>
+.. Optimization Tools <optim>
 
 
 Indices and tables
