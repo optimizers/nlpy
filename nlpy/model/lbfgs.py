@@ -231,7 +231,6 @@ class LBFGS_unrolling(InverseLBFGS):
     b = np.zeros((self.n, self.npairs), 'd')
     a = np.zeros((self.n, self.npairs), 'd')
 
-    paircount = 0
     for i in range(self.npairs):
       k = (self.insert + i) % self.npairs
       if ys[k] is not None:
@@ -246,7 +245,6 @@ class LBFGS_unrolling(InverseLBFGS):
             a[:, k] -= np.dot(a[:, l], s[:, k]) * a[:, l]
         a[:, k] /= np.dot(s[:, k], a[:, k])**.5
         q -= np.dot(np.outer(a[:, k], a[:, k]), v[:])
-        paircount += 1
 
     return q
 
