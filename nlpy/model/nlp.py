@@ -590,7 +590,7 @@ class NLPModel(object):
       e = np.ones(self.ncon + self.nrangeC)
       e[self.upperC] = -1
       e[self.ncon:] = -1
-      JR = ReducedLinearOperator(J, range(self.nvar), self.rangeC)
+      JR = ReducedLinearOperator(J, self.rangeC, range(self.nvar))
       Jpos = BlockLinearOperator([[J], [JR]], dtype=np.float)
       D = DiagonalOperator(e)
       return D * Jpos  # Flip sign of 'upper' constraints.
