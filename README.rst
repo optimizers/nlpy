@@ -67,7 +67,7 @@ For example, you can force compilation with gfortran by specifying::
 
     --fcompiler=gnu95
 
-and wit g95 by specifiying::
+and with g95 by specifiying::
 
     --fcompiler=g95
 

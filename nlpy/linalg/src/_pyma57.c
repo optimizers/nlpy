@@ -483,7 +483,7 @@ static PyMethodDef Pyma57Methods[] = {
 
 static void Pyma57_dealloc( Pyma57Object *self ) {
 
-  NLPy_Free( self->a );
+  if( self->a != NULL ) free(self->a);  //NLPy_Free( self->a );
   Ma57_Finalize( self->data );
   PyObject_Del(self);
 }

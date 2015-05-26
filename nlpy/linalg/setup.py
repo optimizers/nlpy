@@ -17,7 +17,6 @@ def configuration(parent_package='',top_path=None):
     hsl_dir = nlpy_config.get('HSL', 'hsl_dir')
     metis_dir = nlpy_config.get('HSL', 'metis_dir')
     metis_lib = nlpy_config.get('HSL', 'metis_lib')
-    galahad_dir = nlpy_config.get('GALAHAD', 'galahad_dir')
     propack_dir = nlpy_config.get('PROPACK', 'propack_dir')
 
     config = Configuration('linalg', parent_package, top_path)
@@ -36,10 +35,6 @@ def configuration(parent_package='',top_path=None):
     libma27_src = ['ma27fact.f']
     pyma27_src = ['ma27_lib.c','nlpy_alloc.c','_pyma27.c']
 
-    # Relevant files for building MA57 extension.
-    #ma57_src = ['fd05ad.f', 'ma57ad.f', 'mc47ad.f',
-    #            'mc71ad.f', 'fd15ad.f',
-    #            'mc21ad.f', 'mc59ad.f', 'mc34ad.f', 'mc64ad.f']
     ma57_src = ['ddeps.f', 'ma57d.f']
     pyma57_src = ['ma57_lib.c','nlpy_alloc.c','_pyma57.c']
 

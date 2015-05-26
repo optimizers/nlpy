@@ -1,77 +1,54 @@
 # Tests relative to algorithmic differentiation with ADOL-C.
 from numpy.testing import *
-from nlpy.model import AdolcModel
+from nlpy.model import BaseAdolcModel, SparseAdolcModel
+from nlpy.model import PySparseAdolcModel, SciPyAdolcModel
+from nlpy.model.tests.helper import *
 import numpy as np
 
 
-class AdolcRosenbrock(AdolcModel):
-    "The standard Rosenbrock function."
+class AdolcRosenbrock(BaseAdolcModel):
+  "The standard Rosenbrock function."
 
-    def obj(self, x, **kwargs):
-        return np.sum( 100*(x[1:] - x[:-1]**2)**2 + (1 - x[:-1])**2 )
-
-
-class AdolcHS7(AdolcModel):
-    "Problem #7 in the Hock and Schittkowski collection."
-
-    def obj(self, x, **kwargs):
-        return np.log(1 + x[0]**2) - x[1]
-
-    def cons(self, x, **kwargs):
-        return (1 + x[0]**2)**2 + x[1]**2 - 4
+  def obj(self, x, **kwargs):
+    return np.sum(100*(x[1:] - x[:-1]**2)**2 + (1 - x[:-1])**2)
 
 
-def get_derivatives(nlp):
-    g = nlp.grad(nlp.x0)
-    H = nlp.dense_hess(nlp.x0, nlp.x0)
-    if nlp.m > 0:
-        J = nlp.dense_jac(nlp.x0)
-        v = -np.ones(nlp.n)
-        w = 2*np.ones(nlp.m)
-        Jv = nlp.jac_vec(nlp.x0,v)
-        JTw = nlp.vec_jac(nlp.x0,w)
-        return (g,H,J,Jv,JTw)
-    else:
-        return (g,H)
+class AdolcHS7(BaseAdolcModel):
+  "Problem #7 in the Hock and Schittkowski collection."
+
+  def obj(self, x, **kwargs):
+    return np.log(1 + x[0]**2) - x[1]
+
+  def cons(self, x, **kwargs):
+    return np.array([(1 + x[0]**2)**2 + x[1]**2])
 
 
-class Test_AdolcRosenbrock(TestCase):
-
-    def setUp(self):
-        self.rosenbrock = AdolcRosenbrock(n=5,name='Rosenbrock',x0=-np.ones(5))
-
-    def test_rosenbrock(self):
-        (g,H) = get_derivatives(self.rosenbrock)
-        expected_g = np.array([-804., -1204., -1204., -1204., -400.])
-        expected_H = np.array([[1602.,  400.,    0.,    0.,   0.],
-                               [ 400., 1802.,  400.,    0.,   0.],
-                               [   0.,  400., 1802.,  400.,   0.],
-                               [   0.,    0.,  400., 1802., 400.],
-                               [   0.,    0.,    0.,  400., 200.]])
-        assert(np.allclose(g,expected_g))
-        assert(np.allclose(H,expected_H))
+class SparseRosenbrock(SparseAdolcModel, AdolcRosenbrock):
+  pass
 
 
-class Test_AdolcHS7(TestCase):
+class PySparseRosenbrock(PySparseAdolcModel, AdolcRosenbrock):
+    pass
 
-    def setUp(self):
-        self.hs7 = AdolcHS7(n=2, m=1, name='HS7', x0=2*np.ones(2))
 
-    def test_hs7(self):
-        hs7 = self.hs7
-        (g,H,J,Jv,JTw) = get_derivatives(hs7)
-        expected_g = np.array([0.8, -1.])
-        expected_H = np.array([[-0.24, 0.],[0., 0.]])
-        expected_J = np.array([[40., 4.]])
-        expected_Jv = np.array([-44.])
-        expected_JTw = np.array([80., 8.])
-        assert(np.allclose(g,expected_g))
-        assert(np.allclose(H,expected_H))
-        assert(np.allclose(J,expected_J))
-        assert(np.allclose(Jv,expected_Jv))
-        assert(np.allclose(JTw,expected_JTw))
-        Jop = hs7.get_jac_linop(hs7.x0)
-        Jopv = Jop * (-np.ones(hs7.n))
-        JopTw = Jop.T * (2*np.ones(hs7.m))
-        assert(np.allclose(Jopv,expected_Jv))
-        assert(np.allclose(JopTw,expected_JTw))
+class SciPyRosenbrock(SciPyAdolcModel, AdolcRosenbrock):
+    pass
+
+
+class Test_AdolcRosenbrock(TestCase, Rosenbrock):  # Test def'd in Rosenbrock
+
+  def get_derivatives(self, nlp):
+    return get_derivatives_plain(nlp)
+
+  def setUp(self):
+    self.nlp = AdolcRosenbrock(n=5, name='Rosenbrock', x0=-np.ones(5))
+
+
+class Test_AdolcHS7(TestCase, Hs7):  # Test def'd in Hs7
+
+  def get_derivatives(self, nlp):
+    return get_derivatives_plain(nlp)
+
+  def setUp(self):
+    self.nlp = AdolcHS7(n=2, m=1, name='HS7', x0=2*np.ones(2), pi0=np.ones(1),
+                        Lcon=np.array([4.]), Ucon=np.array([4.]))

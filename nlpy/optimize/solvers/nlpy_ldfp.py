@@ -2,10 +2,9 @@
 
 from nlpy import __version__
 from nlpy.model import AmplModel
-#from nlpy.optimize.solvers.ldfp import LDFPModel
 from nlpy.optimize.tr.trustregion import TrustRegionFramework as TR
 from nlpy.optimize.tr.trustregion import TrustRegionCG as TRSolver
-from nlpy.optimize.solvers.ldfp import LDFPTrunkFramework as solver
+from nlpy.optimize.solvers.ldfp import LDFPTrunk as solver
 from nlpy.tools.timing import cputime
 from optparse import OptionParser
 import numpy
@@ -23,7 +22,7 @@ def pass_to_trunk(nlp, **kwargs):
     t = cputime()
     tr = TR(Delta=1.0, eta1=0.05, eta2=0.9, gamma1=0.25, gamma2=2.5)
 
-    # When instantiating TrunkFramework of TrunkLbfgsFramework,
+    # When instantiating Trunk of TrunkLbfgs,
     # we select a trust-region subproblem solver of our choice.
     TRNK = solver(nlp, tr, TRSolver, **kwargs)
     #TRNK.TR.Delta = 0.1 * TRNK.gnorm         # Reset initial trust-region radius

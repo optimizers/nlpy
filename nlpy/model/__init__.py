@@ -2,10 +2,15 @@
 NLPy Modeling Facilities.
 """
 
+from kkt         import *
 from nlp         import *
 from amplpy      import *
 from noisynlp    import *
-from slacks      import *
+from lbfgs       import *
+from qnmodel     import *
+from snlp        import *
+from augmented_lagrangian import *
+from l1          import *
 try:
     from adolcmodel  import *
 except:

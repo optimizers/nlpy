@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from nlpy import __version__
-from nlpy.model import AmplModel
+from nlpy.model import PySparseAmplModel as AmplModel
 from nlpy.optimize.solvers.funnel import Funnel, LSTRFunnel, LDFPFunnel, \
                                          StructuredLDFPFunnel
 from nlpy.tools.timing import cputime
@@ -112,7 +112,6 @@ for ProblemName in args:
             log.info(fmt % (ProblemName, funn.niter, funn.nlp.feval, funn.f,
                             funn.dResid, funn.pResid,
                             t_setup, funn.tsolve, funn.optimal))
-    nlp.close()  # Close model.
 
 if not multiple_problems and not error:
     # Output final statistics
@@ -124,10 +123,10 @@ if not multiple_problems and not error:
     log.info('  Number of general constraints: %-d' % (nlp.m - nlp.nlin))
     log.info('  Initial/Final Objective      : %-g/%-g' % (funn.f0, funn.f))
     log.info('  Number of iterations         : %-d' % funn.niter)
-    log.info('  Number of function evals     : %-d' % funn.nlp.feval)
-    log.info('  Number of gradient evals     : %-d' % funn.nlp.geval)
-    #log.info('  Number of Hessian  evals     : %-d' % funn.nlp.Heval)
-    log.info('  Number of Hessian matvecs    : %-d' % funn.nlp.Hprod)
+    # log.info('  Number of function evals     : %-d' % funn.nlp.feval)
+    # log.info('  Number of gradient evals     : %-d' % funn.nlp.geval)
+    # #log.info('  Number of Hessian  evals     : %-d' % funn.nlp.Heval)
+    # log.info('  numbermber of Hessian matvecs    : %-d' % funn.nlp.Hprod)
     log.info('  Setup/Solve time             : %-gs/%-gs' % (t_setup, funn.tsolve))
     log.info('  Total time                   : %-gs' % (t_setup + funn.tsolve))
     log.info('--------------------------------')

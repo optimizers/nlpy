@@ -9,7 +9,6 @@ truncated preconditioned conjugate gradient algorithm as described in
 .. moduleauthor:: D. Orban <dominique.orban@gerad.ca>
 """
 
-from nlpy.optimize.solvers.lbfgs import InverseLBFGS
 from nlpy.tools.exceptions import UserExitRequest
 import numpy as np
 from math import sqrt
@@ -45,7 +44,7 @@ class TruncatedCG(object):
 
           :step:       final step,
           :niter:      number of iterations,
-          :stepNorm:   Euclidian norm of the step,
+          :step_norm:  Euclidian norm of the step,
           :dir:        direction of infinite descent (if radius=None and
                        H is not positive definite),
           :onBoundary: set to True if trust-region boundary was hit,
@@ -70,14 +69,16 @@ class TruncatedCG(object):
         self.status = '?'
         self.onBoundary = False
         self.step = None
-        self.stepNorm = 0.0
+        self.step_norm = 0.0
         self.niter = 0
         self.dir = None
+        self.qval = None
+        self.pHp = None
 
         # Setup the logger. Install a NullHandler if no output needed.
-        logger_name = kwargs.get('logger_name', 'nlpy.trunk')
+        logger_name = kwargs.get('logger_name', 'nlpy.trcg')
         self.log = logging.getLogger(logger_name)
-        self.log.propagate=False
+        self.log.propagate = False
 
         # Formats for display
         self.hd_fmt = ' %-5s  %9s  %8s'
@@ -85,7 +86,6 @@ class TruncatedCG(object):
         self.fmt = ' %-5d  %9.2e  %8.2e'
 
         return
-
 
     def to_boundary(self, s, p, radius, ss=None):
         """
@@ -99,9 +99,9 @@ class TruncatedCG(object):
         """
         if radius is None:
             raise ValueError('Input radius must be positive number.')
-        sp = np.dot(s,p)
-        pp = np.dot(p,p)
-        if ss is None: ss = np.dot(s,s)
+        sp = np.dot(s, p)
+        pp = np.dot(p, p)
+        if ss is None: ss = np.dot(s, s)
         sigma = (-sp + sqrt(sp*sp + pp * (radius*radius - ss)))
         sigma /= pp
         return sigma
@@ -113,13 +113,14 @@ class TruncatedCG(object):
         """
         pass
 
-    def Solve(self, **kwargs):
+    def solve(self, **kwargs):
         """
         Solve the trust-region subproblem.
 
         :keywords:
 
           :s0:         initial guess (default: [0,0,...,0]),
+          :p0:         initial search direction (default -r),
           :radius:     the trust-region radius (default: None),
           :abstol:     absolute stopping tolerance (default: 1.0e-8),
           :reltol:     relative stopping tolerance (default: 1.0e-6),
@@ -130,28 +131,26 @@ class TruncatedCG(object):
         radius  = kwargs.get('radius', None)
         abstol  = kwargs.get('absol', 1.0e-8)
         reltol  = kwargs.get('reltol', 1.0e-6)
-        maxiter = kwargs.get('maxiter', 2*self.n)
+        maxiter = kwargs.get('maxiter', 2 * self.n)
         prec    = kwargs.get('prec', lambda v: v)
-        debug   = kwargs.get('debug', False)
 
-        n = self.n
-        g = self.qp.c
-        H = self.qp.H
+        qp = self.qp
+        n = qp.n
+        H = qp.H
 
         # Initialization
-        r = g.copy()
         if 's0' in kwargs:
             s = kwargs['s0']
             snorm2 = np.linalg.norm(s)
-            r += H*s                 # r = g + H s0
         else:
             s = np.zeros(n)
             snorm2 = 0.0
 
+        self.qval = qp.obj(s)
+        r = qp.grad(s)
+
         y = prec(r)
         ry = np.dot(r, y)
-
-        exitOptimal = exitIter = exitUser = False
 
         try:
             sqrtry = sqrt(ry)
@@ -160,11 +159,14 @@ class TruncatedCG(object):
             msg += 'Is preconditioner positive definite?'
             raise ValueError(msg)
 
-        stopTol = max(abstol, reltol * sqrtry)
-
-        # Initialize r as a copy of g not to alter the original g
-        p = -y                       # p = - preconditioned residual
+        stop_tol = max(abstol, reltol * sqrtry)
         k = 0
+
+        exitOptimal = sqrtry <= stop_tol
+        exitIter = k > maxiter
+        exitUser = False
+
+        p = kwargs.get('p0', -y)
 
         onBoundary = False
         infDescent = False
@@ -173,7 +175,7 @@ class TruncatedCG(object):
         self.log.info('-' * len(self.header))
 
         while not (exitOptimal or exitIter or exitUser) and \
-                not onBoundary and not infDescent:
+              not onBoundary and not infDescent:
 
             k += 1
             Hp  = H * p
@@ -190,21 +192,22 @@ class TruncatedCG(object):
                 self.status = 'infinite descent'
                 snorm2 = 0
                 self.dir = p
+                self.pHp = pHp
                 infDescent = True
                 continue
 
             # Compute CG steplength.
-            alpha = ry/pHp if pHp != 0 else 1
+            alpha = ry / pHp if pHp != 0 else np.inf
 
             if radius is not None and (pHp <= 0 or alpha > sigma):
                 # p leads past the trust-region boundary. Move to the boundary.
                 s += sigma * p
                 snorm2 = radius*radius
-                #self.status = 'on boundary (sigma = %g)' % sigma
                 self.status = 'trust-region boundary active'
                 onBoundary = True
                 continue
 
+            self.qval += alpha * np.dot(r, p) + 0.5 * alpha**2 * pHp
             self.ds = alpha * p
             self.dr = alpha * Hp
 
@@ -213,8 +216,8 @@ class TruncatedCG(object):
             r += self.dr
             y = prec(r)
             ry_next = np.dot(r, y)
-            beta = ry_next/ry
-            p = -y + beta * p
+            beta = ry_next / ry
+            p *= beta ; p -=y  # p = -y + beta * p
             ry = ry_next
 
             # Transfer useful quantities for post iteration.
@@ -223,7 +226,7 @@ class TruncatedCG(object):
             self.y = y
             self.p = p
             self.step = s
-            self.stepNorm2 = snorm2
+            self.step_norm2 = snorm2
             self.ry = ry
             self.alpha = alpha
             self.beta = beta
@@ -235,27 +238,27 @@ class TruncatedCG(object):
                 msg += 'Is preconditioner positive definite?'
                 raise ValueError(msg)
 
-            snorm2 = np.dot(s,s)
+            snorm2 = np.dot(s, s)
 
             try:
                 self.post_iteration()
             except UserExitRequest:
                 self.status = 'usr'
+                exitUser = True
 
-            exitUser    = self.status == 'usr'
             exitIter    = k >= maxiter
-            exitOptimal = sqrtry <= stopTol
+            exitOptimal = sqrtry <= stop_tol
 
         # Output info about the last iteration.
         self.log.info(self.fmt % (k, ry, pHp))
 
-        if k < maxiter and not onBoundary:
-            self.status = 'residual small'
-        elif k >= maxiter:
+        if k >= maxiter:
             self.status = 'max iter'
+        elif not onBoundary and not infDescent and not exitUser:
+            self.status = 'residual small'
         self.step = s
         self.niter = k
-        self.stepNorm = sqrt(snorm2)
+        self.step_norm = sqrt(snorm2)
         self.onBoundary = onBoundary
         self.infDescent = infDescent
         return
@@ -263,22 +266,5 @@ class TruncatedCG(object):
 
 class TruncatedCGLBFGS(TruncatedCG):
 
-    def __init__(self, g, H, **kwargs):
-        super(TruncatedCGLBFGS, self).__init__(g, H, **kwargs)
-        npairs = kwargs.get('npairs', 5)
-        scaling = kwargs.get('scaling', True)
-        self.lbfgs = InverseLBFGS(self.n,
-                                  npairs=npairs,
-                                  scaling=scaling)
-
     def post_iteration(self):
-        self.lbfgs.store(self.ds, self.dr)
-
-
-def model_value(H, g, s):
-    # Return <g,s> + 1/2 <s,Hs>
-    return np.dot(g,s) + 0.5 * np.dot(s, H*s)
-
-def model_grad(H, g, s):
-    # Return g + Hs
-    return g + H*s
+        self.qp.H.store(self.ds, self.dr)

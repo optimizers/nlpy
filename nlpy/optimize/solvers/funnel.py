@@ -1,7 +1,7 @@
 # An implementation of the trust-funnel method.
 
 from nlpy.model import NLPModel, QPModel
-from nlpy.krylov.linop import PysparseLinearOperator, SimpleLinearOperator
+from pykrylov.linop import PysparseLinearOperator, LinearOperator
 from nlpy.krylov import ProjectedCG, LSTRFramework
 from nlpy.optimize.solvers.lsqr import LSQRFramework
 from nlpy.optimize.solvers.ldfp import LDFP, StructuredLDFP
@@ -292,8 +292,7 @@ class Funnel(object):
 
         # Compute primal stopping tolerance.
         stop_p = max(self.atol, self.stop_p * pNorm)
-        self.log.debug('pNorm = %8.2e, cNorm = %8.2e, dNorm = %8.e2' % \
-                (pNorm, cNorm, dNorm))
+        self.log.debug('pNorm=%7.1e, cNorm=%7.1e, dNorm=%7.1e' % (pNorm, cNorm, dNorm))
 
         optimal = (pNorm <= stop_p) and (dNorm <= self.stop_d)
         self.log.debug('optimal: %s' % repr(optimal))
@@ -333,7 +332,7 @@ class Funnel(object):
                     n_end = '?'
 
                 # Evaluate the model of the obective after the normal step.
-                _Hv = self.hprod(x, y, nStep) # H*nStep
+                _Hv = self.hprod(x, y, nStep)  # H*nStep
                 m_xpn = np.dot(g, nStep) + 0.5 * np.dot(nStep, _Hv)
 
             self.log.debug('Normal step norm = %8.2e' % nStepNorm)
@@ -372,9 +371,9 @@ class Funnel(object):
                     self.log.debug('Computing tStep...')
                     Delta_within = Delta - nStepNorm
 
-                    Hop = SimpleLinearOperator(n, n,
-                                               lambda v: self.hprod(x,y_new,v),
-                                               symmetric=True)
+                    Hop = LinearOperator(n, n,
+                                         lambda v: self.hprod(x,y_new,v),
+                                         symmetric=True)
                     qp = QPModel(gN, Hop, A=J.matrix if m > 0 else None)
                     #PPCG = ProjectedCG(gN, Hop,
                     #                   A=J.matrix if m > 0 else None,
