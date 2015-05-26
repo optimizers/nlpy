@@ -82,10 +82,10 @@ class AmplModel(NLPModel):
       # Create the nl file.
       template = GenTemplate(stub, data, opts)
       writestub(template)
+      stub = stub[:-4]
 
     # Initialize the ampl module
     try:
-      if stub[-4:] == '.mod': stub = stub[:-4]
       model = self.model = _amplpy.ampl(stub)
     except:
       raise ValueError('Cannot initialize model %s' % stub)
