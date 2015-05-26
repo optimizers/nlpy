@@ -9,7 +9,6 @@ try:
     from noisynlp    import *
 except:
     pass
-from lbfgs       import *
 from qnmodel     import *
 from snlp        import *
 from augmented_lagrangian import *
