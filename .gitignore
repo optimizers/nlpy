@@ -9,3 +9,4 @@ cache
 nlpy/linalg/scaling/src/mc29modulemodule.c
 nlpy/linalg/src/_pypropackmodule.c
 *.swp
+.ropeproject
