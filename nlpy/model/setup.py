@@ -12,12 +12,12 @@ def configuration(parent_package='',top_path=None):
     # Read relevant NLPy-specific configuration options.
     nlpy_config = ConfigParser.SafeConfigParser()
     nlpy_config.read(os.path.join(top_path, 'site.cfg'))
-    libampl_dir = nlpy_config.get('LIBAMPL', 'libampl_dir')
+    libampl_dir = nlpy_config.get('ASL', 'asl_dir')
 
     config = Configuration('model', parent_package, top_path)
 
-    libampl_libdir = os.path.join(libampl_dir, 'Lib')
-    libampl_include = os.path.join(libampl_dir, os.path.join('Src','solvers'))
+    libampl_libdir = os.path.join(libampl_dir, 'lib')
+    libampl_include = os.path.join(libampl_dir, os.path.join('include','asl'))
 
     amplpy_src = [os.path.join('src','_amplpy.c'),
                   os.path.join('src','amplutils.c')]
@@ -25,7 +25,7 @@ def configuration(parent_package='',top_path=None):
     config.add_extension(
         name='_amplpy',
         sources=amplpy_src,
-        libraries=['ampl','funcadd0'],
+        libraries=['asl'],
         library_dirs=[libampl_libdir],
         include_dirs=['src', libampl_include],
         )
