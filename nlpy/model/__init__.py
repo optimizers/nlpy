@@ -4,8 +4,11 @@ NLPy Modeling Facilities.
 
 from kkt         import *
 from nlp         import *
-from amplpy      import *
-from noisynlp    import *
+try:
+    from amplpy      import *
+    from noisynlp    import *
+except:
+    pass
 from lbfgs       import *
 from qnmodel     import *
 from snlp        import *

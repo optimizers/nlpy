@@ -8,7 +8,6 @@
 
 #include "asl_pfgh.h"
 #include "getstub.h"
-#include "jacpdim.h"
 
 // These macros aren't needed, and in fact get in the way.
 #undef n_var
