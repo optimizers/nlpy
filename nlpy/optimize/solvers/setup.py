@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-def configuration(parent_package='',top_path=None):
-    import numpy
+
+def configuration(parent_package='', top_path=None):
     from numpy.distutils.misc_util import Configuration
 
     config = Configuration('solvers', parent_package, top_path)
@@ -12,7 +12,9 @@ def configuration(parent_package='',top_path=None):
                         'nlpy_reglp.py',
                         'nlpy_regqp.py',
                         'nlpy_funnel.py',
-                        'nlpy_elastic.py'])
+                        'nlpy_elastic.py',
+                        'nlpy_dercheck.py',
+                        ])
 
     config.make_config_py()
     return config
